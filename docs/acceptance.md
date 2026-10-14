@@ -17,15 +17,15 @@
 | admin-web                  | admin/                                                              | 实际登录，部门新增/修改/删除，配置草稿保存/发布；1432/768/320 布局，无横向溢出           | 未逐个实际供应商表单验收；本地截图在 ignored evidence/     |
 | uwork-client               | backend-client.ts + 独立适配副本                                    | 实际 UWork identity/gateway 源码联调、终端凭据轮换和退出吊销；类型/Lint/架构检查         | 完整资产/菜单/安全 Host 应用、三平台打包安装待验           |
 
-自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts scripts/client-policy-contract-smoke.ts scripts/client-assets-contract-smoke.ts`，共 4 项，使用真实适配源码和受控企微 provider/本机 HTTP，未调用真实企业凭据。
+自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts scripts/client-policy-contract-smoke.ts scripts/client-assets-contract-smoke.ts scripts/client-assets-host-contract-smoke.ts`，共 5 项，使用真实适配源码和受控企微 provider/本机 HTTP，未调用真实企业凭据。
 
-自动化结果：后端 79 项测试通过，0 失败/跳过；类型检查同时覆盖生产、测试和验证脚本。类型、Lint、格式与生产构建通过；此前依赖审计 0 个已知漏洞。UWork 适配仓库 root/CLI typecheck、CLI 新测试专用类型检查、架构检查（0 violations）通过。Host 身份/网关/准入回归 63 项、CLI 执行/网络准入回归 14 项通过；root Lint 为 0 errors、111 warnings，CLI Lint 为 14 个任务成功、53 warnings、0 errors（范围内 17 个包有 3 个未定义 lint），未称为无警告构建。根工作区 frozen install 成功；CLI 独立 frozen install 因已有嵌套锁文件不匹配失败，未绕过锁文件。跨仓库实际源码合同测试单独记录，不能代替完整 Host 验收。
+自动化结果：后端 79 项测试通过，0 失败/跳过；类型检查同时覆盖生产、测试和验证脚本。类型、Lint、格式与生产构建通过；此前依赖审计 0 个已知漏洞。UWork 适配仓库 root/CLI typecheck、CLI 新测试专用类型检查、架构检查（0 violations）通过。当前 Host 身份/网关/准入/资产回归 101 项、CLI 执行/网络准入回归 14 项通过；root Lint 为 0 errors、111 warnings，CLI Lint 为 14 个任务成功、53 warnings、0 errors（范围内 17 个包有 3 个未定义 lint），未称为无警告构建。根工作区 frozen install 成功；CLI 独立 frozen install 因已有嵌套锁文件不匹配失败，未绕过锁文件。跨仓库实际源码合同测试单独记录，不能代替完整 Host 验收。
 
 Host 准入：独立适配副本中的 CLI 使用现有 PermissionService 承载不可由项目/yolo/Hook/用户审批覆盖的企业裁决端口，反向 RPC 绑定当前连接和工作区。Host 每次向真实后端查询当前订阅、渠道和安全策略；私有身份代际、共享会话修订、issuer 与配置指纹阻止退出/撤权/换端点后的迟到允许。已进入受管模式的 Host 遇到配置消失仍拒绝，显式 UCAS 保留旧行为。原生前台/后台进程另行准入；受管 HTTP 强制手工跳转与公网出口，并逐跳裁决目标域名。拒绝会发布工具终止错误。
 
 资产准入：后端新增绑定当前发布版本和 checksum 的 asset 动作；真实 loopback HTTP SDK 测试证明旧版本下载冲突、未发布草稿不改变绑定、发布换版/撤权/撤审核后拒绝。高风险技能受危险技能策略限制；列表和下载受当前订阅/IP/席位保护。技能包拒绝 C0/C1 控制字符、孤立 Unicode 代理项、Windows 保留设备名、NFC/大小写/文件目录冲突，中文和合法双代理 Unicode 路径仍可用。此项是后端合同与路径验证，不代表实际 Host 已完成安全安装/撤销。
 
-受管缓存：独立适配副本增加 Host 私有缓存适配器及严格测试类型检查，16 项真实文件系统测试覆盖不可变版本、校验和/路径/树篡改、软硬链接、未知目录、并发初始化、320 次交错校验、取消/失效与实际 SIGKILL 暂存恢复。复核独立 3,200 次交错校验无失败。实际 HTTP 下载内容可由现有 NodeSkillAdapter 显式根加载，换版/撤权与缓存存在分开验证。观察事件只含 traceId/操作/状态/时长/稳定错误码。新代码 scoped Lint 0 warnings/0 errors；root 保留 111 个已有 warnings。该适配器尚未自动装配到 Host 同步/每次技能加载链路，不能据此完成 T13b；专家/Playbook/指令仅验证数据落盘，不等于其 Runtime 所有者已应用。
+受管缓存与 Host 编排：独立适配副本的严格资产测试为 26 项（16 缓存、2 选择代次、8 Host），覆盖不可变版本、校验和/路径/树篡改、软硬链接、未知目录、并发初始化、320 次交错校验、取消/失效与实际 SIGKILL 暂存恢复。此前复核独立 3,200 次交错校验无失败。新增双 Host 真实文件系统回归先复现旧同步删掉较新成功目录，再以磁盘选择代次修复；清理先在原文件锁内比较/推进代次，网络不持有锁。实际 HTTP 下载内容可由现有 NodeSkillAdapter 显式根加载；新增实际身份服务/共享会话/HTTP/Host 生命周期测试验证登录事件预热、缓存复用、换版、撤权拒绝与退出清理。Root 已装配该私有维护服务，但 stdio 反向 RPC 与 Runtime SkillPort 逐次加载仍待接线，不能完成 T13b。专家/Playbook/指令仅验证数据落盘，不等于其 Runtime 所有者已应用。观察事件只含 traceId/操作/状态/时长/稳定错误码。两轮 Host 复核后无新增实质问题；Cross-model skipped: non-interactive context.
 
 跨仓库 `scripts/client-policy-contract-smoke.ts` 使用实际 executor、协议端口、Host bridge、身份所有者与共享会话库，以及真实 loopback 后端 HTTP 和 Node 进程，验证默认禁止、发布允许后返回 42、Hook 期间发布撤权、退出登录、协议输入上限和迟到取消。协议传输是进程内 JSON 往返，不是已安装 Electron stdio/真实企微/远程工作区验收。任意原生进程不等于 OS 沙箱；混合文件/网络限制不能证明时明确 unsupported，不声称已隔离。完整资产/UI/远程/三平台集成仍未完成。
 
