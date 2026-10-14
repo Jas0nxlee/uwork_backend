@@ -3,13 +3,9 @@ dist/
 .env
 .env.*
 !.env.example
-evidence/workbuddy/
-*.log
+evidence/
 .DS_Store
-node_modules/
-dist/
 data/
-.env
 .env.*.local
 coverage/
 admin/dist/

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=24.13.0 <25" },
-  "packageManager": "npm@11.11.1",
+  "packageManager": "npm@11.12.1",
   "scripts": {
     "build": "tsc -p tsconfig.json && vite build --config admin/vite.config.ts",
     "build:server": "tsc -p tsconfig.json",
@@ -14,6 +14,7 @@
     "dev": "node --env-file-if-exists=.env --import tsx src/server.ts",
     "admin:dev": "vite --config admin/vite.config.ts",
     "init": "node --env-file-if-exists=.env --import tsx src/cli.ts init",
+    "backup": "node --env-file-if-exists=.env --import tsx scripts/backup.ts",
     "lint": "eslint src tests admin/src",
     "format": "prettier --write src tests admin tasks SPEC-*.md",
     "format:check": "prettier --check src tests admin tasks SPEC-*.md"

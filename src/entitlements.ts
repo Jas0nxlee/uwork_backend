@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
 import { authenticate, departmentsOf, requirePermission } from "./access.js";
-import { audit } from "./identity.js";
+import { audit } from "./events.js";
 import { fail, id, now, text, type Actor } from "./core.js";
 
 interface Subscription {
@@ -41,6 +41,12 @@ export function billingPeriod(time: number, startsAt: number, mode: string) {
 }
 export class Entitlements {
   constructor(private db: Db) {}
+  recoverPending() {
+    this.db.run(
+      "UPDATE ledger SET status='uncertain',amount=reserved,settled_at=? WHERE status='reserved'",
+      now(),
+    );
+  }
   subscription(tenantId: string, time = now()) {
     const s = this.db.get<Subscription>(
       "SELECT * FROM subscriptions WHERE tenant_id=?",
@@ -59,6 +65,11 @@ export class Entitlements {
   ) {
     return this.db.transaction(() => {
       const s = this.subscription(actor.tenantId);
+      const pending = this.db.get<{ n: number }>(
+        "SELECT count(*) n FROM ledger WHERE tenant_id=? AND status='reserved'",
+        actor.tenantId,
+      )!.n;
+      if (pending >= 16) fail(429, "CONCURRENCY_LIMIT", "组织并发调用已达上限");
       if (!actor.seat) fail(403, "NO_SEAT", "未分配席位");
       if (
         this.db.get(
@@ -114,7 +125,7 @@ export class Entitlements {
           args = all;
         }
         const used = this.db.get<{ used: number }>(
-          `SELECT coalesce(sum(CASE WHEN status='reserved' THEN reserved ELSE amount END),0) as used FROM ledger WHERE tenant_id=? AND period=? AND status IN ('reserved','settled')${condition}`,
+          `SELECT coalesce(sum(CASE WHEN status='reserved' THEN reserved ELSE amount END),0) as used FROM ledger WHERE tenant_id=? AND period=? AND status IN ('reserved','settled','uncertain')${condition}`,
           actor.tenantId,
           period,
           ...args,
@@ -176,12 +187,15 @@ export class Entitlements {
       reservationId,
     );
   }
+  uncertain(reservationId: string) {
+    this.db.run(
+      "UPDATE ledger SET status='uncertain',amount=reserved,settled_at=? WHERE id=? AND status='reserved'",
+      now(),
+      reservationId,
+    );
+  }
 }
-export function entitlementRoutes(
-  app: FastifyInstance,
-  db: Db,
-  entitlements: Entitlements,
-) {
+export function entitlementRoutes(app: FastifyInstance, db: Db) {
   const path = "/api/tenants/:tenantId";
   app.get(`${path}/subscription`, async (req) => {
     const a = authenticate(db, req);
@@ -296,5 +310,42 @@ export function entitlementRoutes(
     audit(db, a, "entitlements.limit.delete", p.id);
     reply.code(204);
   });
-  void entitlements;
+  app.put(`${path}/usage/:id/reconcile`, async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "identity");
+    const d = z
+      .object({
+        amount: z.number().int().min(0).max(1e12),
+        evidenceReference: text,
+      })
+      .strict()
+      .parse(req.body);
+    const entryId = (req.params as { id: string }).id;
+    db.transaction(() => {
+      const entry = db.get<{ status: string; reserved: number }>(
+        "SELECT status,reserved FROM ledger WHERE tenant_id=? AND id=?",
+        a.tenantId,
+        entryId,
+      );
+      if (!entry) fail(404, "NOT_FOUND", "账目不存在");
+      if (entry.status !== "uncertain" || d.amount > entry.reserved)
+        fail(
+          409,
+          "RECONCILIATION_CONFLICT",
+          "仅可对待核实账目在预留范围内核实",
+        );
+      db.run(
+        "UPDATE ledger SET status='settled',amount=?,settled_at=? WHERE tenant_id=? AND id=? AND status='uncertain'",
+        d.amount,
+        now(),
+        a.tenantId,
+        entryId,
+      );
+      audit(db, a, "entitlements.reconcile", entryId, {
+        amount: d.amount,
+        evidenceReference: d.evidenceReference,
+      });
+    });
+    return { ok: true };
+  });
 }

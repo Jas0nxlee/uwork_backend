@@ -1,0 +1,470 @@
+import { z } from "zod";
+import type { FastifyInstance } from "fastify";
+import type { Db } from "./db.js";
+import type { Vault } from "./vault.js";
+import { authenticate, requirePermission } from "./access.js";
+import { issueSession, rateLimit } from "./identity.js";
+import { audit } from "./events.js";
+import { fail, hash, id, now, secret, text } from "./core.js";
+import { readJson, safeRequest } from "./network.js";
+
+interface EnterpriseAuth {
+  tenant_id: string;
+  corp_id: string;
+  agent_id: string;
+  credential_id: string;
+}
+export interface WecomProvider {
+  identity(
+    config: EnterpriseAuth,
+    credential: string,
+    code: string,
+  ): Promise<string>;
+  directory(
+    config: EnterpriseAuth,
+    credential: string,
+  ): Promise<{
+    departments: { id: string; name: string; parentId: string | null }[];
+    members: {
+      id: string;
+      name: string;
+      departmentId: string | null;
+      active: boolean;
+    }[];
+  }>;
+}
+async function providerGet(
+  path: string,
+  params: Record<string, string>,
+): Promise<Record<string, unknown>> {
+  const url = new URL(`https://qyapi.weixin.qq.com/cgi-bin/${path}`);
+  for (const [key, value] of Object.entries(params))
+    url.searchParams.set(key, value);
+  const result = await readJson(
+    await safeRequest(url.toString(), { method: "GET", timeout: 15000 }),
+  );
+  const value = z
+    .object({ errcode: z.number().optional(), errmsg: z.string().optional() })
+    .passthrough()
+    .parse(result);
+  if (value.errcode && value.errcode !== 0)
+    fail(502, "WECOM_REJECTED", "企业微信拒绝请求，请核对应用权限");
+  return value;
+}
+async function accessToken(config: EnterpriseAuth, credential: string) {
+  const response = await providerGet("gettoken", {
+    corpid: config.corp_id,
+    corpsecret: credential,
+  });
+  return z.string().min(1).parse(response.access_token);
+}
+export const wecomProvider: WecomProvider = {
+  async identity(config, credential, code) {
+    const token = await accessToken(config, credential);
+    const response = await providerGet("auth/getuserinfo", {
+      access_token: token,
+      code,
+    });
+    return z
+      .string()
+      .min(1)
+      .parse(response.userid ?? response.UserId);
+  },
+  async directory(config, credential) {
+    const token = await accessToken(config, credential);
+    const departments = await providerGet("department/list", {
+      access_token: token,
+    });
+    const users = await providerGet("user/list", {
+      access_token: token,
+      department_id: "1",
+      fetch_child: "1",
+    });
+    const depts = z
+      .array(
+        z.object({
+          id: z.number().int(),
+          name: z.string(),
+          parentid: z.number().int(),
+        }),
+      )
+      .parse(departments.department);
+    const members = z
+      .array(
+        z.object({
+          userid: z.string(),
+          name: z.string(),
+          department: z.array(z.number().int()),
+          status: z.number().int(),
+        }),
+      )
+      .parse(users.userlist);
+    return {
+      departments: depts.map((d) => ({
+        id: String(d.id),
+        name: d.name,
+        parentId: d.parentid ? String(d.parentid) : null,
+      })),
+      members: members.map((u) => ({
+        id: u.userid,
+        name: u.name,
+        departmentId: u.department[0] ? String(u.department[0]) : null,
+        active: u.status === 1,
+      })),
+    };
+  },
+};
+export function wecomRoutes(
+  app: FastifyInstance,
+  db: Db,
+  vault: Vault,
+  publicUrl: string,
+  provider: WecomProvider = wecomProvider,
+) {
+  const configuration = (tenantId: string) => {
+    const c = db.get<EnterpriseAuth>(
+      "SELECT * FROM enterprise_auth WHERE tenant_id=?",
+      tenantId,
+    );
+    if (!c) fail(503, "WECOM_NOT_CONFIGURED", "组织尚未配置企业微信应用");
+    return c;
+  };
+  app.get("/api/tenants/:tenantId/wecom", async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "identity");
+    return {
+      configuration:
+        db.get<EnterpriseAuth>(
+          "SELECT * FROM enterprise_auth WHERE tenant_id=?",
+          a.tenantId,
+        ) ?? null,
+      callbackUrl: `${publicUrl}/api/auth/wecom/callback`,
+    };
+  });
+  app.put("/api/tenants/:tenantId/wecom", async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "vault");
+    const d = z
+      .object({
+        corpId: text,
+        agentId: z.string().regex(/^\d+$/),
+        credentialId: text,
+      })
+      .strict()
+      .parse(req.body);
+    vault.read(a.tenantId, d.credentialId);
+    const old = db.get<EnterpriseAuth>(
+      "SELECT * FROM enterprise_auth WHERE tenant_id=?",
+      a.tenantId,
+    );
+    if (old && old.corp_id !== d.corpId)
+      fail(409, "CORP_IMMUTABLE", "已绑定企业不能直接更换 CorpId");
+    db.run(
+      "INSERT INTO enterprise_auth VALUES(?,?,?,?) ON CONFLICT(tenant_id) DO UPDATE SET agent_id=excluded.agent_id,credential_id=excluded.credential_id",
+      a.tenantId,
+      d.corpId,
+      d.agentId,
+      d.credentialId,
+    );
+    audit(db, a, "wecom.configure");
+    return { ok: true };
+  });
+  app.post("/api/auth/wecom/attempts", async (req, reply) => {
+    rateLimit(db, `wecom:${req.ip}`, 30);
+    const { tenantId } = z.object({ tenantId: text }).strict().parse(req.body);
+    const c = configuration(tenantId);
+    const attemptId = id(),
+      proof = secret(),
+      state = attemptId;
+    db.run(
+      "INSERT INTO login_attempts VALUES(?,?,?,?,?,NULL,?)",
+      attemptId,
+      tenantId,
+      hash(state),
+      hash(proof),
+      "pending",
+      now() + 5 * 60000,
+    );
+    const url = new URL("https://login.work.weixin.qq.com/wwlogin/sso/login");
+    for (const [k, v] of Object.entries({
+      appid: c.corp_id,
+      agentid: c.agent_id,
+      redirect_uri: `${publicUrl}/api/auth/wecom/callback`,
+      state,
+      login_type: "CorpApp",
+      lang: "zh",
+    }))
+      url.searchParams.set(k, v);
+    reply.code(201);
+    return {
+      id: attemptId,
+      proof,
+      expiresAt: now() + 5 * 60000,
+      authorizeUrl: url.toString(),
+    };
+  });
+  const verifyAttempt = async (query: { state: string; code: string }) => {
+    const attempt = db.get<{ id: string; tenant_id: string }>(
+      "SELECT id,tenant_id FROM login_attempts WHERE state_hash=? AND status='pending' AND expires_at>?",
+      hash(query.state),
+      now(),
+    );
+    if (!attempt) fail(400, "INVALID_STATE", "扫码尝试已过期或已使用");
+    db.run(
+      "UPDATE login_attempts SET status='verifying' WHERE id=? AND status='pending'",
+      attempt.id,
+    );
+    try {
+      const c = configuration(attempt.tenant_id);
+      const externalId = await provider.identity(
+        c,
+        vault.read(c.tenant_id, c.credential_id),
+        query.code,
+      );
+      const member = db.get<{ user_id: string }>(
+        "SELECT user_id FROM members WHERE tenant_id=? AND external_id=? AND status='active'",
+        c.tenant_id,
+        externalId,
+      );
+      if (!member)
+        fail(403, "MEMBER_UNMAPPED", "成员尚未同步或绑定，请联系管理员");
+      if (
+        !db.run(
+          "UPDATE login_attempts SET status='authorized',user_id=? WHERE id=? AND status='verifying' AND expires_at>?",
+          member.user_id,
+          attempt.id,
+          now(),
+        ).changes
+      )
+        fail(409, "ATTEMPT_USED", "扫码尝试已取消或过期");
+      audit(
+        db,
+        { tenantId: c.tenant_id, userId: member.user_id },
+        "wecom.authorized",
+      );
+    } catch (error) {
+      db.run(
+        "UPDATE login_attempts SET status='failed' WHERE id=? AND status='verifying'",
+        attempt.id,
+      );
+      throw error;
+    }
+  };
+  app.get("/api/auth/wecom/callback", async (req, reply) => {
+    const query = z
+      .object({
+        state: z.string().min(1).max(200),
+        code: z.string().min(1).max(1024),
+      })
+      .parse(req.query);
+    await verifyAttempt(query);
+    return reply
+      .type("text/plain; charset=utf-8")
+      .send("扫码验证完成，请返回 UWork。");
+  });
+  app.post("/api/auth/wecom/attempts/:id/complete", async (req) => {
+    rateLimit(db, `wecom-complete:${req.ip}`, 30);
+    const attemptId = (req.params as { id: string }).id;
+    const d = z
+      .object({ proof: z.string().max(200), code: z.string().min(1).max(1024) })
+      .strict()
+      .parse(req.body);
+    const attempt = db.get<{ status: string }>(
+      "SELECT status FROM login_attempts WHERE id=? AND proof_hash=? AND expires_at>?",
+      attemptId,
+      hash(d.proof),
+      now(),
+    );
+    if (!attempt) fail(400, "ATTEMPT_EXPIRED", "扫码尝试不存在或已过期");
+    if (attempt.status === "authorized") return { ok: true };
+    await verifyAttempt({ state: attemptId, code: d.code });
+    return { ok: true };
+  });
+  app.post("/api/auth/wecom/attempts/:id/claim", async (req) => {
+    const { id } = req.params as { id: string };
+    const { proof } = z
+      .object({ proof: z.string().min(1).max(200) })
+      .strict()
+      .parse(req.body);
+    rateLimit(db, `claim:${req.ip}`, 300, 60000);
+    return db.transaction(() => {
+      const attempt = db.get<{
+        tenant_id: string;
+        user_id: string | null;
+        status: string;
+        expires_at: number;
+      }>(
+        "SELECT * FROM login_attempts WHERE id=? AND proof_hash=?",
+        id,
+        hash(proof),
+      );
+      if (!attempt || attempt.expires_at <= now())
+        fail(400, "ATTEMPT_EXPIRED", "扫码尝试不存在或已过期");
+      if (attempt.status === "claimed" || attempt.status === "cancelled")
+        fail(409, "ATTEMPT_USED", "扫码尝试已使用或取消");
+      if (attempt.status !== "authorized" || !attempt.user_id)
+        return { status: attempt.status };
+      if (
+        !db.get(
+          "SELECT user_id FROM members WHERE tenant_id=? AND user_id=? AND status='active'",
+          attempt.tenant_id,
+          attempt.user_id,
+        )
+      )
+        fail(403, "MEMBER_INACTIVE", "成员已停用");
+      db.run(
+        "UPDATE login_attempts SET status='claimed' WHERE id=? AND status='authorized'",
+        id,
+      );
+      return {
+        status: "authorized",
+        ...issueSession(db, attempt.user_id, attempt.tenant_id),
+        tenantId: attempt.tenant_id,
+      };
+    });
+  });
+  app.post("/api/auth/wecom/attempts/:id/cancel", async (req) => {
+    const { id } = req.params as { id: string };
+    const { proof } = z
+      .object({ proof: z.string().max(200) })
+      .strict()
+      .parse(req.body);
+    db.run(
+      "UPDATE login_attempts SET status='cancelled' WHERE id=? AND proof_hash=? AND status IN ('pending','verifying','authorized')",
+      id,
+      hash(proof),
+    );
+    return { ok: true };
+  });
+  app.put("/api/tenants/:tenantId/members/:id/wecom", async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "identity");
+    const { id } = req.params as { id: string };
+    const { externalId } = z
+      .object({ externalId: text })
+      .strict()
+      .parse(req.body);
+    configuration(a.tenantId);
+    if (
+      db.get(
+        "SELECT user_id FROM members WHERE tenant_id=? AND external_id=? AND user_id<>?",
+        a.tenantId,
+        externalId,
+        id,
+      )
+    )
+      fail(409, "IDENTITY_BOUND", "企微身份已绑定");
+    if (
+      !db.run(
+        "UPDATE members SET external_id=? WHERE tenant_id=? AND user_id=?",
+        externalId,
+        a.tenantId,
+        id,
+      ).changes
+    )
+      fail(404, "NOT_FOUND", "成员不存在");
+    audit(db, a, "wecom.member.bind", id);
+    return { ok: true };
+  });
+  app.post("/api/tenants/:tenantId/wecom/sync", async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "identity");
+    const c = configuration(a.tenantId);
+    const data = await provider.directory(
+      c,
+      vault.read(a.tenantId, c.credential_id),
+    );
+    db.transaction(() => {
+      const mapping = new Map<string, string>();
+      for (const d of data.departments) {
+        const existing = db.get<{ id: string }>(
+          "SELECT id FROM departments WHERE tenant_id=? AND external_id=?",
+          a.tenantId,
+          d.id,
+        );
+        const departmentId = existing?.id ?? id();
+        mapping.set(d.id, departmentId);
+        db.run(
+          "INSERT INTO departments(id,tenant_id,name,source,external_id) VALUES(?,?,?,'wecom',?) ON CONFLICT(tenant_id,external_id) DO UPDATE SET name=excluded.name",
+          departmentId,
+          a.tenantId,
+          d.name,
+          d.id,
+        );
+      }
+      for (const d of data.departments)
+        db.run(
+          "UPDATE departments SET parent_id=? WHERE tenant_id=? AND id=?",
+          d.parentId ? (mapping.get(d.parentId) ?? null) : null,
+          a.tenantId,
+          mapping.get(d.id)!,
+        );
+      for (const m of data.members) {
+        const existing = db.get<{ user_id: string; role: string }>(
+          "SELECT user_id,role FROM members WHERE tenant_id=? AND external_id=?",
+          a.tenantId,
+          m.id,
+        );
+        const userId = existing?.user_id ?? id();
+        if (!existing) {
+          db.run(
+            "INSERT INTO users VALUES(?,NULL,?,NULL,?)",
+            userId,
+            m.name,
+            now(),
+          );
+          db.run(
+            "INSERT INTO members(tenant_id,user_id,role,department_id,status,seat,source,external_id) VALUES(?,?,'member',?,?,0,'wecom',?)",
+            a.tenantId,
+            userId,
+            m.departmentId ? (mapping.get(m.departmentId) ?? null) : null,
+            m.active ? "active" : "disabled",
+            m.id,
+          );
+        } else {
+          db.run("UPDATE users SET name=? WHERE id=?", m.name, userId);
+          if (existing.role !== "owner") {
+            db.run(
+              "UPDATE members SET department_id=?,status=? WHERE tenant_id=? AND user_id=?",
+              m.departmentId ? (mapping.get(m.departmentId) ?? null) : null,
+              m.active ? "active" : "disabled",
+              a.tenantId,
+              userId,
+            );
+            if (!m.active)
+              db.run(
+                "DELETE FROM sessions WHERE tenant_id=? AND user_id=?",
+                a.tenantId,
+                userId,
+              );
+          }
+        }
+      }
+      const ids = new Set(data.members.map((m) => m.id));
+      for (const m of db.all<{ user_id: string; external_id: string }>(
+        "SELECT user_id,external_id FROM members WHERE tenant_id=? AND source='wecom' AND role<>'owner'",
+        a.tenantId,
+      ))
+        if (!ids.has(m.external_id)) {
+          db.run(
+            "UPDATE members SET status='disabled' WHERE tenant_id=? AND user_id=?",
+            a.tenantId,
+            m.user_id,
+          );
+          db.run(
+            "DELETE FROM sessions WHERE tenant_id=? AND user_id=?",
+            a.tenantId,
+            m.user_id,
+          );
+        }
+      audit(db, a, "wecom.directory.sync", undefined, {
+        departments: data.departments.length,
+        members: data.members.length,
+      });
+    });
+    return {
+      departments: data.departments.length,
+      members: data.members.length,
+    };
+  });
+}

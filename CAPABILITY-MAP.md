@@ -1,6 +1,6 @@
 # UWork 企业管理后台：能力边界草案
 
-状态：待评审。日期：2026-10-14（Asia/Shanghai）。主仓库：<https://github.com/Jas0nxlee/uwork_backend>。
+状态：本轮自主构建的能力基线；完整产品验收未完成，当前实现与缺口见 [验收台账](docs/acceptance.md)。日期：2026-10-14（Asia/Shanghai）。主仓库：<https://github.com/Jas0nxlee/uwork_backend>。
 
 目标：根据 WorkBuddy 企业控制台的可观察行为独立实现企业管理后端、管理 Web，并适配 <https://github.com/Jas0nxlee/UWork> 客户端。这里的“完整”包含真实持久化、鉴权、策略执行、任务运行和客户端应用配置，不能以菜单齐全、静态页面或模拟数据代替。
 

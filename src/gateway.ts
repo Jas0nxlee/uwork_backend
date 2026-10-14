@@ -19,7 +19,40 @@ export const completionSchema = z
         z
           .object({
             role: z.enum(["system", "user", "assistant"]),
-            content: z.string().max(200000),
+            content: z.union([
+              z.string().max(200000),
+              z
+                .array(
+                  z.discriminatedUnion("type", [
+                    z
+                      .object({
+                        type: z.literal("text"),
+                        text: z.string().max(200000),
+                      })
+                      .strict(),
+                    z
+                      .object({
+                        type: z.literal("image_url"),
+                        image_url: z
+                          .object({
+                            url: z
+                              .string()
+                              .max(1400000)
+                              .regex(
+                                /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/,
+                              ),
+                            detail: z
+                              .enum(["auto", "low", "high"])
+                              .default("auto"),
+                          })
+                          .strict(),
+                      })
+                      .strict(),
+                  ]),
+                )
+                .min(1)
+                .max(8),
+            ]),
           })
           .strict(),
       )
@@ -29,6 +62,7 @@ export const completionSchema = z
     temperature: z.number().min(0).max(2).default(0.7),
     stream: z.boolean().default(false),
     stream_options: z.object({ include_usage: z.boolean() }).optional(),
+    reasoning_effort: z.enum(["low", "medium", "high"]).optional(),
   })
   .strict();
 export type CompletionInput = z.infer<typeof completionSchema>;
@@ -69,6 +103,15 @@ export interface CompletionResult {
 }
 
 export class Gateway {
+  purgeCalls(tenantId: string, before: number) {
+    return Number(
+      this.db.run(
+        "DELETE FROM gateway_calls WHERE tenant_id=? AND created_at<?",
+        tenantId,
+        before,
+      ).changes,
+    );
+  }
   constructor(
     private db: Db,
     private vault: Vault,
@@ -104,9 +147,25 @@ export class Gateway {
       model.data.maxOutputTokens,
     );
     const inputBound = input.messages.reduce(
-      (n, m) => n + Buffer.byteLength(m.content) + 64,
+      (n, m) =>
+        n +
+        (typeof m.content === "string"
+          ? Buffer.byteLength(m.content)
+          : m.content.reduce((sum, part) => {
+              if (part.type === "image_url" && !model.data.supportsVision)
+                fail(400, "VISION_UNSUPPORTED", "模型未启用图片能力");
+              return (
+                sum +
+                (part.type === "text"
+                  ? Buffer.byteLength(part.text)
+                  : Buffer.byteLength(part.image_url.url) + 16384)
+              );
+            }, 0)) +
+        64,
       256,
     );
+    if (input.reasoning_effort && !model.data.supportsReasoning)
+      fail(400, "REASONING_UNSUPPORTED", "模型未启用思考能力");
     if (inputBound + maxTokens > model.data.contextWindow)
       fail(400, "CONTEXT_LIMIT", "请求超过模型上下文限制");
     const fingerprint = hash(
@@ -153,6 +212,7 @@ export class Gateway {
     const started = now();
     let promptTokens = 0,
       outputTokens = 0;
+    let upstreamStatus = 0;
     try {
       const response = await safeRequest(
         `${model.data.baseUrl.replace(/\/$/, "")}/chat/completions`,
@@ -162,6 +222,9 @@ export class Gateway {
           body: {
             model: model.data.upstreamModel,
             messages: input.messages,
+            ...(input.reasoning_effort
+              ? { reasoning_effort: input.reasoning_effort }
+              : {}),
             max_tokens: maxTokens,
             temperature: input.temperature,
             stream: input.stream,
@@ -173,6 +236,7 @@ export class Gateway {
         },
         this.allowPrivate,
       );
+      upstreamStatus = response.statusCode;
       let content = "",
         reason = "stop",
         usage: { prompt_tokens: number; completion_tokens: number } | undefined;
@@ -297,7 +361,14 @@ export class Gateway {
       );
       return result;
     } catch (error) {
-      this.entitlements.release(reservationId);
+      const knownNotExecuted =
+        (upstreamStatus >= 400 && upstreamStatus < 500) ||
+        (error instanceof ApiError &&
+          ["HTTPS_REQUIRED", "PRIVATE_UPSTREAM", "INVALID_URL"].includes(
+            error.code,
+          ));
+      if (knownNotExecuted) this.entitlements.release(reservationId);
+      else this.entitlements.uncertain(reservationId);
       const code = signal?.aborted
         ? "CANCELLED"
         : error instanceof ApiError
@@ -369,11 +440,15 @@ export function gatewayRoutes(app: FastifyInstance, db: Db, gateway: Gateway) {
       }
     }
     const stream = new PassThrough({ highWaterMark: 65536 });
-    reply
-      .header("content-type", "text/event-stream")
-      .header("x-accel-buffering", "no")
-      .send(stream);
+    let streaming = false;
     const emit = (value: unknown) => {
+      if (!streaming) {
+        streaming = true;
+        reply
+          .header("content-type", "text/event-stream")
+          .header("x-accel-buffering", "no")
+          .send(stream);
+      }
       if (stream.writableLength > 1024 * 1024) {
         controller.abort();
         return;
@@ -408,6 +483,7 @@ export function gatewayRoutes(app: FastifyInstance, db: Db, gateway: Gateway) {
         usage: result.usage,
       });
     } catch (error) {
+      if (!streaming) throw error;
       emit({
         error: {
           code: error instanceof ApiError ? error.code : "UPSTREAM_FAILURE",
@@ -415,7 +491,7 @@ export function gatewayRoutes(app: FastifyInstance, db: Db, gateway: Gateway) {
         },
       });
     } finally {
-      stream.end("data: [DONE]\n\n");
+      if (streaming) stream.end("data: [DONE]\n\n");
       reply.raw.off("close", disconnect);
     }
     return reply;

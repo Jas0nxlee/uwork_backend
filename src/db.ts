@@ -1,9 +1,11 @@
-import { DatabaseSync, type SQLInputValue } from "node:sqlite";
-import { mkdirSync, chmodSync } from "node:fs";
+import { DatabaseSync, backup, type SQLInputValue } from "node:sqlite";
+import { mkdirSync, chmodSync, existsSync } from "node:fs";
 import { dirname } from "node:path";
 
 export class Db {
+  private static activeInstances = new Set<string>();
   private connection: DatabaseSync;
+  private depth = 0;
   constructor(path: string) {
     if (path !== ":memory:")
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
@@ -14,6 +16,7 @@ export class Db {
     );
     this.connection.exec(`
       CREATE TABLE IF NOT EXISTS schema_version(version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS instance_lease(id INTEGER PRIMARY KEY CHECK(id=1),owner TEXT NOT NULL,pid INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS tenants(id TEXT PRIMARY KEY, name TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'local', settings TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, email TEXT UNIQUE, name TEXT NOT NULL, password TEXT, created_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS departments(id TEXT NOT NULL, tenant_id TEXT NOT NULL REFERENCES tenants(id), name TEXT NOT NULL, parent_id TEXT, source TEXT NOT NULL DEFAULT 'local', external_id TEXT, PRIMARY KEY(tenant_id,id), UNIQUE(tenant_id,external_id));
@@ -22,6 +25,9 @@ export class Db {
       CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id,tenant_id);
       CREATE TABLE IF NOT EXISTS auth_limits(key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS login_attempts(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), state_hash TEXT UNIQUE NOT NULL, proof_hash TEXT NOT NULL, status TEXT NOT NULL, user_id TEXT, expires_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS enterprise_auth(tenant_id TEXT PRIMARY KEY REFERENCES tenants(id),corp_id TEXT NOT NULL,agent_id TEXT NOT NULL,credential_id TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS integrations(tenant_id TEXT NOT NULL,kind TEXT NOT NULL,base_url TEXT NOT NULL,credential_id TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(tenant_id,kind));
+      CREATE TABLE IF NOT EXISTS connector_sessions(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,user_id TEXT NOT NULL,asset_id TEXT NOT NULL,asset_version INTEGER NOT NULL,remote_session TEXT,expires_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS credentials(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), name TEXT NOT NULL, ciphertext TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1, revoked INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS subscriptions(tenant_id TEXT PRIMARY KEY REFERENCES tenants(id), seats INTEGER NOT NULL, credits INTEGER NOT NULL, starts_at INTEGER NOT NULL, ends_at INTEGER NOT NULL, metering TEXT NOT NULL DEFAULT 'calendar');
       CREATE TABLE IF NOT EXISTS limits(tenant_id TEXT NOT NULL REFERENCES tenants(id), subject_type TEXT NOT NULL, subject_id TEXT NOT NULL, amount INTEGER NOT NULL, PRIMARY KEY(tenant_id,subject_type,subject_id));
@@ -60,17 +66,62 @@ export class Db {
     return this.connection.prepare(sql).all(...params) as T[];
   }
   transaction<T>(fn: () => T): T {
-    this.connection.exec("BEGIN IMMEDIATE");
+    const nested = this.depth > 0;
+    const savepoint = `sp_${this.depth++}`;
+    this.connection.exec(nested ? `SAVEPOINT ${savepoint}` : "BEGIN IMMEDIATE");
     try {
       const result = fn();
-      this.connection.exec("COMMIT");
+      this.connection.exec(nested ? `RELEASE ${savepoint}` : "COMMIT");
       return result;
     } catch (error) {
-      this.connection.exec("ROLLBACK");
+      if (nested) {
+        this.connection.exec(`ROLLBACK TO ${savepoint}`);
+        this.connection.exec(`RELEASE ${savepoint}`);
+      } else this.connection.exec("ROLLBACK");
       throw error;
+    } finally {
+      this.depth--;
     }
   }
   close() {
     this.connection.close();
+  }
+  acquireInstance(owner: string) {
+    this.transaction(() => {
+      const previous = this.get<{ owner: string; pid: number }>(
+        "SELECT owner,pid FROM instance_lease WHERE id=1",
+      );
+      if (previous) {
+        let alive =
+          previous.pid !== process.pid ||
+          Db.activeInstances.has(previous.owner);
+        try {
+          process.kill(previous.pid, 0);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ESRCH") alive = false;
+        }
+        if (alive)
+          throw new Error(
+            "Database already belongs to a running backend instance",
+          );
+      }
+      this.run(
+        "INSERT INTO instance_lease VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,pid=excluded.pid",
+        owner,
+        process.pid,
+      );
+    });
+    Db.activeInstances.add(owner);
+  }
+  releaseInstance(owner: string) {
+    this.run("DELETE FROM instance_lease WHERE id=1 AND owner=?", owner);
+    Db.activeInstances.delete(owner);
+  }
+  async backupTo(destination: string) {
+    if (existsSync(destination))
+      throw new Error("Backup destination already exists");
+    mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
+    await backup(this.connection, destination);
+    chmodSync(destination, 0o600);
   }
 }

@@ -7,7 +7,8 @@ import { promisify } from "node:util";
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
-import { fail, hash, id, now, secret, text, type Actor } from "./core.js";
+import { fail, hash, id, now, secret, text } from "./core.js";
+import { audit } from "./events.js";
 import { authenticate } from "./access.js";
 
 const scrypt = promisify(scryptCallback);
@@ -92,23 +93,10 @@ export function issueSession(
   );
   return { token, expiresAt };
 }
-export function audit(
-  db: Db,
-  actor: Pick<Actor, "tenantId" | "userId">,
-  action: string,
-  target?: string,
-  metadata: Record<string, string | number | boolean> = {},
-) {
-  db.run(
-    "INSERT INTO audit VALUES(?,?,?,?,?,?,?)",
-    id(),
-    actor.tenantId,
-    actor.userId,
-    action,
-    target ?? null,
-    JSON.stringify(metadata),
-    now(),
-  );
+export function purgeIdentity(db: Db, time: number) {
+  db.run("DELETE FROM sessions WHERE expires_at<?", time);
+  db.run("DELETE FROM login_attempts WHERE expires_at<?", time);
+  db.run("DELETE FROM connector_sessions WHERE expires_at<?", time);
 }
 export function rateLimit(db: Db, key: string, max = 10, window = 15 * 60000) {
   db.transaction(() => {
@@ -176,6 +164,10 @@ export function identityRoutes(
       role: actor.role,
       seat: actor.seat,
       kind: actor.kind,
+      expiresAt: db.get<{ expires_at: number }>(
+        "SELECT expires_at FROM sessions WHERE hash=?",
+        actor.sessionHash,
+      )!.expires_at,
       organizations: db.all(
         "SELECT t.id,t.name,m.role FROM tenants t JOIN members m ON t.id=m.tenant_id WHERE m.user_id=? AND m.status='active'",
         actor.userId,
@@ -184,6 +176,18 @@ export function identityRoutes(
   });
   app.post("/api/auth/logout", async (req, reply) => {
     const actor = authenticate(db, req);
+    const { revokeDevices } = z
+      .object({ revokeDevices: z.boolean().default(false) })
+      .strict()
+      .parse(req.body ?? {});
+    if (revokeDevices && actor.kind !== "session")
+      fail(403, "DEVICE_SCOPE", "仅交互会话可吊销全部终端凭据");
+    if (revokeDevices)
+      db.run(
+        "DELETE FROM sessions WHERE tenant_id=? AND user_id=? AND kind='device'",
+        actor.tenantId,
+        actor.userId,
+      );
     db.run("DELETE FROM sessions WHERE hash=?", actor.sessionHash);
     audit(db, actor, "identity.logout");
     reply.header("set-cookie", cookie("", 0)).code(204);
@@ -210,20 +214,33 @@ export function identityRoutes(
   });
   app.post("/api/auth/device-tokens", async (req, reply) => {
     const actor = authenticate(db, req);
+    rateLimit(db, `device:${actor.tenantId}:${actor.userId}`, 60, 3600000);
     if (actor.kind !== "session")
       fail(403, "DEVICE_SCOPE", "仅交互会话可签发终端凭据");
     const data = z
-      .object({ ttlHours: z.number().int().min(1).max(168).default(24) })
+      .object({
+        ttlHours: z.number().int().min(1).max(168).default(24),
+        replaceId: z.string().max(80).optional(),
+      })
       .strict()
       .parse(req.body ?? {});
-    const result = issueSession(
-      db,
-      actor.userId,
-      actor.tenantId,
-      "device",
-      ["execute"],
-      data.ttlHours * 3600000,
-    );
+    const result = db.transaction(() => {
+      if (data.replaceId)
+        db.run(
+          "DELETE FROM sessions WHERE hash=? AND tenant_id=? AND user_id=? AND kind='device'",
+          data.replaceId,
+          actor.tenantId,
+          actor.userId,
+        );
+      return issueSession(
+        db,
+        actor.userId,
+        actor.tenantId,
+        "device",
+        ["execute"],
+        data.ttlHours * 3600000,
+      );
+    });
     audit(db, actor, "identity.device-token.create");
     reply.code(201);
     return { ...result, id: hash(result.token) };

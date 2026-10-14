@@ -18,6 +18,19 @@ export const secret = () => randomBytes(32).toString("base64url");
 export const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 export const now = () => Date.now();
 export const text = z.string().trim().min(1).max(200);
+export const serviceUrl = z
+  .url()
+  .max(2048)
+  .refine((value) => {
+    const url = new URL(value);
+    return (
+      ["https:", "http:"].includes(url.protocol) &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
+    );
+  }, "服务地址只能包含 HTTP(S) origin 与路径，凭据必须存入 vault");
 export const identifier = z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/);
 export const role = z.enum(["owner", "admin", "operator", "auditor", "member"]);
 export type Role = z.infer<typeof role>;

@@ -3,12 +3,12 @@ import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
 import type { Vault } from "./vault.js";
 import { authenticate, inScope, requirePermission } from "./access.js";
-import { audit } from "./identity.js";
+import { audit } from "./events.js";
 import {
-  fail,
   parseJson,
   scopeSchema,
   text,
+  serviceUrl,
   type Actor,
   type Scope,
 } from "./core.js";
@@ -25,12 +25,14 @@ export const modelSchema = z
   .object({
     name: text,
     upstreamModel: text,
-    baseUrl: z.url().max(2048),
+    baseUrl: serviceUrl,
     credentialId: text,
     contextWindow: z.number().int().min(128).max(2000000).default(128000),
     maxOutputTokens: z.number().int().min(1).max(131072).default(4096),
     inputRate: z.number().int().min(0).max(1000000).default(1000),
     outputRate: z.number().int().min(0).max(1000000).default(1000),
+    supportsVision: z.boolean().default(false),
+    supportsReasoning: z.boolean().default(false),
     scope: scopeSchema.default({ all: false, members: [], departments: [] }),
     enabled: z.boolean().default(true),
   })
@@ -74,7 +76,7 @@ export function modelsRoutes(
   });
   app.post(path, async (req, reply) => {
     const a = authenticate(db, req);
-    requirePermission(a, "write");
+    requirePermission(a, "vault");
     const { name, scope, enabled, ...d } = modelSchema.parse(req.body);
     vault.read(a.tenantId, d.credentialId);
     const modelId = createResource(
@@ -98,6 +100,12 @@ export function modelsRoutes(
     const { revision, name, scope, enabled, ...d } = modelSchema
       .extend({ revision: z.number().int().positive() })
       .parse(req.body);
+    const old = getResource<ModelData>(db, a.tenantId, "model", id);
+    if (
+      old.data.baseUrl !== d.baseUrl ||
+      old.data.credentialId !== d.credentialId
+    )
+      requirePermission(a, "vault");
     vault.read(a.tenantId, d.credentialId);
     updateResource(
       db,

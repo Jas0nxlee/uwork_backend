@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Db } from "./db.js";
 import { authenticate, requirePermission } from "./access.js";
-import { audit } from "./identity.js";
+import { audit } from "./events.js";
 import { fail, id, now, text } from "./core.js";
 
 export class Vault {

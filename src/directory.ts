@@ -7,7 +7,8 @@ import {
   requirePermission,
   tenantAccess,
 } from "./access.js";
-import { audit, passwordHash } from "./identity.js";
+import { passwordHash } from "./identity.js";
+import { audit } from "./events.js";
 import { fail, id, now, pageSchema, role, text } from "./core.js";
 
 export function directoryRoutes(app: FastifyInstance, db: Db) {

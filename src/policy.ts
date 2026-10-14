@@ -3,7 +3,7 @@ import ipaddr from "ipaddr.js";
 import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
 import { authenticate, inScope, requirePermission } from "./access.js";
-import { audit } from "./identity.js";
+import { audit } from "./events.js";
 import {
   fail,
   id,
@@ -214,7 +214,10 @@ export function effectiveSecurity(db: Db, a: Actor) {
     .all<{
       scope: string;
       data: string;
-    }>("SELECT scope,data FROM policies WHERE tenant_id=? AND family='security' AND enabled=1 ORDER BY priority DESC,created_at DESC,id", a.tenantId)
+    }>(
+      "SELECT scope,data FROM policies WHERE tenant_id=? AND family='security' AND enabled=1 ORDER BY priority DESC,created_at DESC,id",
+      a.tenantId,
+    )
     .find((p) => inScope(db, parseJson<Scope>(p.scope), a));
   return matching
     ? securitySchema.parse(parseJson<unknown>(matching.data))
@@ -272,7 +275,10 @@ export function policyRoutes(app: FastifyInstance, db: Db) {
       .all<{
         scope: string;
         data: string;
-      }>("SELECT * FROM policies WHERE tenant_id=? ORDER BY priority DESC,created_at DESC", a.tenantId)
+      }>(
+        "SELECT * FROM policies WHERE tenant_id=? ORDER BY priority DESC,created_at DESC",
+        a.tenantId,
+      )
       .map((p) => ({
         ...p,
         scope: parseJson<unknown>(p.scope),

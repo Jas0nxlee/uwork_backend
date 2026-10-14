@@ -52,7 +52,11 @@ export function clientRoutes(app: FastifyInstance, db: Db) {
         .all<{
           scope: string;
           data: string;
-        }>("SELECT scope,data FROM policies WHERE tenant_id=? AND family=? AND enabled=1", a.tenantId, data.kind)
+        }>(
+          "SELECT scope,data FROM policies WHERE tenant_id=? AND family=? AND enabled=1",
+          a.tenantId,
+          data.kind,
+        )
         .some((p) => {
           const d = parseJson<{ mode: string; resourceIds: string[] }>(p.data);
           return (

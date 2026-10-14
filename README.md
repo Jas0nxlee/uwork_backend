@@ -4,11 +4,40 @@
 
 根据 WorkBuddy 企业控制台可观察的页面、策略、接口和运行行为，独立实现企业管理后端与管理 Web，再适配 UWork 客户端。
 
-**当前阶段：逆向证据与模块边界评审。主仓库原为空仓库；尚未实现业务后端、管理 Web 或客户端改动。**
+**当前阶段：自有后端与管理 Web 已实现并可本地运行；配套 UWork 身份/模型/用量服务已适配。完整产品及生产验收仍有外部接入和终端管控项，见 [验收台账](docs/acceptance.md)。**
 
-## 本轮产出
+## 运行
 
-- [能力地图与实现顺序](CAPABILITY-MAP.md)：稳定模块 ID、状态所有者、依赖和验收边界，待评审后展开模块规格。
+需要 Node.js 24 和 npm 11.12.1。
+
+```sh
+npm ci --ignore-scripts
+npm run init
+npm run build
+npm start
+```
+
+默认入口 <http://localhost:3000>。首次初始化凭据保存在 `data/bootstrap-credentials.txt`（0600），不会打印；主密钥与运行数据不入 Git。重复 init 不覆盖账号。
+
+后端覆盖企业身份/通讯录/RBAC/席位、AES-GCM vault、模型代理与 SSE/计量、资产版本审核分发、客户端策略发布、模型 Runtime/自动化/评测、审计/Trace/指标/导出及外部适配合同。SQLite WAL 单实例，数据真实持久化；无生产数据和模拟业务种子。
+
+- [实施规格与顺序](tasks/plan.md)
+- [自有 API 合同](docs/api.md)，运行时索引 `/api/openapi.json`
+- [部署、备份与恢复](docs/deployment.md)
+- [验证结果与未完成边界](docs/acceptance.md)
+
+```sh
+npm run typecheck
+npm run lint
+npm run format:check
+npm test
+npm run build
+npm audit --audit-level=high
+```
+
+## 构建前逆向基线
+
+- [能力地图与实现顺序](CAPABILITY-MAP.md)：稳定模块 ID、状态所有者、依赖和验收边界；模块规格现已展开，项目级未验收项保留在台账。
 - [逆向调查报告](docs/reverse-engineering/workbuddy-report.md)：已观察的功能、规则、证据与缺口。
 - [页面与表单台账](docs/reverse-engineering/runtime-inventory.json)：不含真实用户/业务字段值。
 - [HTTP 观测台账](docs/reverse-engineering/observed-http.json)：URL 模板、方法、状态及值脱敏后的结构。

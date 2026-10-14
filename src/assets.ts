@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
 import { authenticate, requirePermission } from "./access.js";
-import { audit } from "./identity.js";
+import { audit } from "./events.js";
 import {
   fail,
   hash,
@@ -11,6 +11,7 @@ import {
   pageSchema,
   scopeSchema,
   text,
+  serviceUrl,
   type Actor,
 } from "./core.js";
 import {
@@ -70,13 +71,11 @@ export const contentSchemas = {
     .strict(),
   connector: z
     .object({
-      url: z
-        .url()
-        .max(2048)
-        .refine((s) => s.startsWith("https://")),
+      url: serviceUrl.refine((s) => s.startsWith("https://")),
       transport: z.literal("streamable-http"),
       credentialId: text.optional(),
       description: z.string().max(2000).default(""),
+      allowedTools: z.array(text).max(100).default([]),
     })
     .strict(),
   playbook: z.object({ markdown: z.string().min(1).max(100000) }).strict(),
@@ -152,7 +151,7 @@ export function visibleAssets(
     (a) =>
       a.status === "published" &&
       a.published_version !== null &&
-      a.data.supportedClients.includes(client) &&
+      publishedAsset(db, a).supportedClients.includes(client) &&
       allowedResource(db, actor, a.data.kind, a),
   );
 }
@@ -186,6 +185,7 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
     const a = authenticate(db, req);
     requirePermission(a, "write");
     const d = assetSchema.parse(req.body);
+    if (d.kind === "connector") requirePermission(a, "vault");
     const data = assetData(db, a.tenantId, d);
     const assetId = db.transaction(() => {
       const aid = createResource(
@@ -216,6 +216,7 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
     const { revision, ...d } = assetSchema
       .extend({ revision: z.number().int().positive() })
       .parse(req.body);
+    if (d.kind === "connector") requirePermission(a, "vault");
     const old = getResource<AssetData>(db, a.tenantId, "asset", id);
     if (old.data.kind !== d.kind)
       fail(400, "KIND_IMMUTABLE", "资产类型不能修改");

@@ -16,6 +16,7 @@ export async function safeRequest(
     token?: string;
     signal?: AbortSignal;
     timeout?: number;
+    headers?: Record<string, string>;
   },
   allowPrivate = false,
 ) {
@@ -60,6 +61,7 @@ export async function safeRequest(
       headers: {
         "content-type": "application/json",
         "accept-encoding": "identity",
+        ...options.headers,
         ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
       },
       body:
@@ -71,6 +73,7 @@ export async function safeRequest(
     return {
       ...response,
       close: async () => {
+        response.body.on("error", () => {});
         response.body.destroy();
         await agent.close();
       },
