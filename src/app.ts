@@ -5,13 +5,20 @@ import { ApiError, fail } from './core.js';
 import { authenticate, tenantAccess } from './access.js';
 import { identityRoutes } from './identity.js';
 import { directoryRoutes } from './directory.js';
+import { Vault, vaultRoutes } from './vault.js';
+import { Entitlements, entitlementRoutes } from './entitlements.js';
+import { modelsRoutes } from './models.js';
+import { Gateway, gatewayRoutes } from './gateway.js';
 
 export interface AppOptions { database: string; masterKey: Buffer; publicUrl: string; allowPrivateUpstreams?: boolean; logger?: boolean; worker?: boolean }
 export async function createApp(options: AppOptions) {
   if (options.masterKey.length !== 32) throw new Error('MASTER_KEY must contain 32 bytes');
   const app = Fastify({ logger: options.logger ? { redact: ['req.headers.authorization', 'req.headers.cookie', 'req.body', 'res.headers.set-cookie'] } : false, disableRequestLogging: true, bodyLimit: 2 * 1024 * 1024, requestTimeout: 60000, trustProxy: false });
   const db = new Db(options.database);
-  const services = { db };
+  const vault = new Vault(db, options.masterKey);
+  const entitlements = new Entitlements(db);
+  const gateway = new Gateway(db, vault, entitlements, options.allowPrivateUpstreams ?? false);
+  const services = { db, vault, entitlements, gateway };
   app.decorate('services', services);
   app.addHook('onRequest', async (req, reply) => {
     reply.header('x-content-type-options', 'nosniff').header('x-frame-options', 'DENY').header('referrer-policy', 'no-referrer').header('cache-control', 'no-store');
@@ -35,6 +42,10 @@ export async function createApp(options: AppOptions) {
   app.get('/health', async () => ({ status: db.get('SELECT 1') ? 'ok' : 'error', version: '0.1.0' }));
   identityRoutes(app, db, options.publicUrl);
   directoryRoutes(app, db);
+  vaultRoutes(app, db, vault);
+  entitlementRoutes(app, db, entitlements);
+  modelsRoutes(app, db, vault, options.allowPrivateUpstreams ?? false);
+  gatewayRoutes(app, db, gateway);
   app.addHook('onClose', async () => db.close());
   return app as typeof app & { services: typeof services };
 }
