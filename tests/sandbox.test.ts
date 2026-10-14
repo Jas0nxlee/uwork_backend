@@ -78,7 +78,7 @@ test("sandbox lifecycle is persistent, permissioned, serialized, encrypted and c
   assert.equal(capability.isolatedCodeExecution, true);
   assert.equal(capability.arbitraryCodeExecution, true);
   assert.equal(capability.hostCodeExecution, false);
-  assert.equal(capability.agentToolExecution, false);
+  assert.equal(capability.agentToolExecution, true);
   const created = await app.inject({
     method: "POST",
     url: `${p}/runtimes`,

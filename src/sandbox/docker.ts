@@ -1,6 +1,6 @@
 import Docker from "dockerode";
 import { PassThrough } from "node:stream";
-import { ApiError, fail, now } from "../core.js";
+import { ApiError, fail } from "../core.js";
 import type {
   SandboxDriver,
   SandboxOwner,
@@ -19,6 +19,19 @@ function status(error: unknown, code: number) {
     "statusCode" in error &&
     error.statusCode === code
   );
+}
+function watchdogExpired(info: Docker.ContainerInspectInfo | null) {
+  // Only the protected watchdog can cleanly exit the container; user code has a different UID.
+  return !!(
+    info &&
+    info.State.Status === "exited" &&
+    !info.State.Running &&
+    info.State.ExitCode === 0 &&
+    !info.State.OOMKilled
+  );
+}
+function checkWatchdog(info: Docker.ContainerInspectInfo | null) {
+  if (watchdogExpired(info)) fail(408, "TIMEOUT", "沙箱生命周期已到期");
 }
 export class DockerSandboxDriver implements SandboxDriver {
   private client: Docker;
@@ -63,15 +76,24 @@ export class DockerSandboxDriver implements SandboxDriver {
   async create(owner: SandboxOwner): Promise<SandboxObservation> {
     if (!this.imageId && !(await this.health()).available)
       fail(503, "SANDBOX_UNAVAILABLE", "专用 Docker 沙箱或镜像不可用");
-    const ttl = Math.max(1, Math.min(1800000, owner.expiresAt - now()));
     try {
+      const clock = Date.parse((await this.client.info()).SystemTime);
+      const remaining = Math.min(1800000, owner.expiresAt - Date.now());
+      if (!Number.isFinite(clock))
+        fail(503, "SANDBOX_TIME_UNAVAILABLE", "无法确认沙箱时钟");
+      if (remaining <= 0) fail(408, "TIMEOUT", "沙箱时间预算已耗尽");
+      const deadline = clock + remaining;
       const container = await this.client.createContainer({
         name: `uwork-sbx-${owner.id}`,
         Image: this.imageId!,
         // The watchdog UID differs from exec, so untrusted code cannot stop its TTL timer.
         User: "999:999",
         WorkingDir: "/",
-        Cmd: ["node", "-e", `setTimeout(()=>process.exit(0),${ttl})`],
+        Cmd: [
+          "node",
+          "-e",
+          `setTimeout(()=>process.exit(0),Math.max(1,Math.min(${remaining},${deadline}-Date.now())))`,
+        ],
         Env: ["HOME=/workspace", "NODE_ENV=production"],
         Labels: {
           [OWNER_LABEL]: owner.ownerToken,
@@ -100,6 +122,8 @@ export class DockerSandboxDriver implements SandboxDriver {
       });
       await container.start();
       const observation = await this.inspect(owner);
+      if (observation?.deadlineExpired)
+        fail(408, "TIMEOUT", "沙箱生命周期已到期");
       if (!observation?.running)
         fail(503, "SANDBOX_START_FAILED", "沙箱启动失败");
       return observation;
@@ -115,6 +139,7 @@ export class DockerSandboxDriver implements SandboxDriver {
           containerId: info.Id,
           running: info.State.Running,
           exitCode: info.State.ExitCode,
+          deadlineExpired: watchdogExpired(info),
         }
       : null;
   }
@@ -145,6 +170,7 @@ export class DockerSandboxDriver implements SandboxDriver {
   ): Promise<SandboxOutput> {
     signal.throwIfAborted();
     const info = await this.owned(owner);
+    checkWatchdog(info);
     if (!info?.State.Running) fail(409, "SANDBOX_STOPPED", "沙箱未运行");
     const stdout = new PassThrough(),
       stderr = new PassThrough();
@@ -208,6 +234,7 @@ export class DockerSandboxDriver implements SandboxDriver {
         fail(413, "SANDBOX_OUTPUT_LIMIT", "沙箱输出超出 128 KiB 限制");
       signal.throwIfAborted();
       const result = await exec.inspect();
+      checkWatchdog(await this.owned(owner));
       if (result.Running) fail(503, "SANDBOX_INCOMPLETE", "沙箱未返回终态");
       return {
         stdout: Buffer.concat(out).toString("utf8"),
@@ -220,6 +247,8 @@ export class DockerSandboxDriver implements SandboxDriver {
         throw error;
       }
       await stop();
+      if (!(error instanceof ApiError) || error.code === "SANDBOX_INCOMPLETE")
+        checkWatchdog(await this.owned(owner));
       if (error instanceof ApiError) throw error;
       throw new ApiError(503, "SANDBOX_EXECUTION_FAILED", "沙箱执行失败");
     } finally {

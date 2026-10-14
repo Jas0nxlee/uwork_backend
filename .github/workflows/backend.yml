@@ -36,4 +36,10 @@ jobs:
       - run: node --import tsx scripts/sandbox-driver-smoke.ts
       - run: node --import tsx scripts/sandbox-api-smoke.ts
       - run: node --import tsx scripts/sandbox-crash-smoke.ts
+      - run: node --import tsx scripts/agent-sandbox-smoke.ts
+      - run: node --import tsx scripts/agent-container-smoke.ts
+      - run: node --import tsx scripts/agent-crash-smoke.ts
+      - run: node --import tsx scripts/agent-crash-smoke.ts
+        env:
+          UWORK_AGENT_CRASH_MODE: ready
       - run: node --import tsx scripts/lease-namespace-smoke.ts

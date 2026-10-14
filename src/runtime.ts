@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
 import type { Gateway } from "./gateway.js";
 import type { Vault } from "./vault.js";
-import { authenticate, requirePermission, currentActor } from "./access.js";
+import { authenticate, requirePermission } from "./access.js";
 import { audit } from "./events.js";
 import {
   ApiError,
@@ -11,7 +11,6 @@ import {
   id,
   now,
   pageSchema,
-  scopeSchema,
   text,
   type Actor,
 } from "./core.js";
@@ -20,75 +19,43 @@ import {
   getResource,
   listResources,
   updateResource,
-  type Resource,
 } from "./resources.js";
-import { allowedResource, type ModelData } from "./models.js";
-import { assertExecution, effectiveSecurity } from "./policy.js";
-import { publishedAsset, visibleAssets, type AssetData } from "./assets.js";
-
-export const agentSchema = z
-  .object({
-    name: text,
-    modelId: text,
-    instructions: z.string().min(1).max(50000),
-    assetIds: z.array(text).max(20).default([]),
-    maxOutputTokens: z.number().int().min(1).max(131072).default(4096),
-    scope: scopeSchema,
-    enabled: z.boolean().default(true),
-  })
-  .strict();
-export type AgentData = Omit<
-  z.infer<typeof agentSchema>,
-  "name" | "scope" | "enabled"
->;
-export interface Run {
-  id: string;
-  tenant_id: string;
-  user_id: string;
-  session_id: string;
-  agent_id: string;
-  agent_version: number;
-  status: string;
-  input: string;
-  output: string | null;
-  error_code: string | null;
-  timeout_ms: number;
-  trigger_key: string | null;
-  created_at: number;
-  started_at: number | null;
-  finished_at: number | null;
-}
+import { assertExecution } from "./policy.js";
+import type { AssetData } from "./assets.js";
+import { agentSchema, type AgentData, type Run } from "./agent-contract.js";
+import { authorizedAgent, agentRunContext } from "./agent-access.js";
+import type { AgentToolRunner } from "./agent-runner.js";
+export { agentSchema } from "./agent-contract.js";
+export type { AgentData, Run } from "./agent-contract.js";
 export class Runtime {
   private active = new Map<
     string,
-    { controller: AbortController; promise: Promise<void>; sessionId: string }
+    {
+      controller: AbortController;
+      promise: Promise<void>;
+      sessionId: string;
+      run: Run;
+    }
   >();
   private stopped = false;
+  failure: string | null = null;
   constructor(
     private db: Db,
     private gateway: Gateway,
     private vault: Vault,
+    private tools: AgentToolRunner,
   ) {
     db.run(
       "UPDATE runs SET status='failed',error_code='PROCESS_RESTARTED',finished_at=? WHERE status='running'",
       now(),
     );
-  }
-  agent(actor: Actor, agentId: string): Resource<AgentData> {
-    const agent = getResource<AgentData>(
-      this.db,
-      actor.tenantId,
-      "agent",
-      agentId,
+    db.run(
+      "UPDATE run_tools SET status=CASE WHEN execution_id IS NOT NULL THEN 'uncertain' ELSE 'failed' END,error_code='PROCESS_RESTARTED',finished_at=? WHERE status IN ('proposed','running') AND run_id IN (SELECT id FROM runs WHERE status NOT IN ('queued','running'))",
+      now(),
     );
-    if (
-      !agent.enabled ||
-      agent.status !== "published" ||
-      !agent.published_version ||
-      !allowedResource(this.db, actor, "agent", agent)
-    )
-      fail(403, "AGENT_DENIED", "智能体未发布或未授权");
-    return agent;
+  }
+  agent(actor: Actor, agentId: string) {
+    return authorizedAgent(this.db, actor, agentId);
   }
   enqueue(
     actor: Actor,
@@ -164,7 +131,10 @@ export class Runtime {
         : null,
     };
   }
-  cancel(actor: Actor, runId: string) {
+  toolHistory(run: Run) {
+    return this.tools.tools(run);
+  }
+  async cancel(actor: Actor, runId: string) {
     const run = this.db.get<Run>(
       "SELECT * FROM runs WHERE tenant_id=? AND id=?",
       actor.tenantId,
@@ -173,15 +143,32 @@ export class Runtime {
     if (!run) fail(404, "NOT_FOUND", "任务不存在");
     if (run.user_id !== actor.userId) requirePermission(actor, "write");
     this.db.run(
-      "UPDATE runs SET status='cancelled',error_code='CANCELLED',finished_at=? WHERE id=? AND status IN ('queued','running')",
+      "UPDATE runs SET status='cancelled',error_code='CANCELLED',cancel_requested=1,finished_at=? WHERE id=? AND status='queued'",
       now(),
       runId,
     );
+    this.db.run(
+      "UPDATE runs SET cancel_requested=1 WHERE id=? AND status='running'",
+      runId,
+    );
     this.active.get(runId)?.controller.abort("cancelled");
+    await this.active.get(runId)?.promise;
     audit(this.db, actor, "runtime.cancel", runId);
   }
   pump() {
     if (this.stopped) return;
+    for (const active of this.active.values()) {
+      if (active.controller.signal.aborted) continue;
+      try {
+        agentRunContext(this.db, active.run.id);
+      } catch (error) {
+        active.controller.abort(
+          error instanceof ApiError && error.code === "TIMEOUT"
+            ? "timeout"
+            : "revoked",
+        );
+      }
+    }
     const queued = this.db.all<Run>(
       "SELECT * FROM runs WHERE status='queued' ORDER BY created_at,id LIMIT 100",
     );
@@ -198,13 +185,18 @@ export class Runtime {
       )
         continue;
       const controller = new AbortController();
-      const promise = this.execute(run, controller).finally(() => {
-        this.active.delete(run.id);
-      });
+      const promise = this.execute(run, controller)
+        .catch(() => {
+          this.failure = "RUNTIME_STORAGE_FAILURE";
+        })
+        .finally(() => {
+          this.active.delete(run.id);
+        });
       this.active.set(run.id, {
         controller,
         promise,
         sessionId: run.session_id,
+        run,
       });
     }
   }
@@ -223,7 +215,7 @@ export class Runtime {
   purgeFinished(tenantId: string, before: number) {
     return Number(
       this.db.run(
-        "DELETE FROM runs WHERE tenant_id=? AND finished_at<? AND status NOT IN ('queued','running') AND trigger_key IS NULL AND id NOT IN (SELECT run_id FROM deliveries)",
+        "DELETE FROM runs WHERE tenant_id=? AND finished_at<? AND status NOT IN ('queued','running') AND trigger_key IS NULL AND id NOT IN (SELECT run_id FROM deliveries) AND id NOT IN (SELECT s.run_id FROM run_sandboxes s JOIN sandbox_runtimes b ON b.id=s.runtime_id WHERE b.status<>'deleted')",
         tenantId,
         before,
       ).changes,
@@ -236,48 +228,7 @@ export class Runtime {
       controller.abort("timeout");
     }, run.timeout_ms);
     try {
-      const actor = currentActor(this.db, run.tenant_id, run.user_id);
-      this.agent(actor, run.agent_id);
-      const stored = this.db.get<{ data: string }>(
-        "SELECT data FROM resource_versions WHERE resource_id=? AND version=?",
-        run.agent_id,
-        run.agent_version,
-      );
-      if (!stored) fail(409, "VERSION_UNAVAILABLE", "智能体版本不可用");
-      const agent = JSON.parse(stored.data) as AgentData;
-      const model = getResource<ModelData>(
-        this.db,
-        actor.tenantId,
-        "model",
-        agent.modelId,
-      );
-      assertExecution(this.db, actor, "agents", model.data.baseUrl);
-      let system = agent.instructions;
-      for (const assetId of agent.assetIds) {
-        const asset = visibleAssets(this.db, actor, "agent").find(
-          (a) => a.id === assetId,
-        );
-        if (!asset) fail(403, "ASSET_DENIED", "智能体资源已撤销授权");
-        const published = publishedAsset(this.db, asset);
-        const content = published.content as {
-          instructions?: string;
-          markdown?: string;
-          files?: { path: string; content: string }[];
-          highRisk?: boolean;
-        };
-        if (
-          content.highRisk &&
-          !effectiveSecurity(this.db, actor).dangerousSkills
-        )
-          fail(403, "HIGH_RISK_SKILL", "高风险技能已被企业禁止");
-        if (published.kind === "connector")
-          fail(
-            409,
-            "CONNECTOR_TOOL_REQUIRED",
-            "连接器使用独立的受控 RPC 接口，不能注入提示词执行",
-          );
-        system += `\n\n${content.instructions ?? content.markdown ?? content.files?.find((f) => f.path === "SKILL.md")?.content ?? ""}`;
-      }
+      const { actor, agent, system } = agentRunContext(this.db, run.id);
       const input = this.vault.open(
         run.input,
         `${run.tenant_id}:${run.id}:input`,
@@ -302,43 +253,68 @@ export class Runtime {
         );
       }
       messages.push({ role: "user", content: input });
-      const result = await this.gateway.complete(
-        actor,
-        {
-          model: agent.modelId,
-          messages,
-          max_tokens: agent.maxOutputTokens,
-          temperature: 0.7,
-          stream: false,
-        },
-        `run:${run.id}`,
-        "agent-runtime",
-        controller.signal,
-      );
+      const output = agent.sandbox
+        ? await this.tools.execute(
+            run,
+            agent,
+            system,
+            messages.filter(
+              (
+                message,
+              ): message is { role: "user" | "assistant"; content: string } =>
+                message.role !== "system",
+            ),
+            controller.signal,
+          )
+        : (
+            await this.gateway.complete(
+              actor,
+              {
+                model: agent.modelId,
+                messages,
+                max_tokens: agent.maxOutputTokens,
+                temperature: 0.7,
+                stream: false,
+              },
+              `run:${run.id}`,
+              "agent-runtime",
+              controller.signal,
+            )
+          ).choices[0]!.message.content;
       if (controller.signal.aborted)
         throw new ApiError(499, "CANCELLED", "任务已取消");
+      agentRunContext(this.db, run.id);
       this.db.run(
         "UPDATE runs SET status='succeeded',output=?,finished_at=? WHERE id=? AND status='running'",
-        this.vault.seal(
-          result.choices[0]!.message.content,
-          `${run.tenant_id}:${run.id}:output`,
-        ),
+        this.vault.seal(output, `${run.tenant_id}:${run.id}:output`),
         now(),
         run.id,
       );
     } catch (error) {
-      const status = timedOut
-        ? "timed_out"
-        : controller.signal.aborted
-          ? "cancelled"
-          : "failed";
-      const code = timedOut
-        ? "TIMEOUT"
-        : controller.signal.aborted
-          ? "CANCELLED"
-          : error instanceof ApiError
-            ? error.code
-            : "RUNTIME_FAILURE";
+      const unconfirmed =
+        error instanceof ApiError && error.code === "STOP_UNCONFIRMED";
+      const deadlineExceeded =
+        timedOut ||
+        controller.signal.reason === "timeout" ||
+        (error instanceof ApiError && error.code === "TIMEOUT");
+      const status = unconfirmed
+        ? "failed"
+        : deadlineExceeded
+          ? "timed_out"
+          : controller.signal.aborted
+            ? "cancelled"
+            : "failed";
+      const code = unconfirmed
+        ? "STOP_UNCONFIRMED"
+        : deadlineExceeded
+          ? "TIMEOUT"
+          : controller.signal.aborted
+            ? controller.signal.reason === "revoked"
+              ? "ACCESS_REVOKED"
+              : "CANCELLED"
+            : error instanceof ApiError
+              ? error.code
+              : "RUNTIME_FAILURE";
       this.db.run(
         "UPDATE runs SET status=?,error_code=?,finished_at=? WHERE id=? AND status='running'",
         status,
@@ -536,8 +512,19 @@ export function runtimeRoutes(
   });
   app.post(`${p}/runs/:id/cancel`, async (req) => {
     const a = authenticate(db, req);
-    runtime.cancel(a, (req.params as { id: string }).id);
+    await runtime.cancel(a, (req.params as { id: string }).id);
     return { ok: true };
+  });
+  app.get(`${p}/runs/:id/tools`, async (req) => {
+    const actor = authenticate(db, req),
+      run = db.get<Run>(
+        "SELECT * FROM runs WHERE tenant_id=? AND id=?",
+        actor.tenantId,
+        (req.params as { id: string }).id,
+      );
+    if (!run) fail(404, "NOT_FOUND", "任务不存在");
+    if (run.user_id !== actor.userId) requirePermission(actor, "read");
+    return runtime.toolHistory(run);
   });
   app.get(`${p}/sessions`, async (req) => {
     const a = authenticate(db, req);
@@ -566,7 +553,10 @@ export function runtimeRoutes(
       arbitraryCodeExecution: sandboxAvailable,
       isolatedCodeExecution: sandboxAvailable,
       hostCodeExecution: false,
-      agentToolExecution: false,
+      agentToolExecution: sandboxAvailable,
+      toolKinds: sandboxAvailable ? ["execute_javascript"] : [],
+      maxModelTurns: 20,
+      maxToolCalls: 20,
       maxConcurrentRuns: 4,
       maxRunTimeMs: 1800000,
       statuses: db.all(

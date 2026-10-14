@@ -8,6 +8,7 @@ export interface SandboxOwner {
 export interface SandboxObservation {
   running: boolean;
   exitCode: number | null;
+  deadlineExpired?: boolean;
   containerId: string;
 }
 export interface SandboxOutput {

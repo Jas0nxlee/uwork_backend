@@ -7,8 +7,13 @@ import { join, resolve } from "node:path";
 import { createApp } from "../src/app.js";
 import { bootstrap } from "../src/identity.js";
 const exec = promisify(execFile);
-await mkdir(resolve("evidence"), { recursive: true, mode: 0o700 });
-const dir = await mkdtemp(resolve("evidence/lease-namespace-"));
+await mkdir(resolve("data/sandbox-verification"), {
+  recursive: true,
+  mode: 0o700,
+});
+const dir = await mkdtemp(
+  resolve("data/sandbox-verification/lease-namespace-"),
+);
 const database = join(dir, "state.sqlite"),
   key = randomBytes(32);
 const app = await createApp({

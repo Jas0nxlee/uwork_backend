@@ -14,12 +14,12 @@ const driver = new DockerSandboxDriver(
 );
 const docker = new Docker({ socketPath: socket });
 const owners: SandboxOwner[] = [];
-const create = async () => {
+const create = async (ttlMs = 120000) => {
   const owner = {
     id: randomBytes(16).toString("hex"),
     tenantId: "controlled-verification",
     ownerToken: randomBytes(32).toString("hex"),
-    expiresAt: Date.now() + 120000,
+    expiresAt: Date.now() + ttlMs,
   };
   owners.push(owner);
   await driver.create(owner);
@@ -92,6 +92,39 @@ try {
     (e) => e instanceof ApiError && e.code === "SANDBOX_OUTPUT_LIMIT",
   );
   assert.equal((await driver.inspect(outputOwner))?.running, false);
+  const unstarted: SandboxOwner = {
+    id: randomBytes(16).toString("hex"),
+    tenantId: "controlled-verification",
+    ownerToken: randomBytes(32).toString("hex"),
+    expiresAt: Date.now() + 120000,
+  };
+  owners.push(unstarted);
+  await docker.createContainer({
+    name: `uwork-sbx-${unstarted.id}`,
+    Image: process.env.UWORK_SANDBOX_IMAGE ?? "uwork-sandbox:local",
+    Labels: {
+      "uwork.sandbox-owner": unstarted.ownerToken,
+      "uwork.runtime-id": unstarted.id,
+      "uwork.managed-by": "uwork-backend",
+      "uwork.tenant-id": unstarted.tenantId,
+    },
+  });
+  await assert.rejects(
+    () =>
+      driver.execute(
+        unstarted,
+        "console.log('must not execute')",
+        new AbortController().signal,
+      ),
+    (error) => error instanceof ApiError && error.code === "SANDBOX_STOPPED",
+  );
+  const expiring = await create(1000);
+  await assert.rejects(
+    () => driver.execute(expiring, "while(true){}", AbortSignal.timeout(5000)),
+    (error) => error instanceof ApiError && error.code === "TIMEOUT",
+  );
+  assert.equal((await driver.inspect(expiring))?.running, false);
+  assert.equal((await driver.inspect(expiring))?.deadlineExpired, true);
   console.log(
     JSON.stringify({
       isolation: true,
@@ -99,6 +132,7 @@ try {
       ownershipProtection: true,
       cancellationStopsProcess: true,
       outputLimit: true,
+      protectedDeadline: true,
     }),
   );
 } finally {

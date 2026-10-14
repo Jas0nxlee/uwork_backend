@@ -22,6 +22,12 @@
 
 先以可单独验收的切片扩展 model-gateway：OpenAI-compatible function tools、assistant tool_calls、tool 消息及 JSON/SSE 往返。模型须显式启用 supportsTools，未知函数名、重复调用 ID、过大或不合法参数拒绝；工具定义、调用与结果均进入上下文上界预留和加密幂等缓存。只完成协议不代表服务端执行了工具。
 
-后续使用成熟的 Agents SDK Runner 负责模型/工具循环，自有 Model 端口逐次经过 Gateway 授权和账本，不另建绕过计量的 SDK HTTP 客户端。SDK 自动 tracing 必须禁用，不把企业输入、代码、工具结果发送到外部 tracing 服务。工具只暴露受控 SandboxService/MCP 端口，模型不能选择 Docker 配置、凭据或宿主路径。循环限制模型轮次、工具调用数、总运行时长，取消贯穿模型和真实代码进程，重启不重放已执行副作用。
+已采用固定版本 `@openai/agents-core@0.20.0` Runner 负责隔离代码工具循环，自有 GatewayAgentModel 端口逐次经过 Gateway 授权和账本，不另建绕过计量的 SDK HTTP 客户端。SDK 自动 tracing 和 exporter 全局关闭，Runner 也关闭 tracing，模型自动重试为 0；不把企业输入、代码、工具结果发送到外部 tracing 服务。当前工具仅为受控 SandboxService 的 execute_javascript，MCP 工具接入另列待办，模型不能选择 Docker 配置、凭据或宿主路径。循环限制模型轮次、工具调用数、总运行时长，取消贯穿模型和真实代码进程，重启不重放已执行副作用。
+
+Agent 的隔离代码默认关闭，通过 `sandbox=true`、`maxTurns`（最多 20）、`maxToolCalls`（最多 20）、`toolTimeoutMs`（最多 60 秒）显式开启。每个 run 按需创建仅授权当前成员的独立沙箱，模型只能提交 code，不能选择 runtime。run_sandboxes 绑定与容器记录同事务写入；run_tools 以 run/callId 唯一、参数指纹防冲突，执行 ID 与持久化队列原子绑定，任何未确认结果均不重新执行。同 ID 的已成功结果可重放，不重新运行代码。
+
+父运行的取消意图持久化；running 任务取消需等待模型/工具结束及自己沙箱的停止确认再写终态。每次 provision、enqueue、实际执行、模型调用和发布结果均重新检查成员、Agent、模型、资产与安全策略。重启将中断任务终结，停止并移除绑定的沙箱，不恢复执行有副作用的工具调用。清理失败明确记录 STOP_UNCONFIRMED，不报告取消/成功已确认。
+
+沙箱生命周期继承父运行的剩余截止时间，不因较晚 provision 重置完整寿命。所有新调用也检查持久化的 started_at + timeout_ms，不能只等待事件循环定时器；容器 watchdog 通过 daemon 时间校准绝对截止点，并以剩余 duration 封顶，避免依赖宿主与 VM 时钟一致或因启动延迟延长期限。自然看门狗退出明确归类 TIMEOUT；created 状态的 exitCode=0 不是超时证据。
 
 参考：[OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling)、[SDK models/providers](https://developers.openai.com/api/docs/guides/agents/models)、[SDK observability](https://developers.openai.com/api/docs/guides/agents/integrations-observability)。

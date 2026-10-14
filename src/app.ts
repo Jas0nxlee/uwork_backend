@@ -26,6 +26,7 @@ import { SandboxService } from "./sandbox/service.js";
 import { sandboxRoutes } from "./sandbox/routes.js";
 import { DockerSandboxDriver } from "./sandbox/docker.js";
 import type { SandboxDriver } from "./sandbox/contract.js";
+import { AgentToolRunner } from "./agent-runner.js";
 
 export interface AppOptions {
   database: string;
@@ -73,14 +74,6 @@ export async function createApp(options: AppOptions) {
     entitlements,
     options.allowPrivateUpstreams ?? false,
   );
-  const runtime = new Runtime(db, gateway, vault);
-  const automation = new AutomationWorker(
-    db,
-    runtime,
-    vault,
-    options.allowPrivateUpstreams ?? false,
-  );
-  const evaluation = new EvaluationWorker(db, runtime, vault);
   const sandboxDriver =
     options.sandboxDriver ??
     (options.sandboxSocket
@@ -93,6 +86,15 @@ export async function createApp(options: AppOptions) {
     requirePermission(actor, "execute");
     entitlements.subscription(actor.tenantId);
   });
+  const agentTools = new AgentToolRunner(db, vault, gateway, sandbox);
+  const runtime = new Runtime(db, gateway, vault, agentTools);
+  const automation = new AutomationWorker(
+    db,
+    runtime,
+    vault,
+    options.allowPrivateUpstreams ?? false,
+  );
+  const evaluation = new EvaluationWorker(db, runtime, vault);
   let workerHealthy = true;
   let leaseLost = false;
   let interval: ReturnType<typeof setInterval> | undefined;
@@ -217,7 +219,11 @@ export async function createApp(options: AppOptions) {
     });
   });
   app.get("/health", async (_req, reply) => {
-    const healthy = workerHealthy && !sandbox.failure && !!db.get("SELECT 1");
+    const healthy =
+      workerHealthy &&
+      !sandbox.failure &&
+      !runtime.failure &&
+      !!db.get("SELECT 1");
     return reply
       .code(healthy ? 200 : 503)
       .send({ status: healthy ? "ok" : "degraded", version: "0.1.0" });

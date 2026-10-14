@@ -260,7 +260,7 @@ export function evaluationRoutes(
     );
     if (!row) fail(404, "NOT_FOUND", "评测不存在");
     for (const c of evaluation.report(row).report.cases)
-      runtime.cancel(a, c.runId);
+      await runtime.cancel(a, c.runId);
     db.run(
       "UPDATE evaluations SET status='cancelled',finished_at=? WHERE id=? AND status='running'",
       now(),

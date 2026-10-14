@@ -84,7 +84,7 @@ export class Db {
     );
     try {
       if (owner) this.acquireInstance(owner);
-      this.transaction(() =>
+      this.transaction(() => {
         this.connection.exec(`
       CREATE TABLE IF NOT EXISTS schema_version(version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS tenants(id TEXT PRIMARY KEY, name TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'local', settings TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL);
@@ -127,10 +127,23 @@ export class Db {
       CREATE INDEX IF NOT EXISTS sandbox_runtime_tenant ON sandbox_runtimes(tenant_id,status);
       CREATE TABLE IF NOT EXISTS sandbox_executions(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,runtime_id TEXT NOT NULL REFERENCES sandbox_runtimes(id),user_id TEXT NOT NULL,status TEXT NOT NULL,code TEXT NOT NULL,stdout TEXT,stderr TEXT,exit_code INTEGER,error_code TEXT,timeout_ms INTEGER NOT NULL,created_at INTEGER NOT NULL,started_at INTEGER,finished_at INTEGER);
       CREATE INDEX IF NOT EXISTS sandbox_execution_queue ON sandbox_executions(status,created_at);
+      CREATE TABLE IF NOT EXISTS run_sandboxes(run_id TEXT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,runtime_id TEXT NOT NULL UNIQUE REFERENCES sandbox_runtimes(id));
+      CREATE TABLE IF NOT EXISTS run_tools(run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,call_id TEXT NOT NULL,name TEXT NOT NULL,fingerprint TEXT NOT NULL,input TEXT NOT NULL,result TEXT,status TEXT NOT NULL,execution_id TEXT UNIQUE REFERENCES sandbox_executions(id) ON DELETE SET NULL,error_code TEXT,created_at INTEGER NOT NULL,finished_at INTEGER,PRIMARY KEY(run_id,call_id));
       INSERT OR IGNORE INTO schema_version VALUES(1,unixepoch()*1000);
       INSERT OR IGNORE INTO schema_version VALUES(2,unixepoch()*1000);
-    `),
-      );
+    `);
+        if (
+          !this.all<{ name: string }>("PRAGMA table_info(runs)").some(
+            (column) => column.name === "cancel_requested",
+          )
+        )
+          this.connection.exec(
+            "ALTER TABLE runs ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0",
+          );
+        this.run(
+          "INSERT OR IGNORE INTO schema_version VALUES(4,unixepoch()*1000)",
+        );
+      });
       if (
         this.all<{ name: string }>("PRAGMA table_info(instance_lease)").some(
           (column) => column.name === "host_id",

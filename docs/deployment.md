@@ -37,11 +37,13 @@ npm run backup -- /absolute/protected/backups/uwork-snapshot.sqlite
 
 恢复：先停止服务并保存当前数据快照，在新目录恢复 snapshot，保持 0600/0700 和正确 UID，用对应 MASTER_KEY 启动，验证登录、vault 解密、已发布配置和账本。快照自带旧实例租约；同命名空间旧进程已停止时可回收，跨命名空间须等待其心跳过期。未知旧版租约应在确认所有实例都已停止后由管理员离线清除，禁止在线删除。不要同时运行源实例与共享副本。备份恢复测试已使用独立临时目录执行。
 
-升级/回滚：先备份数据库与主密钥、记录代码 commit，停止旧实例后启动新版本；失败时停止新实例并恢复对应版本的数据库快照。不能只回滚代码并假定未来 schema 可向后兼容。当前 schema 为 v3：v2 增加隔离 Runtime，v3 增加命名空间租约；没有生产迁移历史。
+升级/回滚：先备份数据库与主密钥、记录代码 commit，停止旧实例后启动新版本；失败时停止新实例并恢复对应版本的数据库快照。不能只回滚代码并假定未来 schema 可向后兼容。当前 schema 为 v4：v2 增加隔离 Runtime，v3 增加命名空间租约，v4 增加父运行取消意图、工具记录及按 run 的沙箱绑定；没有生产迁移历史。
 
 ## 隔离代码执行
 
 默认关闭。专用 Docker engine 应与其他生产负载隔离；后端持有 socket 等同拥有该 engine 管理权限，不能复用承载其他业务的 Docker socket。执行容器不会挂载该 socket、宿主目录或后端凭据。
+
+本机 Colima 的项目共享目录已收缩为 `data/sandbox-verification`，只用于跨命名空间锁的受控临时数据；平台自带的 Colima 镜像缓存挂载保留。不共享项目根目录、`.env` 或业务数据库，不转发 SSH agent，也不改用户默认 Docker context。已以 guest root 验证后端 `.env` 和 `data/uwork.sqlite` 不可见，并再次通过跨命名空间拒绝与真实 Agent 闭环验证。
 
 ```sh
 docker --context colima-uwork-backend build -f Dockerfile.sandbox -t uwork-sandbox:local .
@@ -51,7 +53,9 @@ docker --context colima-uwork-backend build -f Dockerfile.sandbox -t uwork-sandb
 
 管理员创建 Runtime 并指定范围；执行还要求成员有效、席位、订阅、助理入口和安全策略 `allowSandbox=true`。沙箱始终无网络；`network=false` 不阻止已明确允许的离线代码计算。执行 UID 1000 与保护 TTL 的 watchdog UID 999 分离，防止用户代码终止过期计时器。取消/超时/输出超限会停止整个 Runtime，其 tmpfs 不承诺持久化。
 
-真实验证命令（均使用独立受控数据，自动清理自身容器）：`node --import tsx scripts/docker-smoke.ts`、`scripts/sandbox-driver-smoke.ts`、`scripts/sandbox-api-smoke.ts`、`scripts/sandbox-crash-smoke.ts`、`scripts/lease-namespace-smoke.ts`。后三者也需相同的 `node --import tsx` 前缀。Docker context 默认 `colima-uwork-backend`，可通过 `UWORK_DOCKER_CONTEXT` 显式改到专用验证 engine。Agent 模型工具调用闭环仍单独跟踪，不能将执行 API 等同其已完成。
+真实验证命令（均使用独立受控数据，自动清理自身容器）：以 `node --import tsx` 运行 `scripts/docker-smoke.ts`、`scripts/sandbox-driver-smoke.ts`、`scripts/sandbox-api-smoke.ts`、`scripts/sandbox-crash-smoke.ts`、`scripts/lease-namespace-smoke.ts`。Agent 闭环另运行 `scripts/agent-sandbox-smoke.ts`、`scripts/agent-container-smoke.ts`、`scripts/agent-crash-smoke.ts`；最后一个再设置 `UWORK_AGENT_CRASH_MODE=ready` 验证工具已完成、等待下一轮模型时的 SIGKILL。Docker context 默认 `colima-uwork-backend`，可通过 `UWORK_DOCKER_CONTEXT` 显式改到专用验证 engine；驱动脚本 socket 使用 `UWORK_SANDBOX_SOCKET`。打包镜像闭环的 engine 内 socket 默认 `/var/run/docker.sock`，可通过 `UWORK_ENGINE_SOCKET` 指定；自动确认 backend socket GID，并验证 engine ID 一致。
+
+Agent 隔离代码默认关闭，需发布 Agent 的 sandbox 开关并同时满足模型/企业策略许可。SDK 仅使用自有 GatewayAgentModel，不使用 OpenAI 默认客户端或外部会话状态，每轮调用单独入账；SDK tracing/exporter 禁用，自动模型重试为 0。SDK 版本与锁文件固定。真实浏览器端到端验证使用独立 `uwork-verification.localhost:3002` 实例和受控 HTTP 模型，不覆盖主实例 Cookie、凭据或组织数据；验证后进程、标签页及容器均已清理。MCP 工具和真实供应商生成验收仍未完成。
 
 ## 外部接入
 

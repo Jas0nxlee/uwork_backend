@@ -306,9 +306,14 @@ export function Collection({
                     aria-label="详情"
                     onClick={() =>
                       void invoke(async () => {
-                        if (
+                        if (view.id === "runs") {
+                          const run = await api<Row>(`${base}/runs/${r.id}`);
+                          setDetail({
+                            ...run,
+                            tools: await api(`${base}/runs/${r.id}/tools`),
+                          });
+                        } else if (
                           [
-                            "runs",
                             "datasets",
                             "evaluations",
                             "runtimes",

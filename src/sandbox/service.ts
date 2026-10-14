@@ -13,6 +13,7 @@ import {
 import { currentActor, inScope, requirePermission } from "../access.js";
 import { assertChannel, effectiveSecurity } from "../policy.js";
 import { audit } from "../events.js";
+import { agentRunContext } from "../agent-access.js";
 import type {
   SandboxDriver,
   SandboxOwner,
@@ -113,7 +114,20 @@ export class SandboxService {
       "UPDATE sandbox_executions SET status='failed',error_code='PROCESS_RESTARTED',finished_at=? WHERE status='running'",
       now(),
     );
+    this.db.run(
+      "UPDATE sandbox_executions SET status='failed',error_code='PROCESS_RESTARTED',finished_at=? WHERE status='queued' AND id IN (SELECT t.execution_id FROM run_tools t JOIN runs r ON r.id=t.run_id WHERE r.status NOT IN ('queued','running') OR r.cancel_requested=1)",
+      now(),
+    );
     if (!this.driver) return;
+    for (const parent of this.db.all<{ run_id: string }>(
+      "SELECT s.run_id FROM run_sandboxes s JOIN runs r ON r.id=s.run_id WHERE r.status NOT IN ('queued','running') OR r.cancel_requested=1",
+    )) {
+      try {
+        await this.releaseRun(parent.run_id);
+      } catch {
+        this.failure = "AGENT_SANDBOX_RECOVERY_UNCONFIRMED";
+      }
+    }
     for (const row of this.db.all<SandboxRuntimeRow>(
       "SELECT * FROM sandbox_runtimes WHERE status NOT IN ('stopped','deleted')",
     )) {
@@ -143,12 +157,52 @@ export class SandboxService {
   }
   async create(actor: Actor, name: string, scope: Scope, ttlMinutes: number) {
     requirePermission(actor, "write");
+    return this.provision(actor, name, scope, ttlMinutes);
+  }
+  async provisionForRun(runId: string, ttlMinutes: number) {
+    const { actor, agent } = agentRunContext(this.db, runId);
+    if (!agent.sandbox)
+      fail(403, "SANDBOX_DENIED", "父智能体未启用隔离代码工具");
+    const previous = this.db.get<{ runtime_id: string }>(
+      "SELECT runtime_id FROM run_sandboxes WHERE run_id=?",
+      runId,
+    );
+    if (previous)
+      return this.output(this.row(actor.tenantId, previous.runtime_id));
+    return this.provision(
+      actor,
+      `Agent ${runId}`,
+      { all: false, members: [actor.userId], departments: [] },
+      ttlMinutes,
+      runId,
+    );
+  }
+  private async provision(
+    actor: Actor,
+    name: string,
+    scope: Scope,
+    ttlMinutes: number,
+    runId?: string,
+  ) {
     this.admit(actor);
     const driver = this.available();
     if (this.stopped) fail(503, "SHUTTING_DOWN", "服务正在关闭");
     const runtimeId = id();
     const timestamp = now();
+    let expiresAt = timestamp + ttlMinutes * 60000;
     this.db.transaction(() => {
+      if (runId) {
+        const fresh = agentRunContext(this.db, runId);
+        expiresAt = Math.min(
+          expiresAt,
+          (fresh.run.started_at ?? fresh.run.created_at) + fresh.run.timeout_ms,
+        );
+        if (
+          fresh.actor.tenantId !== actor.tenantId ||
+          fresh.actor.userId !== actor.userId
+        )
+          fail(403, "RUN_OWNER_MISMATCH", "父运行归属不正确");
+      }
       const count = this.db.get<{ tenant: number; total: number }>(
         "SELECT coalesce(sum(CASE WHEN tenant_id=? THEN 1 ELSE 0 END),0) tenant,count(*) total FROM sandbox_runtimes WHERE status NOT IN ('stopped','deleted')",
         actor.tenantId,
@@ -165,9 +219,11 @@ export class SandboxService {
         secret(),
         "provisioning",
         timestamp,
-        timestamp + ttlMinutes * 60000,
+        expiresAt,
         timestamp,
       );
+      if (runId)
+        this.db.run("INSERT INTO run_sandboxes VALUES(?,?)", runId, runtimeId);
       audit(this.db, actor, "sandbox.create", runtimeId);
     });
     const work = (async () => {
@@ -302,19 +358,39 @@ export class SandboxService {
     runtimeId: string,
     code: string,
     timeoutMs: number,
+    binding?: { runId: string; callId: string },
   ) {
     this.available();
     if (this.stopped) fail(503, "SHUTTING_DOWN", "服务正在关闭");
     const row = this.row(actor.tenantId, runtimeId);
     this.authorize(actor, row);
-    if (!(await this.driver!.inspect(this.owner(row)))?.running)
+    const observation = await this.driver!.inspect(this.owner(row));
+    if (!observation?.running) {
+      if (observation?.deadlineExpired)
+        fail(408, "TIMEOUT", "沙箱生命周期已到期");
       fail(409, "SANDBOX_STOPPED", "沙箱未运行");
+    }
     return this.db.transaction(() => {
       const latest = this.row(actor.tenantId, runtimeId);
       this.authorize(
         currentActor(this.db, actor.tenantId, actor.userId),
         latest,
       );
+      const managed = this.db.get<{ run_id: string }>(
+        "SELECT run_id FROM run_sandboxes WHERE runtime_id=?",
+        runtimeId,
+      );
+      if (managed && managed.run_id !== binding?.runId)
+        fail(403, "AGENT_RUNTIME_MANAGED", "智能体沙箱不能接收独立执行请求");
+      if (binding) {
+        const fresh = agentRunContext(this.db, binding.runId);
+        if (
+          !managed ||
+          fresh.actor.tenantId !== actor.tenantId ||
+          fresh.actor.userId !== actor.userId
+        )
+          fail(403, "RUN_OWNER_MISMATCH", "父运行归属不正确");
+      }
       if (latest.status !== "ready" || latest.expires_at - now() < 100)
         fail(409, "SANDBOX_NOT_READY", "Runtime 未就绪或已到期");
       if (
@@ -336,6 +412,16 @@ export class SandboxService {
         Math.min(timeoutMs, latest.expires_at - now()),
         now(),
       );
+      if (
+        binding &&
+        !this.db.run(
+          "UPDATE run_tools SET execution_id=? WHERE run_id=? AND call_id=? AND status='running' AND execution_id IS NULL",
+          executionId,
+          binding.runId,
+          binding.callId,
+        ).changes
+      )
+        fail(409, "TOOL_CALL_EXISTS", "工具调用已有执行记录，不能重新入队");
       audit(this.db, actor, "sandbox.enqueue", executionId);
       return executionId;
     });
@@ -422,6 +508,41 @@ export class SandboxService {
   }
   async stopRuntime(actor: Actor, runtimeId: string, remove = false) {
     requirePermission(actor, "write");
+    return this.stopManagedRuntime(actor, runtimeId, remove);
+  }
+  async releaseRun(runId: string) {
+    const owner = this.db.get<{
+      tenant_id: string;
+      user_id: string;
+      runtime_id: string;
+      status: string;
+    }>(
+      "SELECT r.tenant_id,r.user_id,s.runtime_id,b.status FROM run_sandboxes s JOIN runs r ON r.id=s.run_id JOIN sandbox_runtimes b ON b.id=s.runtime_id WHERE s.run_id=?",
+      runId,
+    );
+    if (!owner || owner.status === "deleted") return;
+    try {
+      await this.stopManagedRuntime(
+        { tenantId: owner.tenant_id, userId: owner.user_id },
+        owner.runtime_id,
+        true,
+      );
+    } catch (error) {
+      if (
+        this.db.get<{ status: string }>(
+          "SELECT status FROM sandbox_runtimes WHERE id=?",
+          owner.runtime_id,
+        )?.status === "deleted"
+      )
+        return;
+      throw error;
+    }
+  }
+  private async stopManagedRuntime(
+    actor: Pick<Actor, "tenantId" | "userId">,
+    runtimeId: string,
+    remove: boolean,
+  ) {
     this.row(actor.tenantId, runtimeId);
     this.db.run(
       "UPDATE sandbox_runtimes SET status='stopping',updated_at=? WHERE tenant_id=? AND id=? AND status='provisioning'",
@@ -477,12 +598,13 @@ export class SandboxService {
     if (this.stopped) return;
     for (const active of this.active.values()) {
       try {
-        this.authorize(
-          currentActor(this.db, active.row.tenant_id, active.row.user_id),
-          this.row(active.row.tenant_id, active.runtimeId),
+        this.authorizeJob(active.row);
+      } catch (error) {
+        active.controller.abort(
+          error instanceof ApiError && error.code === "TIMEOUT"
+            ? "timeout"
+            : "revoked",
         );
-      } catch {
-        active.controller.abort("revoked");
       }
     }
     for (const row of this.db.all<SandboxExecutionRow>(
@@ -600,10 +722,7 @@ export class SandboxService {
     let runtime: SandboxRuntimeRow | undefined;
     try {
       runtime = this.row(job.tenant_id, job.runtime_id);
-      this.authorize(
-        currentActor(this.db, job.tenant_id, job.user_id),
-        runtime,
-      );
+      this.authorizeJob(job);
       if (runtime.expires_at <= now())
         fail(409, "RUNTIME_EXPIRED", "Runtime 已到期");
       const output = await this.available().execute(
@@ -637,23 +756,29 @@ export class SandboxService {
         }
       }
       const reason = controller.signal.reason;
+      const deadlineExceeded =
+        reason === "timeout" ||
+        reason === "expired" ||
+        (error instanceof ApiError && error.code === "TIMEOUT");
       const status =
-        stopped && controller.signal.aborted
-          ? reason === "timeout"
+        stopped && (controller.signal.aborted || deadlineExceeded)
+          ? deadlineExceeded
             ? "timed_out"
             : "cancelled"
           : "failed";
       const code = !stopped
         ? "STOP_UNCONFIRMED"
-        : controller.signal.aborted
-          ? reason === "revoked"
-            ? "ACCESS_REVOKED"
-            : reason === "timeout"
-              ? "TIMEOUT"
-              : "CANCELLED"
-          : error instanceof ApiError
-            ? error.code
-            : "SANDBOX_EXECUTION_FAILED";
+        : deadlineExceeded
+          ? "TIMEOUT"
+          : controller.signal.aborted
+            ? reason === "revoked"
+              ? "ACCESS_REVOKED"
+              : reason === "timeout"
+                ? "TIMEOUT"
+                : "CANCELLED"
+            : error instanceof ApiError
+              ? error.code
+              : "SANDBOX_EXECUTION_FAILED";
       this.db.run(
         "UPDATE sandbox_executions SET status=?,error_code=?,finished_at=? WHERE id=? AND status='running'",
         status,
@@ -681,5 +806,23 @@ export class SandboxService {
         }
       }
     }
+  }
+  private authorizeJob(job: SandboxExecutionRow) {
+    this.authorize(
+      currentActor(this.db, job.tenant_id, job.user_id),
+      this.row(job.tenant_id, job.runtime_id),
+    );
+    const parent = this.db.get<{ run_id: string }>(
+      "SELECT run_id FROM run_tools WHERE execution_id=?",
+      job.id,
+    );
+    if (parent) agentRunContext(this.db, parent.run_id);
+    else if (
+      this.db.get(
+        "SELECT run_id FROM run_sandboxes WHERE runtime_id=?",
+        job.runtime_id,
+      )
+    )
+      fail(403, "AGENT_RUNTIME_MANAGED", "缺少父运行工具绑定");
   }
 }
