@@ -1,14 +1,17 @@
-import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
-import { mkdirSync, chmodSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { mkdirSync, chmodSync } from "node:fs";
+import { dirname } from "node:path";
 
 export class Db {
   private connection: DatabaseSync;
   constructor(path: string) {
-    if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    if (path !== ":memory:")
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.connection = new DatabaseSync(path);
-    if (path !== ':memory:') chmodSync(path, 0o600);
-    this.connection.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
+    if (path !== ":memory:") chmodSync(path, 0o600);
+    this.connection.exec(
+      "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",
+    );
     this.connection.exec(`
       CREATE TABLE IF NOT EXISTS schema_version(version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS tenants(id TEXT PRIMARY KEY, name TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'local', settings TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL);
@@ -31,6 +34,7 @@ export class Db {
       CREATE TABLE IF NOT EXISTS policies(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), family TEXT NOT NULL, name TEXT NOT NULL, scope TEXT NOT NULL, data TEXT NOT NULL, priority INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS policies_family ON policies(tenant_id,family);
       CREATE TABLE IF NOT EXISTS configurations(tenant_id TEXT NOT NULL REFERENCES tenants(id), kind TEXT NOT NULL, draft TEXT NOT NULL, published TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1, version INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY(tenant_id,kind));
+      CREATE TABLE IF NOT EXISTS configuration_history(tenant_id TEXT NOT NULL,kind TEXT NOT NULL,version INTEGER NOT NULL,data TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(tenant_id,kind,version));
       CREATE TABLE IF NOT EXISTS audit(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, user_id TEXT, action TEXT NOT NULL, target TEXT, metadata TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS audit_tenant ON audit(tenant_id,created_at);
       CREATE TABLE IF NOT EXISTS traces(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, user_id TEXT NOT NULL, application TEXT NOT NULL, model_id TEXT NOT NULL, status TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, duration_ms INTEGER NOT NULL, error_code TEXT, created_at INTEGER NOT NULL);
@@ -46,13 +50,27 @@ export class Db {
       INSERT OR IGNORE INTO schema_version VALUES(1,unixepoch()*1000);
     `);
   }
-  run(sql: string, ...params: SQLInputValue[]) { return this.connection.prepare(sql).run(...params); }
-  get<T>(sql: string, ...params: SQLInputValue[]): T | undefined { return this.connection.prepare(sql).get(...params) as T | undefined; }
-  all<T>(sql: string, ...params: SQLInputValue[]): T[] { return this.connection.prepare(sql).all(...params) as T[]; }
-  transaction<T>(fn: () => T): T {
-    this.connection.exec('BEGIN IMMEDIATE');
-    try { const result = fn(); this.connection.exec('COMMIT'); return result; }
-    catch (error) { this.connection.exec('ROLLBACK'); throw error; }
+  run(sql: string, ...params: SQLInputValue[]) {
+    return this.connection.prepare(sql).run(...params);
   }
-  close() { this.connection.close(); }
+  get<T>(sql: string, ...params: SQLInputValue[]): T | undefined {
+    return this.connection.prepare(sql).get(...params) as T | undefined;
+  }
+  all<T>(sql: string, ...params: SQLInputValue[]): T[] {
+    return this.connection.prepare(sql).all(...params) as T[];
+  }
+  transaction<T>(fn: () => T): T {
+    this.connection.exec("BEGIN IMMEDIATE");
+    try {
+      const result = fn();
+      this.connection.exec("COMMIT");
+      return result;
+    } catch (error) {
+      this.connection.exec("ROLLBACK");
+      throw error;
+    }
+  }
+  close() {
+    this.connection.close();
+  }
 }

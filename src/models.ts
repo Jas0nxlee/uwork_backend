@@ -1,27 +1,168 @@
-import { z } from 'zod';
-import type { FastifyInstance } from 'fastify';
-import type { Db } from './db.js';
-import type { Vault } from './vault.js';
-import { authenticate, inScope, requirePermission } from './access.js';
-import { audit } from './identity.js';
-import { fail, parseJson, scopeSchema, text, type Actor, type Scope } from './core.js';
-import { createResource, getResource, listResources, updateResource, type Resource } from './resources.js';
-import { readJson, safeRequest } from './network.js';
+import { z } from "zod";
+import type { FastifyInstance } from "fastify";
+import type { Db } from "./db.js";
+import type { Vault } from "./vault.js";
+import { authenticate, inScope, requirePermission } from "./access.js";
+import { audit } from "./identity.js";
+import {
+  fail,
+  parseJson,
+  scopeSchema,
+  text,
+  type Actor,
+  type Scope,
+} from "./core.js";
+import {
+  createResource,
+  getResource,
+  listResources,
+  updateResource,
+  type Resource,
+} from "./resources.js";
+import { readJson, safeRequest } from "./network.js";
 
-export const modelSchema = z.object({ name: text, upstreamModel: text, baseUrl: z.url().max(2048), credentialId: text, contextWindow: z.number().int().min(128).max(2000000).default(128000), maxOutputTokens: z.number().int().min(1).max(131072).default(4096), inputRate: z.number().int().min(0).max(1000000).default(1000), outputRate: z.number().int().min(0).max(1000000).default(1000), scope: scopeSchema.default({ all: false, members: [], departments: [] }), enabled: z.boolean().default(true) }).strict();
-export type ModelData = Omit<z.infer<typeof modelSchema>, 'name' | 'scope' | 'enabled'>;
-export function allowedResource(db: Db, actor: Actor, family: string, resource: Resource<unknown>) {
+export const modelSchema = z
+  .object({
+    name: text,
+    upstreamModel: text,
+    baseUrl: z.url().max(2048),
+    credentialId: text,
+    contextWindow: z.number().int().min(128).max(2000000).default(128000),
+    maxOutputTokens: z.number().int().min(1).max(131072).default(4096),
+    inputRate: z.number().int().min(0).max(1000000).default(1000),
+    outputRate: z.number().int().min(0).max(1000000).default(1000),
+    scope: scopeSchema.default({ all: false, members: [], departments: [] }),
+    enabled: z.boolean().default(true),
+  })
+  .strict();
+export type ModelData = Omit<
+  z.infer<typeof modelSchema>,
+  "name" | "scope" | "enabled"
+>;
+export function allowedResource(
+  db: Db,
+  actor: Actor,
+  family: string,
+  resource: Resource<unknown>,
+) {
   if (!resource.enabled || !inScope(db, resource.scope, actor)) return false;
-  const policies = db.all<{ scope: string; data: string }>('SELECT scope,data FROM policies WHERE tenant_id=? AND family=? AND enabled=1', actor.tenantId, family);
-  for (const p of policies) { if (!inScope(db, parseJson<Scope>(p.scope), actor)) continue; const d = parseJson<{ mode: string; resourceIds: string[] }>(p.data); if (d.mode === 'deny' && d.resourceIds.includes(resource.id)) return false; if (d.mode === 'allow' && !d.resourceIds.includes(resource.id)) return false; }
+  const policies = db.all<{ scope: string; data: string }>(
+    "SELECT scope,data FROM policies WHERE tenant_id=? AND family=? AND enabled=1",
+    actor.tenantId,
+    family,
+  );
+  for (const p of policies) {
+    if (!inScope(db, parseJson<Scope>(p.scope), actor)) continue;
+    const d = parseJson<{ mode: string; resourceIds: string[] }>(p.data);
+    if (d.mode === "deny" && d.resourceIds.includes(resource.id)) return false;
+    if (d.mode === "allow" && !d.resourceIds.includes(resource.id))
+      return false;
+  }
   return true;
 }
-export function modelsRoutes(app: FastifyInstance, db: Db, vault: Vault, allowPrivate: boolean) {
-  const path = '/api/tenants/:tenantId/models';
-  app.get(path, async req => { const a = authenticate(db, req); requirePermission(a, 'read'); return listResources<ModelData>(db, a.tenantId, 'model'); });
-  app.post(path, async (req, reply) => { const a = authenticate(db, req); requirePermission(a, 'write'); const { name, scope, enabled, ...d } = modelSchema.parse(req.body); vault.read(a.tenantId, d.credentialId); const modelId = createResource(db, a.tenantId, 'model', name, d, scope, enabled, 'published'); audit(db, a, 'model.create', modelId); reply.code(201); return { id: modelId }; });
-  app.put(`${path}/:id`, async req => { const a = authenticate(db, req); requirePermission(a, 'write'); const { id } = req.params as { id: string }; const { revision, name, scope, enabled, ...d } = modelSchema.extend({ revision: z.number().int().positive() }).parse(req.body); vault.read(a.tenantId, d.credentialId); updateResource(db, getResource(db, a.tenantId, 'model', id), name, d, scope, enabled, revision); audit(db, a, 'model.update', id); return { ok: true }; });
-  app.delete(`${path}/:id`, async (req, reply) => { const a = authenticate(db, req); requirePermission(a, 'write'); const { id } = req.params as { id: string }; getResource(db, a.tenantId, 'model', id); db.run('UPDATE resources SET enabled=0,revision=revision+1,updated_at=? WHERE tenant_id=? AND id=?', Date.now(), a.tenantId, id); audit(db, a, 'model.disable', id); reply.code(204); });
-  app.post(`${path}/:id/probe`, async req => { const a = authenticate(db, req); requirePermission(a, 'write'); const { id } = req.params as { id: string }; const m = getResource<ModelData>(db, a.tenantId, 'model', id); const token = vault.read(a.tenantId, m.data.credentialId); const start = Date.now(); const result = await readJson(await safeRequest(`${m.data.baseUrl.replace(/\/$/, '')}/models`, { method: 'GET', token, timeout: 15000 }, allowPrivate)); audit(db, a, 'model.probe', id); return { reachable: true, latencyMs: Date.now()-start, modelsEndpoint: z.object({ data: z.array(z.object({ id: z.string() })).max(10000) }).safeParse(result).success }; });
-  app.get('/v1/models', async req => { const a = authenticate(db, req); requirePermission(a, 'execute'); return { object: 'list', data: listResources<ModelData>(db, a.tenantId, 'model').filter(m => allowedResource(db, a, 'model', m)).map(m => ({ id: m.id, object: 'model', owned_by: 'uwork', name: m.name, context_window: m.data.contextWindow, max_output_tokens: m.data.maxOutputTokens })) }; });
+export function modelsRoutes(
+  app: FastifyInstance,
+  db: Db,
+  vault: Vault,
+  allowPrivate: boolean,
+) {
+  const path = "/api/tenants/:tenantId/models";
+  app.get(path, async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "read");
+    return listResources<ModelData>(db, a.tenantId, "model");
+  });
+  app.post(path, async (req, reply) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "write");
+    const { name, scope, enabled, ...d } = modelSchema.parse(req.body);
+    vault.read(a.tenantId, d.credentialId);
+    const modelId = createResource(
+      db,
+      a.tenantId,
+      "model",
+      name,
+      d,
+      scope,
+      enabled,
+      "published",
+    );
+    audit(db, a, "model.create", modelId);
+    reply.code(201);
+    return { id: modelId };
+  });
+  app.put(`${path}/:id`, async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "write");
+    const { id } = req.params as { id: string };
+    const { revision, name, scope, enabled, ...d } = modelSchema
+      .extend({ revision: z.number().int().positive() })
+      .parse(req.body);
+    vault.read(a.tenantId, d.credentialId);
+    updateResource(
+      db,
+      getResource(db, a.tenantId, "model", id),
+      name,
+      d,
+      scope,
+      enabled,
+      revision,
+    );
+    audit(db, a, "model.update", id);
+    return { ok: true };
+  });
+  app.delete(`${path}/:id`, async (req, reply) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "write");
+    const { id } = req.params as { id: string };
+    getResource(db, a.tenantId, "model", id);
+    db.run(
+      "UPDATE resources SET enabled=0,revision=revision+1,updated_at=? WHERE tenant_id=? AND id=?",
+      Date.now(),
+      a.tenantId,
+      id,
+    );
+    audit(db, a, "model.disable", id);
+    reply.code(204);
+  });
+  app.post(`${path}/:id/probe`, async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "write");
+    const { id } = req.params as { id: string };
+    const m = getResource<ModelData>(db, a.tenantId, "model", id);
+    const token = vault.read(a.tenantId, m.data.credentialId);
+    const start = Date.now();
+    const result = await readJson(
+      await safeRequest(
+        `${m.data.baseUrl.replace(/\/$/, "")}/models`,
+        { method: "GET", token, timeout: 15000 },
+        allowPrivate,
+      ),
+    );
+    audit(db, a, "model.probe", id);
+    return {
+      reachable: true,
+      latencyMs: Date.now() - start,
+      modelsEndpoint: z
+        .object({ data: z.array(z.object({ id: z.string() })).max(10000) })
+        .safeParse(result).success,
+    };
+  });
+  app.get("/v1/models", async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "execute");
+    return {
+      object: "list",
+      data: listResources<ModelData>(db, a.tenantId, "model")
+        .filter((m) => allowedResource(db, a, "model", m))
+        .map((m) => ({
+          id: m.id,
+          object: "model",
+          owned_by: "uwork",
+          name: m.name,
+          context_window: m.data.contextWindow,
+          max_output_tokens: m.data.maxOutputTokens,
+        })),
+    };
+  });
 }
