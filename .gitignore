@@ -6,3 +6,12 @@ dist/
 evidence/workbuddy/
 *.log
 .DS_Store
+node_modules/
+dist/
+data/
+.env
+.env.*.local
+coverage/
+admin/dist/
+*.sqlite*
+*.log
