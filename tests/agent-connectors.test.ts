@@ -63,7 +63,22 @@ async function environment(t: TestContext, mode = "normal") {
                       left:
                         mode === "unsafe-schema"
                           ? { type: "string", pattern: "(a+)+$" }
-                          : { type: "integer" },
+                          : mode === "unsafe-nested-schema"
+                            ? {
+                                type: "array",
+                                unevaluatedItems: {
+                                  type: "string",
+                                  pattern: "(a+)+$",
+                                },
+                              }
+                            : mode === "unsafe-legacy-schema"
+                              ? {
+                                  type: "object",
+                                  dependencies: {
+                                    value: { pattern: "(a+)+$" },
+                                  },
+                                }
+                              : { type: "integer" },
                       right: { type: "integer" },
                     },
                     required: ["left", "right"],
@@ -245,14 +260,20 @@ test("MCP input schemas reject invalid model arguments before remote dispatch", 
   assert.equal(f.counts().calls, 0);
 });
 
-test("remote schemas cannot introduce unbounded regex validation into the backend event loop", async (t) => {
-  const f = await environment(t, "unsafe-schema"),
-    run = await f.done(await f.enqueue());
-  assert.equal(run.status, "failed");
-  assert.equal(run.error_code, "MCP_TOOL_SCHEMA");
-  assert.equal(f.counts().calls, 0);
-  assert.equal(f.counts().models, 0);
-});
+for (const mode of [
+  "unsafe-schema",
+  "unsafe-nested-schema",
+  "unsafe-legacy-schema",
+]) {
+  test(`remote ${mode} cannot introduce unbounded regex validation into the backend event loop`, async (t) => {
+    const f = await environment(t, mode),
+      run = await f.done(await f.enqueue());
+    assert.equal(run.status, "failed");
+    assert.equal(run.error_code, "MCP_TOOL_SCHEMA");
+    assert.equal(f.counts().calls, 0);
+    assert.equal(f.counts().models, 0);
+  });
+}
 
 test("a connector disabled during model generation prevents remote tool dispatch", async (t) => {
   const f = await environment(t);

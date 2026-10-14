@@ -68,6 +68,7 @@ function assertToolSchemas(result: unknown) {
           "$defs",
           "definitions",
           "dependentSchemas",
+          "dependencies",
         ]) {
           const value = item[key];
           if (value && typeof value === "object" && !Array.isArray(value))
@@ -85,6 +86,9 @@ function assertToolSchemas(result: unknown) {
           "propertyNames",
           "additionalProperties",
           "unevaluatedProperties",
+          "unevaluatedItems",
+          "additionalItems",
+          "contentSchema",
           "not",
           "if",
           "then",

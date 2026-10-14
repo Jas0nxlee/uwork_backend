@@ -19,7 +19,7 @@
 
 自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts`，使用真实适配源码和受控企微 provider，未调用真实企业凭据。
 
-自动化结果：后端 70 项测试通过，0 失败/跳过；类型检查现在同时覆盖生产、测试和验证脚本。类型、Lint、格式与生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库此前 typecheck、架构检查（0 violations）及两个相关测试通过；Lint 为 0 errors、111 warnings，未将警告表述成无警告构建。跨仓库实际源码合同测试单独记录，不能代替完整 Host 验收。
+自动化结果：后端 72 项测试通过，0 失败/跳过；类型检查现在同时覆盖生产、测试和验证脚本。类型、Lint、格式与生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库此前 typecheck、架构检查（0 violations）及两个相关测试通过；Lint 为 0 errors、111 warnings，未将警告表述成无警告构建。跨仓库实际源码合同测试单独记录，不能代替完整 Host 验收。
 
 工具协议：真实 HTTP 上游完成 function tools JSON 请求/响应、assistant tool_calls、tool 结果及 SSE 片段重组；缓存重放不重复调用上游。显式 opt-in、工具定义/历史参数上界、重复/未知函数、非法 JSON、稀疏片段、禁止并行均有回归；合法调用伴随非法 usage 或成功缓存写入失败时，不向消费者发送工具调用。协议代理与实际代码工具循环分开验证。
 
