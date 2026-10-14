@@ -135,10 +135,35 @@ export class UWorkBackendClient {
       await this.send("/api/client/configuration", "GET", undefined, signal),
     );
   }
-  download(assetId: string) {
+  download(assetId: string, version?: number) {
+    if (
+      version !== undefined &&
+      (!Number.isSafeInteger(version) || version < 1)
+    )
+      throw new Error("Asset version must be a positive safe integer");
     return this.send(
-      `/api/client/assets/${encodeURIComponent(assetId)}/download`,
+      `/api/client/assets/${encodeURIComponent(assetId)}/download${version === undefined ? "" : `?version=${version}`}`,
     );
+  }
+  async authorizeAsset(
+    assetId: string,
+    version: number,
+    checksum: string,
+    signal?: AbortSignal,
+  ) {
+    return z.object({ allowed: z.boolean() }).parse(
+      await this.send(
+        "/api/client/authorize",
+        "POST",
+        {
+          action: "asset",
+          target: assetId,
+          assetVersion: version,
+          assetChecksum: checksum,
+        },
+        signal,
+      ),
+    ).allowed;
   }
   async authorize(
     action: "execution" | "shell" | "filesystem" | "network" | "share",

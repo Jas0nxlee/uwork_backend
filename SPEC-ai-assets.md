@@ -5,3 +5,17 @@
 验收：版本回滚、成员撤权后拒绝下载/执行、多个 allow 交集/deny 优先；不支持的客户端类型明确过滤。
 命令：npm test；npm run build。Zod 合同，API 集成测试。
 边界：技能是数据包，不在服务端任意执行；历史全局提示词不注入。
+
+## Host 版本准入
+
+客户端安装与运行分别检查当前发布授权。下载可携带 `version`；与当前发布版本不符时返回 409 `ASSET_VERSION_CHANGED`，不静默换成新内容。响应携带服务端 kind 与 checksum；Host 必须再验证实际内容字节，不能把目录存在当成仍已授权。
+
+资产列表与下载在返回内容前检查当前有效订阅、席位和 IP 白名单。连接器下载仍只包含 masked 描述和代理路径，不暴露远端地址/凭据，也不将原始私有内容的 checksum 冒充为 masked 内容校验和。
+
+`/api/client/authorize` 新增 `action=asset`，必须携带 `target`（资产 ID）、`assetVersion` 和 `assetChecksum`。在已有订阅、席位、IP、渠道检查之后，仅当资产当前已审核发布、可见、支持 UWork，且版本/校验和完全相符时返回允许。高风险技能还要求有效 dangerousSkills=true；不授予 shell/filesystem/network 权限，也不替代实际能力准入。
+
+技能路径需要跨 Windows/macOS/Linux 可移植：拒绝控制字符、Windows 保留设备名、段尾空格/点、非 NFC 路径、大小写或规范化冲突，以及文件/目录前缀冲突。Host 安装器仍须独立检查路径、符号链接、归属与原子写入，不能只信服务器验证。下载/准入失败不能保留可执行的过时授权缓存。
+
+路径规则参考 Microsoft [Naming Files, Paths, and Namespaces](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file) 与 [Whitespace Characters](https://learn.microsoft.com/en-us/troubleshoot/windows-client/shell-experience/file-folder-name-whitespace-characters)。为避免不同文件系统编码/大小写折叠别名，另外保守拒绝孤立 UTF-16 代理项、所有 Unicode Cc、段首 ASCII 空格、设备名与扩展名间空格，以及完整大写折叠后的重复/前缀冲突。Host 仍须在拥有的临时目录使用排他文件创建，不能据服务端校验声称所有平台原生文件系统已验收。
+
+验收：旧清单版本的下载冲突；资产在审核撤销、成员撤权、停用、换发布版本后准入拒绝；高风险标志不能被客户端忽略；非法/冲突路径在存储前拒绝。完整 Host 安装/运行接入另行验收。

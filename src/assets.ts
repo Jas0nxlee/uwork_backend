@@ -22,6 +22,10 @@ import {
   type Resource,
 } from "./resources.js";
 import { allowedResource } from "./models.js";
+import {
+  isPortableAssetPath,
+  hasUnambiguousAssetPaths,
+} from "./asset-paths.js";
 
 export const assetKind = z.enum([
   "skill",
@@ -34,14 +38,7 @@ const filePath = z
   .string()
   .min(1)
   .max(240)
-  .refine(
-    (p) =>
-      !p.startsWith("/") &&
-      !p.includes("\\") &&
-      !p.includes(":") &&
-      p.split("/").every((s) => s !== ".." && s !== "." && s.length > 0),
-    "必须是安全相对路径",
-  );
+  .refine(isPortableAssetPath, "必须是安全相对路径");
 export const contentSchemas = {
   skill: z
     .object({
@@ -59,8 +56,8 @@ export const contentSchemas = {
     .refine(
       (c) =>
         c.files.some((f) => f.path === "SKILL.md") &&
-        new Set(c.files.map((f) => f.path)).size === c.files.length,
-      "必须包含 SKILL.md 且路径不重复",
+        hasUnambiguousAssetPaths(c.files),
+      "必须包含 SKILL.md 且路径无重复或文件目录冲突",
     ),
   expert: z
     .object({
