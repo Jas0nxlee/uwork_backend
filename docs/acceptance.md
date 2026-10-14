@@ -19,7 +19,11 @@
 
 自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts`，使用真实适配源码和受控企微 provider，未调用真实企业凭据。
 
-自动化结果：后端 72 项测试通过，0 失败/跳过；类型检查现在同时覆盖生产、测试和验证脚本。类型、Lint、格式与生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库此前 typecheck、架构检查（0 violations）及两个相关测试通过；Lint 为 0 errors、111 warnings，未将警告表述成无警告构建。跨仓库实际源码合同测试单独记录，不能代替完整 Host 验收。
+自动化结果：后端 75 项测试通过，0 失败/跳过；类型检查同时覆盖生产、测试和验证脚本。类型、Lint、格式与生产构建通过；此前依赖审计 0 个已知漏洞。UWork 适配仓库 root/CLI typecheck、CLI 新测试专用类型检查、架构检查（0 violations）通过。Host 身份/网关/准入回归 63 项、CLI 执行/网络准入回归 14 项通过；root Lint 为 0 errors、111 warnings，CLI Lint 为 14 个任务成功、53 warnings、0 errors（范围内 17 个包有 3 个未定义 lint），未称为无警告构建。根工作区 frozen install 成功；CLI 独立 frozen install 因已有嵌套锁文件不匹配失败，未绕过锁文件。跨仓库实际源码合同测试单独记录，不能代替完整 Host 验收。
+
+Host 准入：独立适配副本中的 CLI 使用现有 PermissionService 承载不可由项目/yolo/Hook/用户审批覆盖的企业裁决端口，反向 RPC 绑定当前连接和工作区。Host 每次向真实后端查询当前订阅、渠道和安全策略；私有身份代际、共享会话修订、issuer 与配置指纹阻止退出/撤权/换端点后的迟到允许。已进入受管模式的 Host 遇到配置消失仍拒绝，显式 UCAS 保留旧行为。原生前台/后台进程另行准入；受管 HTTP 强制手工跳转与公网出口，并逐跳裁决目标域名。拒绝会发布工具终止错误。
+
+跨仓库 `scripts/client-policy-contract-smoke.ts` 使用实际 executor、协议端口、Host bridge、身份所有者与共享会话库，以及真实 loopback 后端 HTTP 和 Node 进程，验证默认禁止、发布允许后返回 42、Hook 期间发布撤权、退出登录、协议输入上限和迟到取消。协议传输是进程内 JSON 往返，不是已安装 Electron stdio/真实企微/远程工作区验收。任意原生进程不等于 OS 沙箱；混合文件/网络限制不能证明时明确 unsupported，不声称已隔离。完整资产/UI/远程/三平台集成仍未完成。
 
 工具协议：真实 HTTP 上游完成 function tools JSON 请求/响应、assistant tool_calls、tool 结果及 SSE 片段重组；缓存重放不重复调用上游。显式 opt-in、工具定义/历史参数上界、重复/未知函数、非法 JSON、稀疏片段、禁止并行均有回归；合法调用伴随非法 usage 或成功缓存写入失败时，不向消费者发送工具调用。协议代理与实际代码工具循环分开验证。
 
@@ -56,7 +60,7 @@ REA：本轮复用现有 55 份页面和发布脚本证据，另对 automation-f
 - 自有企微每个实际组织的新扫码、真实 callback 和通讯录权限。
 - 真实模型生成/供应商计量对账及长时/负载测试。
 - 完整 UWork 菜单、助理、资产安装更新撤销、路径/命令/分享/个人资产策略的 Host enforcement 与 Windows/macOS/Linux 安装回归。
-- Agent 受控 MCP 连接器工具调用与远端副作用不确定性处理。
+- 真实外部 MCP 服务对接与服务商侧 session/远端资源回收确认（本机受控调用及不确定性处理已通过）。
 - 生产 TLS、目标主机备份演练、外部网盘、支付、生产沙箱部署和通知渠道验收。
 
 这些项目级项保留为未验收，不能据本轮本地构建将 CAPABILITY-MAP 的整个产品完成标准标记为通过。

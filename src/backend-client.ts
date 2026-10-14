@@ -141,7 +141,7 @@ export class UWorkBackendClient {
     );
   }
   async authorize(
-    action: "shell" | "filesystem" | "network" | "share",
+    action: "execution" | "shell" | "filesystem" | "network" | "share",
     target: string,
     stricter?: {
       allowShell?: boolean;

@@ -9,11 +9,13 @@ import {
   defaults,
   effectiveSecurity,
   ipAllowed,
+  assertChannel,
   type ConfigKind,
 } from "./policy.js";
 import { getResource } from "./resources.js";
 import { publishedAsset, visibleAssets, type AssetData } from "./assets.js";
 import { allowedResource } from "./models.js";
+import { activeSubscription } from "./entitlements.js";
 
 export function clientRoutes(app: FastifyInstance, db: Db) {
   app.get("/api/client/configuration", async (req, reply) => {
@@ -147,9 +149,19 @@ export function clientRoutes(app: FastifyInstance, db: Db) {
   app.post("/api/client/authorize", async (req) => {
     const a = authenticate(db, req);
     requirePermission(a, "execute");
+    activeSubscription(db, a.tenantId);
+    if (!ipAllowed(db, a, req.ip))
+      fail(403, "IP_DENIED", "企业 IP 白名单拒绝访问");
     const d = z
       .object({
-        action: z.enum(["shell", "filesystem", "network", "share"]),
+        channel: z.enum(["local", "agents", "cloud"]).default("local"),
+        action: z.enum([
+          "execution",
+          "shell",
+          "filesystem",
+          "network",
+          "share",
+        ]),
         target: z.string().max(2048).default(""),
         stricter: z
           .object({
@@ -162,8 +174,10 @@ export function clientRoutes(app: FastifyInstance, db: Db) {
       })
       .strict()
       .parse(req.body);
+    assertChannel(db, a, d.channel);
     const s = effectiveSecurity(db, a);
     let allowed = false;
+    if (d.action === "execution") allowed = true;
     if (d.action === "shell")
       allowed = s.allowShell && d.stricter?.allowShell !== false;
     if (d.action === "filesystem")
@@ -188,6 +202,6 @@ export function clientRoutes(app: FastifyInstance, db: Db) {
         sharing.publish !== "disabled" &&
         (d.target !== "internet" || sharing.publish === "internet");
     }
-    return { allowed, security: s };
+    return { allowed, security: s, tenantId: a.tenantId };
   });
 }

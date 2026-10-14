@@ -62,6 +62,7 @@ Header `Idempotency-Key` 最长 128 字符；同键/同人/同内容重放成功
 - `/policies/security` 采用最大数字优先级的完整规则，不合并多个命中策略。
 - `/configurations/{kind}` 的 kind 为 menus/new-chat/assistants/sharing/personal/security/network；PUT `{revision,data}` 只存草稿，POST `/publish` `{revision}` 才生效；DELETE `/draft` 放弃草稿。已发布快照有独立递增版本与历史。
 - `/api/client/configuration`（ETag）、`/assets`、`/assets/{id}/download`、`/authorize`、`/events` 为终端合同。撤权后下载/执行即时拒绝；获取快照不等于本地 Host 已执行所有策略。
+- `POST /api/client/authorize` 先验证有效订阅/席位/IP 和 `channel`（local/agents/cloud，缺省 local）。`action=execution` 返回当前 `{allowed:true,tenantId,security}`，仅确认执行上下文，不授予任意资源权限；可信 Host 再按实际能力、最终输入和每次 HTTP 目标执行裁决。其余 asset/shell/filesystem/network 动作保留原合同。
 - 内置菜单保留，自建地址 HTTPS；AI 风险前缀固定；历史全局提示词不注入。IP 空列表允许，**单独 127.0.0.1 是产品兼容的禁止全部标志**。
 
 连接器 RPC：POST `/api/client/connectors/{id}/rpc`，仅允许声明方法与 `allowedTools`。initialize 返回本地不透明 MCP-Session-Id；远端 session 加密并绑定成员、资源发布版本和有效期。凭据只由代理注入，响应中的凭据/远端 session 回显脱敏，顶层非 JSON-RPC 协议字段剥离。支持 POST JSON 与单次 SSE 响应；不提供长期服务端推送 GET 流。请求分派前重新检查成员、终端凭据范围/有效期、发布版本、安全出口；DNS 等待也受取消和截止点约束。
