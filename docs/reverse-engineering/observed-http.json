@@ -1,0 +1,5360 @@
+{
+  "authority": "network-observation",
+  "limitations": [
+    "Observed in the current account and subscription on 2026-10-14; hidden permissions and other tenants are not covered.",
+    "No explicit formal-resource save, publish, delete, purchase, key creation, or task execution was submitted. Cancelling menu editing did trigger an observed server draft DELETE; navigation is not guaranteed side-effect-free.",
+    "A request can finish after a route transition; page association is an observation window, not proof of a handler-to-request relationship. A null method was not captured and must remain unknown.",
+    "HTTP 200 and response structure do not prove application success or server-side enforcement.",
+    "Headers, query values, body values, storage values, user rows, and array sizes are omitted."
+  ],
+  "operations": [
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/current-ip",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "network"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "ip": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/agents/default",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "global-prompt",
+        "instructions"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/ai-asset-security/config",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "security-create",
+        "security-general"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "forbidHighRiskSkillInstall": "boolean",
+            "version": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/as/connector/registry/list",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "page_size",
+        "scope"
+      ],
+      "pages": [
+        "connector-create",
+        "connector-distribution",
+        "connectors",
+        "credential-create",
+        "credentials"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "list": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "total": "number"
+          }
+        },
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "list": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "id": "number",
+                  "name": "string",
+                  "scope": "string",
+                  "owner_id": "string",
+                  "auth_type": "string",
+                  "status": "string",
+                  "version": "number",
+                  "capabilities": {
+                    "type": "array",
+                    "item_shapes": []
+                  },
+                  "data": {
+                    "description": "string",
+                    "display_name": "string",
+                    "icon_url": "string"
+                  },
+                  "created_at": "string",
+                  "updated_at": "string",
+                  "mcp": {
+                    "ide_server_name": "string",
+                    "gateway_url": "string",
+                    "sandbox_url": "string",
+                    "upstream_url": "string",
+                    "transport": "string",
+                    "auth_mode": "string"
+                  },
+                  "visibility_summary": {
+                    "type": "string",
+                    "members": "number",
+                    "groups": "number",
+                    "depts": "number",
+                    "scopes": "null"
+                  },
+                  "is_connected": "boolean"
+                },
+                {
+                  "id": "number",
+                  "name": "string",
+                  "scope": "string",
+                  "owner_id": "string",
+                  "auth_type": "string",
+                  "status": "string",
+                  "version": "number",
+                  "capabilities": {
+                    "type": "array",
+                    "item_shapes": []
+                  },
+                  "data": {
+                    "display_name": "string",
+                    "icon_url": "string",
+                    "url": "string"
+                  },
+                  "created_at": "string",
+                  "updated_at": "string",
+                  "mcp": {
+                    "ide_server_name": "string",
+                    "gateway_url": "string",
+                    "sandbox_url": "string",
+                    "upstream_url": "string",
+                    "transport": "string",
+                    "auth_mode": "string"
+                  },
+                  "visibility_summary": {
+                    "type": "string",
+                    "members": "number",
+                    "groups": "number",
+                    "depts": "number",
+                    "scopes": "null"
+                  },
+                  "is_connected": "boolean"
+                },
+                {
+                  "id": "number",
+                  "name": "string",
+                  "scope": "string",
+                  "owner_id": "string",
+                  "auth_type": "string",
+                  "status": "string",
+                  "version": "number",
+                  "capabilities": {
+                    "type": "array",
+                    "item_shapes": []
+                  },
+                  "data": {
+                    "description": "string",
+                    "display_name": "string",
+                    "icon_url": "string",
+                    "prompt": "string"
+                  },
+                  "created_at": "string",
+                  "updated_at": "string",
+                  "mcp": {
+                    "ide_server_name": "string",
+                    "gateway_url": "string",
+                    "sandbox_url": "string",
+                    "upstream_url": "string",
+                    "transport": "string",
+                    "auth_mode": "string"
+                  },
+                  "visibility_summary": {
+                    "type": "string",
+                    "members": "number",
+                    "groups": "number",
+                    "depts": "number",
+                    "scopes": "null"
+                  },
+                  "is_connected": "boolean"
+                },
+                {
+                  "id": "number",
+                  "name": "string",
+                  "scope": "string",
+                  "owner_id": "string",
+                  "auth_type": "string",
+                  "status": "string",
+                  "version": "number",
+                  "capabilities": {
+                    "type": "array",
+                    "item_shapes": []
+                  },
+                  "data": {
+                    "description": "string",
+                    "display_name": "string",
+                    "icon_url": "string",
+                    "prompt": "string",
+                    "url": "string"
+                  },
+                  "created_at": "string",
+                  "updated_at": "string",
+                  "mcp": {
+                    "ide_server_name": "string",
+                    "gateway_url": "string",
+                    "sandbox_url": "string",
+                    "upstream_url": "string",
+                    "transport": "string",
+                    "auth_mode": "string"
+                  },
+                  "visibility_summary": {
+                    "type": "string",
+                    "members": "number",
+                    "groups": "number",
+                    "depts": "number",
+                    "scopes": "null"
+                  },
+                  "is_connected": "boolean"
+                },
+                {
+                  "id": "number",
+                  "name": "string",
+                  "scope": "string",
+                  "owner_id": "string",
+                  "auth_type": "string",
+                  "status": "string",
+                  "version": "number",
+                  "capabilities": {
+                    "type": "array",
+                    "item_shapes": []
+                  },
+                  "data": {
+                    "description": "string",
+                    "display_name": "string"
+                  },
+                  "created_at": "string",
+                  "updated_at": "string",
+                  "mcp": {
+                    "ide_server_name": "string",
+                    "gateway_url": "string",
+                    "sandbox_url": "string",
+                    "upstream_url": "string",
+                    "transport": "string",
+                    "auth_mode": "string"
+                  },
+                  "visibility_summary": {
+                    "type": "string",
+                    "members": "number",
+                    "groups": "number",
+                    "depts": "number",
+                    "scopes": "null"
+                  },
+                  "is_connected": "boolean"
+                },
+                {
+                  "id": "number",
+                  "name": "string",
+                  "scope": "string",
+                  "owner_id": "string",
+                  "auth_type": "string",
+                  "status": "string",
+                  "version": "number",
+                  "capabilities": {
+                    "type": "array",
+                    "item_shapes": []
+                  },
+                  "data": {
+                    "description": "string",
+                    "display_name": "string",
+                    "icon_url": "string",
+                    "url": "string"
+                  },
+                  "created_at": "string",
+                  "updated_at": "string",
+                  "mcp": {
+                    "ide_server_name": "string",
+                    "gateway_url": "string",
+                    "sandbox_url": "string",
+                    "upstream_url": "string",
+                    "transport": "string",
+                    "auth_mode": "string"
+                  },
+                  "visibility_summary": {
+                    "type": "string",
+                    "members": "number",
+                    "groups": "number",
+                    "depts": "number",
+                    "scopes": "null"
+                  },
+                  "is_connected": "boolean"
+                },
+                {
+                  "id": "number",
+                  "name": "string",
+                  "scope": "string",
+                  "owner_id": "string",
+                  "auth_type": "string",
+                  "status": "string",
+                  "version": "number",
+                  "capabilities": {
+                    "type": "array",
+                    "item_shapes": [
+                      "string"
+                    ]
+                  },
+                  "data": {
+                    "description": "string",
+                    "display_name": "string",
+                    "icon_url": "string",
+                    "url": "string"
+                  },
+                  "created_at": "string",
+                  "updated_at": "string",
+                  "visibility_summary": {
+                    "type": "string",
+                    "members": "number",
+                    "groups": "number",
+                    "depts": "number",
+                    "scopes": "null"
+                  },
+                  "is_connected": "boolean"
+                }
+              ]
+            },
+            "total": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/as/connector/registry/mcp-hub",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "connector-personal"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "hub_url": "string",
+            "effective_url": "string",
+            "is_default": "boolean",
+            "default_url": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/as/connector/registry/policies",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "page_size"
+      ],
+      "pages": [
+        "connector-distribution"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "page_size": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/as/credentials/list",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "credential-create",
+        "credentials"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "list": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "total": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/audit_log/operation-logs",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "pageSize",
+        "range.end",
+        "range.start",
+        "range.step"
+      ],
+      "pages": [
+        "operation-logs"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "operationLogs": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "action": "string",
+                  "content": "string",
+                  "createdAt": "string",
+                  "ipAddress": "string",
+                  "operatorName": "string",
+                  "serviceName": "string",
+                  "source": "string",
+                  "tenantId": "string",
+                  "userId": "string"
+                }
+              ]
+            },
+            "totalNum": "number",
+            "totalPage": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/backgroundagent/cloudProxy/channel-bindings",
+      "status": 200,
+      "query_keys": [
+        "pageSize",
+        "status"
+      ],
+      "pages": [
+        "automation-create"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "total": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/builtin-default-state/model",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "model-policies"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "item_type": "string",
+          "default_enabled": "boolean",
+          "updated_at": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/builtin-models",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "agents",
+        "automation-create",
+        "credential-create",
+        "evaluation",
+        "model-create",
+        "model-policies",
+        "models",
+        "quickstart"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "id": "string",
+                "name": "string",
+                "vendor": "string",
+                "maxOutputTokens": "number",
+                "maxInputTokens": "number",
+                "supportsToolCall": "boolean",
+                "supportsImages": "boolean",
+                "descriptionZh": "string",
+                "descriptionEn": "string",
+                "tags": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "labels": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "clients": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "serviceEndpoint": "string",
+                "status": "string",
+                "department_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "user_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "sort_order": "number"
+              },
+              {
+                "id": "string",
+                "name": "string",
+                "vendor": "string",
+                "maxOutputTokens": "number",
+                "maxInputTokens": "number",
+                "supportsToolCall": "boolean",
+                "supportsImages": "boolean",
+                "descriptionZh": "string",
+                "descriptionEn": "string",
+                "tags": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "labels": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "clients": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "serviceEndpoint": "string",
+                "status": "string",
+                "department_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "user_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "sort_order": "number"
+              },
+              {
+                "id": "string",
+                "name": "string",
+                "vendor": "string",
+                "maxOutputTokens": "number",
+                "maxInputTokens": "number",
+                "supportsToolCall": "boolean",
+                "supportsImages": "boolean",
+                "descriptionZh": "string",
+                "descriptionEn": "string",
+                "tags": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "labels": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "clients": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "serviceEndpoint": "string",
+                "status": "string",
+                "department_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "user_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "sort_order": "number"
+              },
+              {
+                "id": "string",
+                "name": "string",
+                "vendor": "string",
+                "maxOutputTokens": "number",
+                "maxInputTokens": "number",
+                "supportsToolCall": "boolean",
+                "supportsImages": "boolean",
+                "descriptionZh": "string",
+                "descriptionEn": "string",
+                "tags": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "labels": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "clients": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "serviceEndpoint": "string",
+                "status": "string",
+                "department_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "user_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "sort_order": "number"
+              },
+              {
+                "id": "string",
+                "name": "string",
+                "vendor": "string",
+                "maxOutputTokens": "number",
+                "maxInputTokens": "number",
+                "supportsToolCall": "boolean",
+                "supportsImages": "boolean",
+                "tags": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "labels": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "clients": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "serviceEndpoint": "string",
+                "status": "string",
+                "department_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "user_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "sort_order": "number"
+              },
+              {
+                "id": "string",
+                "name": "string",
+                "vendor": "string",
+                "maxOutputTokens": "number",
+                "maxInputTokens": "number",
+                "supportsToolCall": "boolean",
+                "supportsImages": "boolean",
+                "tags": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "labels": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "clients": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "serviceEndpoint": "string",
+                "status": "string",
+                "department_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "user_ids": {
+                  "type": "array",
+                  "item_shapes": []
+                },
+                "sort_order": "number"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/client-homepage/config",
+      "status": 200,
+      "query_keys": [
+        "clientId"
+      ],
+      "pages": [
+        "new-chat-config"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "client_id": "string",
+            "version": "number",
+            "has_draft": "boolean",
+            "draft": "null",
+            "published": "null",
+            "default_config": {
+              "schema_version": "number",
+              "welcome": {
+                "custom_title_enabled": "boolean",
+                "title": {
+                  "zh": "string",
+                  "en": "string"
+                },
+                "subtitle_enabled": "boolean",
+                "subtitle": {
+                  "zh": "string",
+                  "en": "string"
+                }
+              },
+              "ai_notice": {
+                "custom_suffix_enabled": "boolean",
+                "suffix": {
+                  "zh": "string",
+                  "en": "string"
+                }
+              }
+            },
+            "last_published_at": "null",
+            "last_published_by": "string",
+            "updated_at": "null"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "DELETE",
+      "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/draft",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "new-chat-config"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/draft",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "menu-edit"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "schema_version": "number",
+            "enterprise_id": "string",
+            "client_id": "string",
+            "version": "number",
+            "state": "string",
+            "base_pool_version": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "items_count": "number",
+            "enabled_count": "number",
+            "updated_at": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/preview-merged",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "client-custom",
+        "menu-edit"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "schema_version": "number",
+            "client_id": "string",
+            "pool_version": "number",
+            "base_pool_version": "number",
+            "pool_changed": "boolean",
+            "menus": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "id": "string",
+                  "kind": "string",
+                  "key": "string",
+                  "title": "string",
+                  "title_en": "string",
+                  "icon": "string",
+                  "enabled": "boolean",
+                  "order": "number",
+                  "node_type": "string",
+                  "status": "string",
+                  "schema_version": "number"
+                },
+                {
+                  "id": "string",
+                  "kind": "string",
+                  "key": "string",
+                  "title": "string",
+                  "title_en": "string",
+                  "icon": "string",
+                  "enabled": "boolean",
+                  "order": "number",
+                  "node_type": "string",
+                  "status": "string",
+                  "schema_version": "number",
+                  "children": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "kind": "string",
+                        "key": "string",
+                        "title": "string",
+                        "title_en": "string",
+                        "icon": "string",
+                        "enabled": "boolean",
+                        "order": "number",
+                        "node_type": "string",
+                        "status": "string",
+                        "schema_version": "number"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "string",
+                  "kind": "string",
+                  "key": "string",
+                  "title": "string",
+                  "title_en": "string",
+                  "icon": "string",
+                  "enabled": "boolean",
+                  "order": "number",
+                  "node_type": "string",
+                  "status": "string",
+                  "schema_version": "number",
+                  "children": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "kind": "string",
+                        "key": "string",
+                        "title": "string",
+                        "title_en": "string",
+                        "icon": "string",
+                        "enabled": "boolean",
+                        "order": "number",
+                        "node_type": "string",
+                        "status": "string",
+                        "schema_version": "number"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/published",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "client-custom",
+        "menu-edit"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": "null"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/oneid-apps",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "custom-menu-create"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/client-security/policies",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "security-client",
+        "security-create"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "pageSize": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": null,
+      "path": "/console/enterprises/{enterpriseId}/cloudagent/agents",
+      "status": 200,
+      "query_keys": [
+        "agentSource",
+        "page",
+        "pageSize"
+      ],
+      "pages": [
+        "runtimes"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "pageSize": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/cloudagent/agents",
+      "status": 200,
+      "query_keys": [
+        "agentSource",
+        "enabled",
+        "page",
+        "pageSize"
+      ],
+      "pages": [
+        "agents",
+        "automation-create"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "pageSize": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/cloudagent/runtimes",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "pageSize"
+      ],
+      "pages": [
+        "runtimes"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "pageSize": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/cloudagent/sessions",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "pageSize",
+        "status"
+      ],
+      "pages": [
+        "sessions"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "pageSize": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/connector-upload-policy",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "connector-personal"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "policy": {
+              "id": "number",
+              "item_type": "string",
+              "mode": "string",
+              "max_size_bytes": "number",
+              "require_review": "boolean",
+              "created_at": "string",
+              "updated_at": "string"
+            },
+            "whitelist_count": "number",
+            "blacklist_count": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/custom-models",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "agents",
+        "automation-create",
+        "credential-create",
+        "evaluation",
+        "model-create",
+        "model-policies",
+        "models",
+        "quickstart"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "type": "array",
+            "item_shapes": []
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/custom-models/providers",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "model-create"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "providers": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": "null",
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "key": "string",
+                        "label": "string",
+                        "i18n_label": "string",
+                        "placeholder": "string",
+                        "i18n_placeholder": "string"
+                      }
+                    ]
+                  },
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": "null",
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "key": "string",
+                        "label": "string",
+                        "i18n_label": "string",
+                        "placeholder": "string",
+                        "i18n_placeholder": "string"
+                      }
+                    ]
+                  },
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": "null",
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": "null",
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": "null",
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": "null",
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": "null",
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": "null",
+                  "requires_deployment_url": "boolean"
+                },
+                {
+                  "id": "string",
+                  "name": "string",
+                  "i18n_name": "string",
+                  "auth_types": "string",
+                  "model_backend": "string",
+                  "models": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "id": "string",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "extra_fields": "null",
+                  "requires_deployment_url": "boolean"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/custom_prompt",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "global-prompt"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "content": "string",
+            "subProductCode": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/evaluation/api-key",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "evaluation"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "status": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/evaluation/stats/overview",
+      "status": 200,
+      "query_keys": [
+        "recent_days"
+      ],
+      "pages": [
+        "evaluation"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "total_datasets": "number",
+          "total_tasks": "number",
+          "task_status_counts": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "status": "string",
+                "count": "number"
+              }
+            ]
+          },
+          "recent_window_days": "number",
+          "recent_passed_count": "number",
+          "recent_total_count": "number",
+          "recent_pass_rate": "null"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/evaluation/tasks",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "size"
+      ],
+      "pages": [
+        "evaluation"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "total": "number",
+          "items": {
+            "type": "array",
+            "item_shapes": []
+          },
+          "page": "number",
+          "size": "number"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/expert-categories",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "expert-categories",
+        "experts"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/expert-categories/managed",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "expert-categories"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "builtin_official": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "key": "string",
+                  "name": {
+                    "zh": "string",
+                    "en": "string"
+                  },
+                  "sort_order": "number",
+                  "item_count": "number"
+                }
+              ]
+            },
+            "builtin_overrides": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "custom": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/expert-policies",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "page_size"
+      ],
+      "pages": [
+        "expert-distribution"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "page_size": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/experts/admin-list",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "page_size",
+        "source"
+      ],
+      "pages": [
+        "expert-categories",
+        "experts"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "page_size": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "counts": {
+              "builtin": "number",
+              "custom": "number",
+              "total": "number"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/im-channel/config",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "assistants",
+        "mobile-channels"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "master_enabled": "boolean",
+            "channels": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "channel_key": "string",
+                  "name": "string",
+                  "category": "string",
+                  "group": "string",
+                  "kind": "string",
+                  "enabled": "boolean",
+                  "visibility": {
+                    "mode": "string",
+                    "scopes": {
+                      "type": "array",
+                      "item_shapes": []
+                    }
+                  }
+                }
+              ]
+            },
+            "updated_at": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/ip_whitelist",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "network"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "ipWhiteList": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+      "status": 200,
+      "query_keys": [
+        "filter.type",
+        "page",
+        "page_size"
+      ],
+      "pages": [
+        "agents",
+        "credential-create",
+        "evaluation",
+        "model-create",
+        "model-policies",
+        "models",
+        "quickstart"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total_count": "number",
+            "total_page": "number",
+            "knowledge_bases": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        },
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total_count": "number",
+            "total_page": "number",
+            "knowledge_bases": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "name": "string",
+                  "type": "string",
+                  "id": "string",
+                  "visible_type": "string",
+                  "user_count": "number",
+                  "description": "string",
+                  "file_num": "number",
+                  "updated_at": "number",
+                  "is_enabled": "boolean",
+                  "retrieval_count": "number",
+                  "wiki_id": "string",
+                  "wiki_url": "string",
+                  "wiki_status": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/license",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "overview"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "seatSize": "number",
+            "seatUsed": "number",
+            "pluginEnabledNum": "number",
+            "licenseExpireAt": "string",
+            "licenseStatus": "string",
+            "renewalSuiteCode": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/member-custom-model-policy",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "model-personal"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "policy_mode": "string",
+            "whitelist_count": "number",
+            "blacklist_count": "number",
+            "updated_at": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/model-policies",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "page_size"
+      ],
+      "pages": [
+        "model-policies"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "total": "number",
+            "page": "number",
+            "page_size": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/module-switch/token",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "monitor"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "moduleCode": "string",
+            "enabled": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/observability/metric-records",
+      "status": 200,
+      "query_keys": [
+        "groupBy",
+        "limit",
+        "metrics",
+        "orderBy.key",
+        "orderBy.order",
+        "range.end",
+        "range.start"
+      ],
+      "pages": [
+        "monitor"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "records": {
+              "type": "array",
+              "item_shapes": []
+            }
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/observability/metric-summary",
+      "status": 200,
+      "query_keys": [
+        "metrics",
+        "range.end",
+        "range.start"
+      ],
+      "pages": [
+        "monitor"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "fields": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "key": "string",
+                  "value": "number",
+                  "unit": "string",
+                  "momRate": "null"
+                }
+              ]
+            }
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        },
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "fields": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "key": "string",
+                  "value": "number",
+                  "unit": "string",
+                  "momRate": "null",
+                  "compareValue": "number"
+                }
+              ]
+            }
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+      "status": 200,
+      "query_keys": [
+        "filters[0].key",
+        "filters[0].op",
+        "filters[0].value",
+        "granularity",
+        "groupBy",
+        "metrics",
+        "range.end",
+        "range.start"
+      ],
+      "pages": [
+        "monitor"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "bucketSeconds": "number",
+            "lines": {
+              "type": "array",
+              "item_shapes": []
+            }
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        },
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "bucketSeconds": "number",
+            "lines": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "metric": "string",
+                  "tag": "string",
+                  "points": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "t": "number",
+                        "v": "number"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/observability/scene-filter-options",
+      "status": 200,
+      "query_keys": [
+        "range.end",
+        "range.start"
+      ],
+      "pages": [
+        "monitor"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "productScenes": {
+              "type": "array",
+              "item_shapes": [
+                "string"
+              ]
+            },
+            "agentScenes": "null",
+            "taskScenes": "null",
+            "tagKeys": {
+              "type": "array",
+              "item_shapes": []
+            }
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/observability/scene-sessions",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "pageSize",
+        "range.end",
+        "range.start"
+      ],
+      "pages": [
+        "monitor"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "records": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "total": "number",
+            "hasMore": "boolean",
+            "avgDurationMs": "number"
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/observability/trace-config",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "traces"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "traceStatus": "number",
+            "updatedAt": "string"
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": []
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/observability/trace-filter-options",
+      "status": 200,
+      "query_keys": [
+        "range.end",
+        "range.start"
+      ],
+      "pages": [
+        "traces"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "productScenes": {
+              "type": "array",
+              "item_shapes": [
+                "string"
+              ]
+            },
+            "agentScenes": "null",
+            "taskScenes": "null",
+            "tagKeys": {
+              "type": "array",
+              "item_shapes": []
+            }
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/observability/trace-stats",
+      "status": 200,
+      "query_keys": [
+        "range.end",
+        "range.start"
+      ],
+      "pages": [
+        "traces"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "conversations": {
+              "value": "number",
+              "momRate": "null"
+            },
+            "errors": {
+              "value": "number",
+              "momRate": "null"
+            },
+            "p50LatencyMs": {
+              "value": "number",
+              "momRate": "null"
+            },
+            "p99LatencyMs": {
+              "value": "number",
+              "momRate": "null"
+            },
+            "totalTokens": {
+              "value": "number",
+              "momRate": "null"
+            },
+            "p90LatencyMs": {
+              "value": "number",
+              "momRate": "null"
+            },
+            "ttftP50Ms": {
+              "value": "number",
+              "momRate": "null"
+            },
+            "ttftP90Ms": {
+              "value": "number",
+              "momRate": "null"
+            },
+            "ttftP99Ms": {
+              "value": "number",
+              "momRate": "null"
+            },
+            "credits": {
+              "value": "number",
+              "momRate": "null"
+            }
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/observability/traces",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "pageSize",
+        "range.end",
+        "range.start"
+      ],
+      "pages": [
+        "traces"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "records": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "total": "number",
+            "hasMore": "boolean",
+            "totalIsEstimated": "boolean"
+          },
+          "apmRequestIds": {
+            "type": "array",
+            "item_shapes": [
+              "string"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/overview/benefits",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "overview"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "productKey": "string",
+                  "appType": "string",
+                  "iconKey": "string",
+                  "name": "string",
+                  "builtin": {
+                    "features": {
+                      "type": "array",
+                      "item_shapes": [
+                        "string"
+                      ]
+                    },
+                    "status": "string"
+                  },
+                  "addons": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "addonKey": "string",
+                        "type": "string",
+                        "name": "string",
+                        "features": {
+                          "type": "array",
+                          "item_shapes": [
+                            "string"
+                          ]
+                        },
+                        "purchaseEnabled": "boolean"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "productKey": "string",
+                  "appType": "string",
+                  "iconKey": "string",
+                  "name": "string",
+                  "builtin": {
+                    "features": {
+                      "type": "array",
+                      "item_shapes": [
+                        "string"
+                      ]
+                    },
+                    "status": "string"
+                  },
+                  "addons": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "addonKey": "string",
+                        "type": "string",
+                        "name": "string",
+                        "features": {
+                          "type": "array",
+                          "item_shapes": [
+                            "string"
+                          ]
+                        },
+                        "purchaseEnabled": "boolean",
+                        "status": "string"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "productKey": "string",
+                  "appType": "string",
+                  "iconKey": "string",
+                  "name": "string",
+                  "builtin": {
+                    "features": {
+                      "type": "array",
+                      "item_shapes": [
+                        "string"
+                      ]
+                    },
+                    "status": "string"
+                  },
+                  "addons": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "addonKey": "string",
+                        "type": "string",
+                        "name": "string",
+                        "features": {
+                          "type": "array",
+                          "item_shapes": [
+                            "string"
+                          ]
+                        },
+                        "purchaseEnabled": "boolean"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "productKey": "string",
+                  "appType": "string",
+                  "iconKey": "string",
+                  "name": "string",
+                  "builtin": {
+                    "features": {
+                      "type": "array",
+                      "item_shapes": [
+                        "string"
+                      ]
+                    },
+                    "status": "string"
+                  },
+                  "addons": {
+                    "type": "array",
+                    "item_shapes": [
+                      {
+                        "addonKey": "string",
+                        "type": "string",
+                        "name": "string",
+                        "features": {
+                          "type": "array",
+                          "item_shapes": [
+                            "string"
+                          ]
+                        },
+                        "purchaseEnabled": "boolean"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/overview/info",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "overview"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "enterpriseId": "string",
+            "enterpriseName": "string",
+            "enterpriseLogo": "string",
+            "enterpriseCreatorId": "string",
+            "enterpriseCreatorName": "string",
+            "enterpriseType": "string",
+            "enterpriseCreatedAt": "string",
+            "accountType": "string",
+            "sso": {
+              "domain": "string",
+              "domainModifiedTimes": "number"
+            },
+            "oneidAccountId": "string",
+            "uin": "string",
+            "nameAvatarManagedByOneId": "boolean",
+            "extends": {
+              "isAgentSuite": "boolean",
+              "purchaseChannel": "string"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/overview/storage",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "overview"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "used": "number",
+            "capacity_composition": {
+              "default_gb": "number",
+              "addon_total_gb": "number",
+              "addon_max_expire_time": "number",
+              "addons": {
+                "type": "array",
+                "item_shapes": []
+              },
+              "subscription": {
+                "edition": "number",
+                "space_gb": "number",
+                "expire_time": "number",
+                "sku": "string",
+                "auto_renew": "boolean",
+                "wb_member_level": "string"
+              },
+              "total_gb": "number",
+              "remain_gb": "number"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/rbac/me",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "agents",
+        "assistants",
+        "automation-create",
+        "automation",
+        "client-custom",
+        "connector-create",
+        "connector-distribution",
+        "credential-create",
+        "credentials",
+        "dialogue-logs",
+        "drive-capacity",
+        "drive-logs",
+        "enterprise",
+        "evaluation",
+        "expert-categories",
+        "experts",
+        "global-prompt",
+        "instructions",
+        "menu-edit",
+        "metering",
+        "mobile-channels",
+        "model-create",
+        "model-policies",
+        "models",
+        "monitor",
+        "network",
+        "operation-logs",
+        "organization",
+        "overview",
+        "playbooks",
+        "quickstart",
+        "roles",
+        "runtimes",
+        "seats",
+        "security-client",
+        "security-create",
+        "security-general",
+        "sessions",
+        "sharing",
+        "skill-categories",
+        "skills",
+        "subscriptions",
+        "traces",
+        "usage-apps",
+        "usage-details",
+        "usage-members",
+        "usage-orgs"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "isCustomRole": "boolean",
+            "permissionKeys": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "menuTree": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "dataScope": {
+              "isAllDepartments": "boolean"
+            },
+            "isIOAUser": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/scheduler/admin/tasks",
+      "status": 200,
+      "query_keys": [
+        "agentType",
+        "ownerType",
+        "page",
+        "pageSize",
+        "withExecuteSummary"
+      ],
+      "pages": [
+        "automation-create",
+        "automation"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "data": {
+            "tasks": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "total": "number",
+            "page": "number",
+            "pageSize": "number"
+          },
+          "success": "boolean"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/session-logs/settings",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "dialogue-logs"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "enterprise_id": "string",
+            "enabled": "boolean",
+            "retention_days": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/share-collab/config",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "sharing"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "publishScope": "string",
+            "collabScope": "string",
+            "enableShareFile": "boolean",
+            "enableShareFileToWechat": "boolean",
+            "enableShareFileToWecom": "boolean",
+            "version": "number",
+            "enterpriseName": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/skill-categories",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "skill-categories",
+        "skills"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/skill-categories/managed",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "skill-categories"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "builtin_official": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "key": "string",
+                  "name": {
+                    "zh": "string",
+                    "en": "string"
+                  },
+                  "sort_order": "number",
+                  "item_count": "number"
+                }
+              ]
+            },
+            "builtin_overrides": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "custom": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/skill-page/assembly",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "skill-categories"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "version": "number",
+            "has_draft": "boolean",
+            "draft": "null",
+            "published": "null",
+            "default_config": {
+              "schema_version": "number",
+              "banner_enabled": "boolean",
+              "banner_max_items": "number",
+              "tabs": {
+                "type": "array",
+                "item_shapes": [
+                  {
+                    "key": "string",
+                    "name_override": {
+                      "zh": "string",
+                      "en": "string"
+                    },
+                    "visible": "boolean",
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "last_published_at": "null",
+            "last_published_by": "string",
+            "updated_at": "null"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/skill-policies",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "page_size"
+      ],
+      "pages": [
+        "skill-distribution"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "page": "number",
+            "page_size": "number",
+            "total": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/skill-upload-policy",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "skill-personal"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "policy": {
+              "id": "number",
+              "item_type": "string",
+              "mode": "string",
+              "max_size_bytes": "number",
+              "require_review": "boolean",
+              "created_at": "string",
+              "updated_at": "string"
+            },
+            "whitelist_count": "number",
+            "blacklist_count": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/skills/admin-list",
+      "status": 200,
+      "query_keys": [
+        "page",
+        "page_size",
+        "source"
+      ],
+      "pages": [
+        "evaluation",
+        "skill-categories",
+        "skills"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "page_size": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "counts": {
+              "builtin": "number",
+              "custom": "number",
+              "total": "number"
+            }
+          }
+        },
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "total": "number",
+            "page": "number",
+            "page_size": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "source": "string",
+                  "item_ref": "string",
+                  "name": "string",
+                  "display_name": "string",
+                  "display_name_zh": "string",
+                  "display_name_en": "string",
+                  "description": "string",
+                  "description_zh": "string",
+                  "description_en": "string",
+                  "icon": "string",
+                  "version": "string",
+                  "category_id": "string",
+                  "category_name": "string",
+                  "category_name_zh": "string",
+                  "category_name_en": "string",
+                  "namespace": "string",
+                  "publish_status": "string",
+                  "enabled": "boolean",
+                  "visibility_summary": {
+                    "type": "string",
+                    "members": "number",
+                    "groups": "number",
+                    "depts": "number",
+                    "scopes": "null"
+                  },
+                  "owner_dept_id": "string",
+                  "owner_dept_name": "string",
+                  "download_url": "string"
+                }
+              ]
+            },
+            "counts": {
+              "builtin": "number",
+              "custom": "number",
+              "total": "number"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/subscription/info",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "subscriptions"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "enterpriseId": "string",
+            "enterpriseName": "string",
+            "enterpriseLogo": "string",
+            "enterpriseCreatorId": "string",
+            "enterpriseCreatorName": "string",
+            "enterpriseType": "string",
+            "enterpriseCreatedAt": "string",
+            "accountType": "string",
+            "sso": {
+              "domain": "string",
+              "domainModifiedTimes": "number"
+            },
+            "oneidAccountId": "string",
+            "uin": "string",
+            "nameAvatarManagedByOneId": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/subscription/license",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "subscriptions"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "seatSize": "number",
+            "seatUsed": "number",
+            "pluginEnabledNum": "number",
+            "licenseExpireAt": "string",
+            "licenseStatus": "string",
+            "renewalSuiteCode": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/console/enterprises/{enterpriseId}/usage/app/list",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "usage-apps"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {
+          "timeRange": {
+            "startTime": "string",
+            "endTime": "string"
+          },
+          "pageNum": "number",
+          "pageSize": "number"
+        }
+      ],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "totalCount": "number",
+            "pageNum": "number",
+            "pageSize": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/usage/app/overview",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "usage-apps"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "license": {
+              "totalLicense": "number",
+              "usedLicense": "number",
+              "remainingLicense": "number",
+              "expirationDate": "string"
+            },
+            "monthlyQuota": {
+              "totalQuota": "number",
+              "usedQuota": "number",
+              "remainingQuota": "number",
+              "resetTime": "string",
+              "quotaPerLicense": "number"
+            },
+            "boostPackage": {
+              "totalPackage": "number",
+              "usedPackage": "number",
+              "remainingPackage": "number",
+              "pendingCredit": "number",
+              "pendingPackageCount": "number"
+            },
+            "hisCycleUsageDetail": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "cycleStartTime": "string",
+                  "cycleEndTime": "string"
+                }
+              ]
+            },
+            "cycleStartTime": "string",
+            "cycleEndTime": "string",
+            "limitCycleStartTime": "string",
+            "limitCycleEndTime": "string",
+            "renewFlag": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/usage/boostpackage/auto-purchase-config",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "subscriptions"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "autoRePurchaseFlag": "number",
+            "resourceId": "string",
+            "remainThreshold": "string",
+            "totalAmount": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/console/enterprises/{enterpriseId}/usage/boostpackage/list",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "subscriptions"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {
+          "pageNum": "number",
+          "pageSize": "number",
+          "status": {
+            "type": "array",
+            "item_shapes": [
+              "number"
+            ]
+          }
+        }
+      ],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "totalCount": "number",
+            "pageNum": "number",
+            "pageSize": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/usage/cycle",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "metering"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "cycleMode": "string",
+            "limitCycleStartTime": "string",
+            "limitCycleEndTime": "string",
+            "packageCycleStartTime": "string",
+            "packageCycleEndTime": "string",
+            "isTencentEnterprise": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/usage/department/cycles",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "usage-orgs"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "hisCycleUsageDetail": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "cycleStartTime": "string",
+                  "cycleEndTime": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/console/enterprises/{enterpriseId}/usage/department/list",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "usage-orgs"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {
+          "timeRange": {
+            "startTime": "string",
+            "endTime": "string"
+          },
+          "parentId": "string",
+          "pageNum": "number",
+          "pageSize": "number"
+        }
+      ],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "departmentId": "string",
+                  "departmentName": "string",
+                  "parentId": "string",
+                  "cycleUsage": "number",
+                  "ownUsage": "number",
+                  "usagePercent": "number",
+                  "cycleLimit": "null",
+                  "memberDefaultType": "string",
+                  "memberDefaultLimit": "null",
+                  "children": {
+                    "type": "array",
+                    "item_shapes": []
+                  },
+                  "hasChildren": "boolean"
+                }
+              ]
+            },
+            "totalCount": "number",
+            "pageNum": "number",
+            "pageSize": "number",
+            "statsStartDate": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/console/enterprises/{enterpriseId}/usage/detail/list",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "usage-details"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {
+          "timeRange": {
+            "startTime": "string",
+            "endTime": "string"
+          },
+          "pageNum": "number",
+          "pageSize": "number",
+          "version": "number",
+          "pageToken": "string"
+        }
+      ],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "recordId": "string",
+                  "requestId": "string",
+                  "eventType": "string",
+                  "eventId": "string",
+                  "messageId": "string",
+                  "triggerId": "string",
+                  "userId": "string",
+                  "userName": "string",
+                  "departmentId": "string",
+                  "departmentInfo": "null",
+                  "oneidAliasId": "string",
+                  "oneidUnionId": "string",
+                  "unionId": "string",
+                  "openUserId": "string",
+                  "modelName": "string",
+                  "client": "string",
+                  "principalType": "string",
+                  "clientId": "string",
+                  "appType": "string",
+                  "instanceId": "string",
+                  "appName": "string",
+                  "usageTime": "string",
+                  "creditConsumed": "number",
+                  "packageId": "string",
+                  "consumptionType": "string"
+                }
+              ]
+            },
+            "totalCount": "number",
+            "pageNum": "number",
+            "pageSize": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/console/enterprises/{enterpriseId}/usage/member/list",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "usage-members"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {
+          "timeRange": {
+            "startTime": "string",
+            "endTime": "string"
+          },
+          "pageNum": "number",
+          "pageSize": "number",
+          "mode": "string"
+        }
+      ],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "items": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "userId": "string",
+                  "userName": "string",
+                  "accountName": "string",
+                  "departmentId": "string",
+                  "departmentInfo": "null",
+                  "monthlyQuotaUsed": "number",
+                  "boostPackageUsed": "number",
+                  "totalUsed": "number",
+                  "cycleLimit": "number",
+                  "cycleLimitDisplay": "string",
+                  "productInfo": "null",
+                  "authStatus": "string",
+                  "unionId": "string",
+                  "openUserId": "string",
+                  "oneidUserId": "string"
+                },
+                {
+                  "userId": "string",
+                  "userName": "string",
+                  "accountName": "string",
+                  "departmentId": "string",
+                  "departmentInfo": "null",
+                  "monthlyQuotaUsed": "number",
+                  "boostPackageUsed": "number",
+                  "totalUsed": "number",
+                  "cycleLimit": "number",
+                  "cycleLimitDisplay": "string",
+                  "productInfo": "null",
+                  "authStatus": "string",
+                  "unionId": "string",
+                  "openUserId": "string",
+                  "oneidUserName": "string",
+                  "oneidUserId": "string"
+                }
+              ]
+            },
+            "totalCount": "number",
+            "pageNum": "number",
+            "pageSize": "number",
+            "exclusiveGiftColumnVisible": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/usage/member/overview",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "usage-members"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "license": {
+              "totalLicense": "number",
+              "usedLicense": "number",
+              "remainingLicense": "number",
+              "expirationDate": "string"
+            },
+            "monthlyQuota": {
+              "totalQuota": "number",
+              "usedQuota": "number",
+              "remainingQuota": "number",
+              "resetTime": "string",
+              "quotaPerLicense": "number"
+            },
+            "boostPackage": {
+              "totalPackage": "number",
+              "usedPackage": "number",
+              "remainingPackage": "number",
+              "pendingCredit": "number",
+              "pendingPackageCount": "number"
+            },
+            "hisCycleUsageDetail": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "cycleStartTime": "string",
+                  "cycleEndTime": "string"
+                }
+              ]
+            },
+            "cycleStartTime": "string",
+            "cycleEndTime": "string",
+            "limitCycleStartTime": "string",
+            "limitCycleEndTime": "string",
+            "renewFlag": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/usage/overview/summary",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "overview"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "license": {
+              "totalLicense": "number",
+              "usedLicense": "number",
+              "remainingLicense": "number",
+              "expirationDate": "string"
+            },
+            "monthlyQuota": {
+              "totalQuota": "number",
+              "usedQuota": "number",
+              "remainingQuota": "number",
+              "resetTime": "string",
+              "quotaPerLicense": "number"
+            },
+            "boostPackage": {
+              "totalPackage": "number",
+              "usedPackage": "number",
+              "remainingPackage": "number",
+              "pendingCredit": "number",
+              "pendingPackageCount": "number"
+            },
+            "hisCycleUsageDetail": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "cycleStartTime": "string",
+                  "cycleEndTime": "string"
+                }
+              ]
+            },
+            "cycleStartTime": "string",
+            "cycleEndTime": "string",
+            "limitCycleStartTime": "string",
+            "limitCycleEndTime": "string",
+            "renewFlag": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/usage/subscription/overview",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "subscriptions"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "license": {
+              "totalLicense": "number",
+              "usedLicense": "number",
+              "remainingLicense": "number",
+              "expirationDate": "string"
+            },
+            "monthlyQuota": {
+              "totalQuota": "number",
+              "usedQuota": "number",
+              "remainingQuota": "number",
+              "resetTime": "string",
+              "quotaPerLicense": "number"
+            },
+            "boostPackage": {
+              "totalPackage": "number",
+              "usedPackage": "number",
+              "remainingPackage": "number",
+              "pendingCredit": "number",
+              "pendingPackageCount": "number"
+            },
+            "hisCycleUsageDetail": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "cycleStartTime": "string",
+                  "cycleEndTime": "string"
+                }
+              ]
+            },
+            "cycleStartTime": "string",
+            "cycleEndTime": "string",
+            "limitCycleStartTime": "string",
+            "limitCycleEndTime": "string",
+            "renewFlag": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/console/enterprises/{enterpriseId}/usage/suite-product/overview",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "overview"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "cycleStartTime": "string",
+            "cycleEndTime": "string",
+            "totalUsed": "number",
+            "items": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/bff/config/apps",
+      "status": 200,
+      "query_keys": [
+        "app_types",
+        "version"
+      ],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "toa": {
+            "detect_ioa_login": "boolean",
+            "app_type": "string",
+            "agreement_template": "string",
+            "background_uri": "string",
+            "client_name": "string",
+            "logo_uri": "string",
+            "logo_with_text_uri": "string",
+            "policy_uri": "string",
+            "tos_uri": "string",
+            "client_type": "string",
+            "app_name": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v1/account/settings",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "account": {
+            "features": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "uid": "number",
+                  "name": "string",
+                  "code": "string",
+                  "enabled": "boolean",
+                  "description": "string",
+                  "version": "string",
+                  "properties": "string",
+                  "extras": "string"
+                }
+              ]
+            },
+            "apps": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "appName": "string",
+                  "Name": "string",
+                  "appType": "string",
+                  "appUid": "string",
+                  "appLogo": "string",
+                  "vendorType": "string"
+                }
+              ]
+            }
+          },
+          "system": {
+            "smsEnabled": "boolean",
+            "skipCreatorMobileCheck": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v1/object/User/display",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "isDefault": "boolean",
+          "settings": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "fieldCode": "string",
+                "fieldName": "string",
+                "visible": "boolean"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v1/quotas",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "quotas": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "resourceType": "string",
+                "dimension": "string",
+                "limit": "number",
+                "occupied": "number"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v1/users/beginnerGuide/modules",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "modules": "null"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v2/account/contacts",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "enterprise"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "contacts": {
+            "type": "array",
+            "item_shapes": []
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v2/account/definition",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "account_definitions": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "switch_option": "string",
+                "definition_type": "number"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v2/account/enterpriseSizes",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "enterprise"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "enterpriseSizes": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "id": "string",
+                "name": "string"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v2/account/industryTypes",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "enterprise"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "industryTypes": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "id": "string",
+                "name": "string"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v2/blackAndWhiteList",
+      "status": 200,
+      "query_keys": [
+        "accountId",
+        "group"
+      ],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "groups": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "group": "string",
+                "whiteList": {
+                  "type": "array",
+                  "item_shapes": [
+                    {
+                      "accountId": "string",
+                      "isEmailRepeatable": "boolean",
+                      "isLargeEnterprise": "boolean",
+                      "is_license_gray_account": "boolean",
+                      "is_invitation_sms_account": "boolean",
+                      "is_reset_pwd_sms_account": "boolean"
+                    }
+                  ]
+                },
+                "blackList": "null"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v2/certify/method",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "roles"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "mfaMethod": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/oneid/admin/v2/check_gray",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {
+          "is_all": "boolean"
+        }
+      ],
+      "response_shapes": [
+        {
+          "result": {
+            "app_operation_gray": "boolean",
+            "dep_user_count_query_gray": "boolean",
+            "sso": "boolean",
+            "sync": "boolean",
+            "users": "boolean"
+          },
+          "hit_new_ui": "boolean",
+          "hit_billing": "boolean"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v2/users:find_by_department",
+      "status": 200,
+      "query_keys": [
+        "isDirectlyAffiliated",
+        "isOrder",
+        "pageSize",
+        "unitId"
+      ],
+      "pages": [
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "users": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "aliasId": "string",
+                "name": "string",
+                "mobile": "string",
+                "email": "string",
+                "username": "string",
+                "unitIds": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "unitNames": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "status": "string",
+                "position": "string",
+                "employeeNo": "string",
+                "joinTime": "string",
+                "isCreator": "boolean",
+                "extras": "string",
+                "avatarUrl": "string",
+                "unitFullIds": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "accountUserType": "string",
+                "licenseApps": {
+                  "type": "array",
+                  "item_shapes": [
+                    {
+                      "app_type": "string",
+                      "app_name": "string",
+                      "app_id": "string",
+                      "feature_info_list": {
+                        "type": "array",
+                        "item_shapes": [
+                          {
+                            "feature_id": "string",
+                            "license_access_status": "number"
+                          }
+                        ]
+                      },
+                      "app_logo": "string"
+                    }
+                  ]
+                },
+                "main_department_id": "string",
+                "main_department_name": "string",
+                "pin_num": "number",
+                "pin_first": "boolean",
+                "pin_last": "boolean",
+                "unionId": "string",
+                "canEdit": "boolean",
+                "wbId": "string"
+              }
+            ]
+          },
+          "total": "number",
+          "has_more": "boolean",
+          "page_token": "string",
+          "order_page_token": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/account",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "name": "string",
+          "accountId": "string",
+          "nameUpdateAt": "string",
+          "nameCanChange": "boolean",
+          "domain": "string",
+          "sourceName": "string",
+          "logoUrl": "string",
+          "usernameStatus": "string",
+          "domainModified": "boolean",
+          "emailDomains": "null",
+          "certifyStatus": "number",
+          "certifyMsg": "string",
+          "certifyCompleteTime": "string",
+          "uin": "string",
+          "enterpriseSize": "string",
+          "industryType": "string",
+          "accountType": "number",
+          "ssoSwitch": "boolean",
+          "account_version": "string",
+          "isBuddyOneAccount": "boolean",
+          "isSlaveAccount": "boolean",
+          "masterAccountId": "string",
+          "isWecomAccount": "boolean",
+          "isTencentAccount": "boolean",
+          "aliasId": "string",
+          "console_form": "number",
+          "has_buddyone_role": "boolean",
+          "show_wb_migration_popup": "boolean"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/departments/roots",
+      "status": 200,
+      "query_keys": [
+        "skipCheckScope"
+      ],
+      "pages": [
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "roots": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "id": "string",
+                "aliasId": "string",
+                "name": "string",
+                "fullPath": "string",
+                "fullName": "string",
+                "status": "string",
+                "visible": "boolean",
+                "hasChild": "boolean",
+                "hasMember": "boolean",
+                "totalMembers": "number",
+                "canEdit": "boolean",
+                "parentId": "null",
+                "desc": "null"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/license/access/seat_assignments",
+      "status": 200,
+      "query_keys": [
+        "assignType",
+        "featureId",
+        "pageSize"
+      ],
+      "pages": [
+        "seats"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "total": "string",
+          "items": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "assignType": "number",
+                "name": "string",
+                "ruleId": "string",
+                "depUid": "string",
+                "depFullName": "string",
+                "deptUserCount": "string",
+                "unionId": "string",
+                "licenseAccessId": "string",
+                "createdAt": "string",
+                "memberDeptNames": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "canEdit": "boolean",
+                "aliasId": "string"
+              }
+            ]
+          },
+          "nextCursor": "string",
+          "hasMore": "boolean"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/license/banner",
+      "status": 200,
+      "query_keys": [
+        "scene"
+      ],
+      "pages": [
+        "seats"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "scene": "string",
+          "logo": "string",
+          "title": "string",
+          "text": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/license/quota/app/ztPxdKSUDy6sAUE7azhv5g0v",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "seats"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "appId": "string",
+          "appName": "string",
+          "appType": "string",
+          "appLogo": "string",
+          "expireTime": "number",
+          "payUrl": "string",
+          "resource_management_url": "string",
+          "planName": "string",
+          "resources": "null",
+          "transferTips": "null",
+          "groups": {
+            "type": "array",
+            "item_shapes": []
+          },
+          "quotas": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "featureId": "string",
+                "featureName": "string",
+                "desc": "string",
+                "limit": "string",
+                "used": "string",
+                "showExpandEntry": "boolean"
+              }
+            ]
+          },
+          "showRenewEntry": "boolean",
+          "renewUrl": "string",
+          "expandUrl": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/menu_tree",
+      "status": 200,
+      "query_keys": [
+        "ui_code"
+      ],
+      "pages": [
+        "drive-capacity",
+        "organization",
+        "seats"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "menus": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "code": "string",
+                "name": "string",
+                "type": "string",
+                "settings": {
+                  "order": "number"
+                },
+                "children": {
+                  "type": "array",
+                  "item_shapes": [
+                    {
+                      "code": "string",
+                      "name": "string",
+                      "type": "string",
+                      "settings": {
+                        "isSuper": "boolean",
+                        "order": "number",
+                        "path": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "code": "string",
+                "name": "string",
+                "type": "string",
+                "settings": {
+                  "isSuper": "boolean",
+                  "order": "number",
+                  "path": "string"
+                }
+              },
+              {
+                "code": "string",
+                "name": "string",
+                "type": "string",
+                "settings": {
+                  "order": "number",
+                  "path": "string"
+                }
+              },
+              {
+                "code": "string",
+                "name": "string",
+                "type": "string",
+                "settings": {
+                  "order": "number"
+                },
+                "children": {
+                  "type": "array",
+                  "item_shapes": [
+                    {
+                      "code": "string",
+                      "name": "string",
+                      "type": "string",
+                      "settings": {
+                        "isSuper": "boolean",
+                        "order": "number",
+                        "path": "string"
+                      }
+                    },
+                    {
+                      "code": "string",
+                      "name": "string",
+                      "type": "string",
+                      "settings": {
+                        "is_saas_app": "boolean",
+                        "order": "number",
+                        "path": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "code": "string",
+                "name": "string",
+                "type": "string",
+                "settings": {
+                  "entries": {
+                    "type": "array",
+                    "item_shapes": [
+                      "string"
+                    ]
+                  },
+                  "is_saas_app": "boolean",
+                  "order": "number",
+                  "path": "string",
+                  "styles": {
+                    "type": "array",
+                    "item_shapes": [
+                      "string"
+                    ]
+                  },
+                  "suffix": "string"
+                },
+                "children": {
+                  "type": "array",
+                  "item_shapes": [
+                    {
+                      "code": "string",
+                      "name": "string",
+                      "type": "string",
+                      "settings": {
+                        "is_saas_app": "boolean",
+                        "order": "number",
+                        "path": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "code": "string",
+                "name": "string",
+                "type": "string",
+                "settings": {
+                  "entries": {
+                    "type": "array",
+                    "item_shapes": [
+                      "string"
+                    ]
+                  },
+                  "filterSsoAppTypes": {
+                    "type": "array",
+                    "item_shapes": [
+                      "string"
+                    ]
+                  },
+                  "icon": "string",
+                  "isSuper": "boolean",
+                  "is_saas_app": "boolean",
+                  "order": "number",
+                  "styles": {
+                    "type": "array",
+                    "item_shapes": [
+                      "string"
+                    ]
+                  },
+                  "suffix": "string"
+                },
+                "children": {
+                  "type": "array",
+                  "item_shapes": [
+                    {
+                      "code": "string",
+                      "name": "string",
+                      "type": "string",
+                      "settings": {
+                        "icon": "string",
+                        "is_saas_app": "boolean",
+                        "name": "string",
+                        "newIcon": "string",
+                        "order": "number",
+                        "path": "string"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "ui_list": {
+            "type": "array",
+            "item_shapes": []
+          },
+          "wb_extra_info": {
+            "uid": "string"
+          }
+        },
+        {
+          "menus": "null",
+          "ui_list": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "code": "string",
+                "name": "string",
+                "type": "string",
+                "settings": "null"
+              }
+            ]
+          },
+          "wb_extra_info": {
+            "uid": "string"
+          }
+        },
+        {
+          "menus": "null",
+          "ui_list": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "code": "string",
+                "name": "string",
+                "type": "string",
+                "settings": {}
+              }
+            ]
+          },
+          "wb_extra_info": {
+            "uid": "string"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/oneid/admin/v3/permissions/users/find_by_role",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "roles"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {
+          "role_id": "string",
+          "page_size": "number",
+          "page_token": "string"
+        }
+      ],
+      "response_shapes": [
+        {
+          "users": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "unionId": "string",
+                "aliasId": "string",
+                "name": "string",
+                "mobile": "string",
+                "email": "string",
+                "username": "string",
+                "unitIds": "null",
+                "status": "string",
+                "position": "string",
+                "employeeNo": "string",
+                "joinTime": "string",
+                "isCreator": "boolean",
+                "extras": "string",
+                "unitFullIds": "null",
+                "accountUserType": "string",
+                "licenseApps": "null",
+                "roleIds": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "roleNames": {
+                  "type": "array",
+                  "item_shapes": [
+                    "string"
+                  ]
+                },
+                "canEdit": "boolean",
+                "manageScope": {
+                  "scope_type": "number"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/roles",
+      "status": 200,
+      "query_keys": [
+        "with_role_belong"
+      ],
+      "pages": [
+        "roles"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "belong_roles": {
+            "type": "array",
+            "item_shapes": [
+              {
+                "role_belong": "number",
+                "roles": {
+                  "type": "array",
+                  "item_shapes": [
+                    {
+                      "role_id": "string",
+                      "name": "string",
+                      "desc": "string",
+                      "role_type": "number",
+                      "alias_id": "string",
+                      "account_id": "string",
+                      "level": "number",
+                      "assign_perm_downward": "boolean",
+                      "can_edit": "boolean",
+                      "members": {
+                        "type": "array",
+                        "item_shapes": [
+                          {
+                            "union_id": "string",
+                            "name": "string",
+                            "is_account_creator": "boolean"
+                          }
+                        ]
+                      },
+                      "parent_role_id": "string",
+                      "parent_role_name": "string",
+                      "role_user_number": "number"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "roles": "null"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/roles/general_config",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "service_code_role_belong": {
+            "Ardot": "number",
+            "BuddyOne": "number",
+            "CodeBuddy": "number",
+            "Drive": "number",
+            "OneID": "number"
+          },
+          "role_belong_admin_name": {
+            "1": "string",
+            "162": "string",
+            "24": "string",
+            "26": "string",
+            "31": "string"
+          },
+          "service_code_role_id": {
+            "Ardot": "string",
+            "BuddyOne": "string",
+            "CodeBuddy": "string",
+            "Drive": "string",
+            "OneID": "string"
+          },
+          "enable_create_role_role_belongs": {
+            "type": "array",
+            "item_shapes": [
+              "number"
+            ]
+          },
+          "enable_edit_manage_scope_role_ids": {
+            "type": "array",
+            "item_shapes": []
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/roles/join",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-capacity",
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "type": "array",
+          "item_shapes": [
+            {
+              "role_id": "string",
+              "name": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/admin/v3/users/inactivate/count",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "organization"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "count": "number"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/oneid/suite/tdrive/be/v1/admin/capacity-policy/get",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-capacity"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {}
+      ],
+      "response_shapes": [
+        {
+          "retcode": "number",
+          "msg": "string",
+          "result": {
+            "used_bytes": "string",
+            "available_bytes": "string",
+            "usage_rate": "number",
+            "total_bytes": "string",
+            "global_default_space_gb": "string",
+            "global_default_is_unlimited": "boolean",
+            "overrides": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/oneid/suite/tdrive/be/v1/admin/oplog/export/tasks",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-logs"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {}
+      ],
+      "response_shapes": [
+        {
+          "retcode": "number",
+          "msg": "string",
+          "result": {
+            "tasks": {
+              "type": "array",
+              "item_shapes": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "POST",
+      "path": "/oneid/suite/tdrive/be/v1/admin/oplog/list",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "drive-logs"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [
+        {
+          "asc": "boolean",
+          "offset": "number",
+          "limit": "number"
+        }
+      ],
+      "response_shapes": [
+        {
+          "retcode": "number",
+          "msg": "string",
+          "result": {
+            "op_logs": {
+              "type": "array",
+              "item_shapes": []
+            },
+            "next_sorted_id": "string",
+            "total": "number"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/v1/authn/settings",
+      "status": 200,
+      "query_keys": [
+        "accountId"
+      ],
+      "pages": [
+        "enterprise"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "account": {
+            "brands": {
+              "position": "string",
+              "backgroundType": "string",
+              "imageUrl": "string",
+              "color": "string",
+              "fillingType": "string",
+              "customCssEnabled": "boolean",
+              "css": "string",
+              "template": "string",
+              "id": "string"
+            },
+            "companyInfo": {
+              "logoUrl": "string",
+              "companyName": "string"
+            },
+            "apps": {
+              "type": "array",
+              "item_shapes": [
+                {
+                  "name": "string",
+                  "appType": "string",
+                  "vendorType": "string"
+                }
+              ]
+            },
+            "isSlaveAccount": "boolean"
+          },
+          "system": {
+            "smsEnabled": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": null,
+      "path": "/oneid/v1/authn:get_self_v3",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "runtimes"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "data": {
+            "accountUser": {
+              "name": "string",
+              "avatarUrl": "string",
+              "unionId": "string",
+              "units": {
+                "type": "array",
+                "item_shapes": [
+                  "string"
+                ]
+              },
+              "isCreator": "boolean",
+              "username": "string",
+              "aliasId": "string",
+              "fuzzyMobile": "string",
+              "isPasswordSet": "boolean",
+              "email": "string",
+              "employeeNo": "string",
+              "joinTime": "string",
+              "position": "string",
+              "emailAccount": "string",
+              "isEmailPasswordSet": "boolean",
+              "mobile": "string",
+              "isEmailPersonPasswordSet": "boolean"
+            },
+            "user": {
+              "fuzzyMobile": "string",
+              "isPasswordSet": "boolean",
+              "isCreator": "boolean",
+              "weChat": "string",
+              "isWeComBound": "boolean",
+              "personVerify": {
+                "type": "array",
+                "item_shapes": [
+                  "string"
+                ]
+              },
+              "mobile": "string"
+            },
+            "authenticationMethod": "string",
+            "personStatus": "string"
+          },
+          "errCode": "string",
+          "errMessage": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/oneid/v1/authn:get_self_v3",
+      "status": 200,
+      "query_keys": [],
+      "pages": [
+        "agents",
+        "assistants",
+        "connector-create",
+        "connector-distribution",
+        "connectors",
+        "drive-capacity",
+        "enterprise",
+        "expert-categories",
+        "expert-distribution",
+        "experts",
+        "mobile-channels",
+        "model-create",
+        "model-policies",
+        "models",
+        "organization",
+        "security-client",
+        "security-create",
+        "skill-categories",
+        "skill-distribution",
+        "skills",
+        "usage-details",
+        "usage-members",
+        "usage-orgs"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "data": {
+            "accountUser": {
+              "name": "string",
+              "avatarUrl": "string",
+              "unionId": "string",
+              "units": {
+                "type": "array",
+                "item_shapes": [
+                  "string"
+                ]
+              },
+              "isCreator": "boolean",
+              "username": "string",
+              "aliasId": "string",
+              "fuzzyMobile": "string",
+              "isPasswordSet": "boolean",
+              "email": "string",
+              "employeeNo": "string",
+              "joinTime": "string",
+              "position": "string",
+              "emailAccount": "string",
+              "isEmailPasswordSet": "boolean",
+              "mobile": "string",
+              "isEmailPersonPasswordSet": "boolean"
+            },
+            "user": {
+              "fuzzyMobile": "string",
+              "isPasswordSet": "boolean",
+              "isCreator": "boolean",
+              "weChat": "string",
+              "isWeComBound": "boolean",
+              "personVerify": {
+                "type": "array",
+                "item_shapes": [
+                  "string"
+                ]
+              },
+              "mobile": "string"
+            },
+            "authenticationMethod": "string",
+            "personStatus": "string"
+          },
+          "errCode": "string",
+          "errMessage": "string"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.workbuddy.cn",
+      "method": "GET",
+      "path": "/v2/plugin/login/gray-decision",
+      "status": 200,
+      "query_keys": [
+        "enterprise_id",
+        "feature"
+      ],
+      "pages": [
+        "skill-distribution"
+      ],
+      "statuses": [
+        200
+      ],
+      "request_shapes": [],
+      "response_shapes": [
+        {
+          "code": "number",
+          "msg": "string",
+          "requestId": "string",
+          "data": {
+            "enabled": "boolean",
+            "reason": "string",
+            "ip": "string"
+          }
+        }
+      ]
+    }
+  ]
+}

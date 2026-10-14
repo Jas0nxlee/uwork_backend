@@ -1,0 +1,4553 @@
+{
+  "authority": "ui-observation",
+  "limitations": [
+    "Observed in the current account and subscription on 2026-10-14; hidden permissions and other tenants are not covered.",
+    "No explicit formal-resource save, publish, delete, purchase, key creation, or task execution was submitted. Cancelling menu editing did trigger an observed server draft DELETE; navigation is not guaranteed side-effect-free.",
+    "A request can finish after a route transition; page association is an observation window, not proof of a handler-to-request relationship. A null method was not captured and must remain unknown.",
+    "HTTP 200 and response structure do not prove application success or server-side enforcement.",
+    "Headers, query values, body values, storage values, user rows, and array sizes are omitted."
+  ],
+  "pages": [
+    {
+      "key": "agents",
+      "group": "企业智能体",
+      "label": "Agents",
+      "path": "/admin/cloud-agent/template/list",
+      "captured_at": "2026-10-14T21:34:07+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索 Agent 名称或 ID...",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "创建 Agent",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/agents.json",
+        "screenshot": "evidence/workbuddy/agents.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/builtin-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/cloudagent/agents",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "assistants",
+      "group": "客户端配置",
+      "label": "助理设置",
+      "path": "/admin/client-config/channel",
+      "captured_at": "2026-10-14T21:31:40+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/assistants.json",
+        "screenshot": "evidence/workbuddy/assistants.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/im-channel/config",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "automation-create",
+      "group": "企业智能体",
+      "label": "新建任务",
+      "path": "/admin/cloud-agent/automation/list",
+      "captured_at": "2026-10-14T21:36:07+0800",
+      "columns": [
+        "名称",
+        "频率/Cron",
+        "模型",
+        "最近执行",
+        "下次执行",
+        "创建人",
+        "启用",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索任务名称...",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部状态",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "例：AI 资讯日报",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "选填，用于说明任务用途",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "开始日期",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "结束日期",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "选择要关联的 Agent",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "默认使用 Agent 配置的模型",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "请输入 Agent 任务指令…",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [
+        "名称",
+        "名称",
+        "描述",
+        "描述",
+        "频率",
+        "频率",
+        "每天",
+        "间隔",
+        "单次",
+        "生效区间",
+        "生效区间",
+        "配置方式",
+        "配置方式",
+        "选择 Agent",
+        "选择 Agent",
+        "模型",
+        "模型",
+        "执行指令",
+        "执行指令"
+      ],
+      "buttons": [
+        "Markdown 预览",
+        "保存",
+        "关联 Agent\n基于已有 Agent 配置创建沙箱执行",
+        "取消",
+        "帮助文档",
+        "新建任务",
+        "编辑",
+        "自定义\n手动填写模型和执行指令"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/automation-create.json",
+        "screenshot": "evidence/workbuddy/automation-create.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/scheduler/admin/tasks",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/cloudagent/agents",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/backgroundagent/cloudProxy/channel-bindings",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/builtin-models",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "automation",
+      "group": "企业智能体",
+      "label": "自动化任务",
+      "path": "/admin/cloud-agent/automation/list",
+      "captured_at": "2026-10-14T21:30:51+0800",
+      "columns": [
+        "名称",
+        "频率/Cron",
+        "模型",
+        "最近执行",
+        "下次执行",
+        "创建人",
+        "启用",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索任务名称...",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部状态",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档",
+        "新建任务"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/automation.json",
+        "screenshot": "evidence/workbuddy/automation.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/scheduler/admin/tasks",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "client-custom",
+      "group": "客户端配置",
+      "label": "客户端定制",
+      "path": "/admin/client-config/custom",
+      "captured_at": "2026-10-14T21:31:37+0800",
+      "columns": [
+        "序号",
+        "图标",
+        "菜单",
+        "类型",
+        "启用",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档",
+        "编辑菜单"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/client-custom.json",
+        "screenshot": "evidence/workbuddy/client-custom.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/published",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/preview-merged",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "connector-create",
+      "group": "AI 资源管理",
+      "label": "新建连接器",
+      "path": "/admin/ai-resource/connectors/list",
+      "captured_at": "2026-10-14T21:39:22+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索连接器名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "企业内唯一，英文/数字/中划线/下划线，创建后不可修改",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "用户端展示的名称，如 “企业 GitHub”",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "一句话说明此连接器的用途",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "连接器官网或控制台地址",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "your-client-id",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "password",
+          "placeholder": "your-client-secret",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "https://example.com/oauth/authorize",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "https://example.com/oauth/token",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "read,write (逗号分隔)",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "https://api.example.com/user",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "login 或 name",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "X-API-Key 或 Authorization",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "Bearer ",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "https://api.example.com",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "password",
+          "placeholder": "ghp_xxxxxxxxxxxx",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择本企业已创建的自建应用",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "https://docs.qq.com/openapi/mcp",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [
+        "自定义",
+        "内置",
+        "标识（name）",
+        "标识（name）",
+        "显示名称",
+        "显示名称",
+        "描述",
+        "描述",
+        "首页 URL",
+        "首页 URL",
+        "全员可见",
+        "指定可见范围",
+        "认证类型",
+        "认证类型",
+        "Client ID",
+        "Client ID",
+        "Client Secret",
+        "Client Secret",
+        "Authorization URL",
+        "Authorization URL",
+        "Token URL",
+        "Token URL",
+        "Scopes",
+        "Scopes",
+        "User Info Endpoint",
+        "User Info Endpoint",
+        "User Info Name Path",
+        "User Info Name Path",
+        "Redirect URL",
+        "Redirect URL",
+        "Key 字段名（Header Name）",
+        "Key 字段名（Header Name）",
+        "Key 前缀",
+        "Key 前缀",
+        "Base URL / Endpoint",
+        "Base URL / Endpoint",
+        "作为 MCP Server",
+        "作为 MCP Server",
+        "Transport",
+        "Transport",
+        "Token",
+        "Token",
+        "选择自建应用",
+        "选择自建应用",
+        "MCP Server URL",
+        "MCP Server URL",
+        "Transport",
+        "Transport",
+        "启用 MCP Gateway 代理",
+        "启用 MCP Gateway 代理"
+      ],
+      "buttons": [
+        "下一步",
+        "取消",
+        "帮助文档",
+        "新建连接器"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/connector-create.json",
+        "screenshot": "evidence/workbuddy/connector-create.png"
+      },
+      "embedded_paths": [
+        "/wwopen/ww-open-data-frame"
+      ],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/connector/registry/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "connector-distribution",
+      "group": "AI 资源管理",
+      "label": "下发策略",
+      "path": "/admin/ai-resource/connectors/list",
+      "captured_at": "2026-10-14T21:38:27+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索策略名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [
+        "全部状态",
+        "白名单",
+        "黑名单"
+      ],
+      "buttons": [
+        "+ 新建策略",
+        "帮助文档",
+        "权限查询"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/connector-distribution.json",
+        "screenshot": "evidence/workbuddy/connector-distribution.png"
+      },
+      "embedded_paths": [
+        "/wwopen/ww-open-data-frame"
+      ],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/connector/registry/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/connector/registry/policies",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "connector-personal",
+      "group": "AI 资源管理",
+      "label": "自定义连接器",
+      "path": "/admin/ai-resource/connectors/list",
+      "captured_at": "2026-10-14T21:38:29+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "修改",
+        "修改策略",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/connector-personal.json",
+        "screenshot": "evidence/workbuddy/connector-personal.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/connector/registry/mcp-hub",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/connector-upload-policy",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "connectors",
+      "group": "AI 资源管理",
+      "label": "连接器管理",
+      "path": "/admin/ai-resource/connectors/list",
+      "captured_at": "2026-10-14T21:31:16+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索连接器名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档",
+        "新建连接器"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/connectors.json",
+        "screenshot": "evidence/workbuddy/connectors.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/connector/registry/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "credential-create",
+      "group": "企业智能体",
+      "label": "添加凭据",
+      "path": "/admin/cloud-agent/credential/list",
+      "captured_at": "2026-10-14T21:36:00+0800",
+      "columns": [
+        "名称",
+        "Connector类型",
+        "认证方式",
+        "值",
+        "状态",
+        "更新时间",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索名称...",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "状态",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "服务",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "认证",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "选择要配置凭据的 Connector",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "如：生产 GitHub Token",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "用途说明（可选）",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "下一步",
+        "取消",
+        "帮助文档",
+        "添加凭据"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/credential-create.json",
+        "screenshot": "evidence/workbuddy/credential-create.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/builtin-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/credentials/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/connector/registry/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/connector/registry/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "credentials",
+      "group": "企业智能体",
+      "label": "凭据管理",
+      "path": "/admin/cloud-agent/credential/list",
+      "captured_at": "2026-10-14T21:30:50+0800",
+      "columns": [
+        "名称",
+        "Connector类型",
+        "认证方式",
+        "值",
+        "状态",
+        "更新时间",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索名称...",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "状态",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "服务",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "认证",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档",
+        "添加凭据"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/credentials.json",
+        "screenshot": "evidence/workbuddy/credentials.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/credentials/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/connector/registry/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/as/connector/registry/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "custom-menu-create",
+      "group": "客户端配置",
+      "label": "新建自建菜单",
+      "path": "/admin/client-config/custom",
+      "captured_at": "2026-10-14T21:41:02+0800",
+      "columns": [
+        "序号",
+        "图标",
+        "菜单",
+        "类型",
+        "启用",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "如：内部知识门户",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "e.g. Internal KB",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "https://your-system.example.com",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "选填，不绑定则页面无法识别员工身份",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "file",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "给企业内成员看的简短说明",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [
+        "导航菜单",
+        "新建对话页"
+      ],
+      "formLabels": [
+        "中文预览",
+        "English Preview",
+        "菜单名称（中文）",
+        "菜单名称（English）",
+        "iframe URL",
+        "绑定自建应用",
+        "菜单图标",
+        "说明"
+      ],
+      "buttons": [
+        "上传图标",
+        "保存",
+        "全部恢复默认",
+        "取消",
+        "帮助文档",
+        "新建自建菜单",
+        "管理子项",
+        "自定义"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/custom-menu-create.json",
+        "screenshot": "evidence/workbuddy/custom-menu-create.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/oneid-apps",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "dialogue-logs",
+      "group": "日志管理",
+      "label": "对话日志",
+      "path": "/admin/log/sessions",
+      "captured_at": "2026-10-14T21:32:30+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/dialogue-logs.json",
+        "screenshot": "evidence/workbuddy/dialogue-logs.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/session-logs/settings",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/session-logs/settings",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "drive-capacity",
+      "group": "腾讯网盘",
+      "label": "网盘容量分配",
+      "path": "/admin/apps/drive/capacity-allocation",
+      "captured_at": "2026-10-14T21:42:34+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "保存更改",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/drive-capacity.json",
+        "screenshot": "evidence/workbuddy/drive-capacity.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/account",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v1/users/beginnerGuide/modules",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/account/definition",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/oneid/suite/tdrive/be/v1/admin/capacity-policy/get",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/oneid/admin/v2/check_gray",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v1/quotas",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/roles/join",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v1/account/settings",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/roles/general_config",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/menu_tree",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/blackAndWhiteList",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/bff/config/apps",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/oneid/suite/tdrive/be/v1/admin/capacity-policy/get",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "drive-logs",
+      "group": "腾讯网盘",
+      "label": "网盘资产日志",
+      "path": "/admin/apps/drive/asset-log",
+      "captured_at": "2026-10-14T21:42:37+0800",
+      "columns": [
+        "时间",
+        "操作者",
+        "操作者部门",
+        "操作对象名称",
+        "操作类型",
+        "操作行为"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择日期",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择日期",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择操作行为",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入操作者",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入操作对象名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "帮助文档",
+        "查询",
+        "重置"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/drive-logs.json",
+        "screenshot": "evidence/workbuddy/drive-logs.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "POST",
+          "path": "/oneid/suite/tdrive/be/v1/admin/oplog/export/tasks",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/oneid/suite/tdrive/be/v1/admin/oplog/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "enterprise",
+      "group": "企业设置",
+      "label": "企业信息",
+      "path": "/admin/organization",
+      "captured_at": "2026-10-14T21:32:43+0800",
+      "columns": [
+        "姓名",
+        "手机号",
+        "邮箱",
+        "操作"
+      ],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档",
+        "添加联系人",
+        "编辑信息"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/enterprise.json",
+        "screenshot": "evidence/workbuddy/enterprise.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn/settings",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/account/enterpriseSizes",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/account/industryTypes",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/account/contacts",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/account/contacts",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "evaluation",
+      "group": "企业智能体",
+      "label": "评测中心",
+      "path": "/admin/cloud-agent/agent-eval",
+      "captured_at": "2026-10-14T21:37:25+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/evaluation.json",
+        "screenshot": "evidence/workbuddy/evaluation.png"
+      },
+      "embedded_paths": [
+        "/hubble-eval/"
+      ],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/builtin-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skills/admin-list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skills/admin-list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/evaluation/api-key",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/evaluation/stats/overview",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/evaluation/tasks",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "expert-categories",
+      "group": "AI 资源管理",
+      "label": "分类管理",
+      "path": "/admin/ai-resource/expert/list",
+      "captured_at": "2026-10-14T21:38:20+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/expert-categories.json",
+        "screenshot": "evidence/workbuddy/expert-categories.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/expert-categories",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/experts/admin-list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/expert-categories/managed",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "expert-distribution",
+      "group": "AI 资源管理",
+      "label": "专家下发策略",
+      "path": "/admin/ai-resource/expert/list",
+      "captured_at": "2026-10-14T21:38:22+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索策略名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [
+        "全部",
+        "限定策略",
+        "屏蔽策略"
+      ],
+      "buttons": [
+        "+ 新建策略",
+        "帮助文档",
+        "权限查询"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/expert-distribution.json",
+        "screenshot": "evidence/workbuddy/expert-distribution.png"
+      },
+      "embedded_paths": [
+        "/wwopen/ww-open-data-frame"
+      ],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/expert-policies",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "experts",
+      "group": "AI 资源管理",
+      "label": "专家管理",
+      "path": "/admin/ai-resource/expert/list",
+      "captured_at": "2026-10-14T21:31:12+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索专家名称或标识",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "+ 上传企业专家",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/experts.json",
+        "screenshot": "evidence/workbuddy/experts.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/expert-categories",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/experts/admin-list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "global-prompt",
+      "group": "AI 资源管理",
+      "label": "全局提示词",
+      "path": "/admin/ai-resource/words/panel/prompt",
+      "captured_at": "2026-10-14T21:38:34+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "例如：\n# 当前代码工程为Java的话，请采用下面的提示词：\n\n代码风格和结构\n- 编写清晰、高效且文档齐全的Java代码，并附有准确的Spring Boot示例。\n- 在整个代码中遵循Spring Boot最佳实践和约定。\n- 在创建Web服务时实现RESTful API设计模式。\n- 使用遵循camelCase命名法的描述性方法和变量名称。\n- 构建Spring Boot应用程序：控制器、服务、存储库、模型、配置。\n\n命名约定\n- 使用PascalCase作为类名（例如，UserController、OrderService）。\n- 使用camelCase作为方法和变量名（例如，findUserById、isOrderValid）。\n- 使用ALL_CAPS表示常量（例如，MAX_RETRY_ATTEMPTS、DEFAULT_PAGE_SIZE）。\n\nJava和Spring Boot用法\n- 在适用的情况下使用Java 17或更高版本的功能（例如，记录、密封类、模式匹配）。\n- 利用Spring Boot 3.x的功能和最佳实践。\n\n测试\n- 使用JUnit 5和Spring Boot Test编写单元测试。\n- 使用MockMvc测试Web层。\n- 使用@SpringBootTest实现集成测试。\n- 使用@DataJpaTest进行存储库层测试。\n\n遵循最佳实践：\n- RESTful API设计（正确使用HTTP方法、状态代码等）。\n- 使用Spring的@Async或响应式编程与Spring WebFlux进行异步处理。",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "帮助文档",
+        "提示词描述"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/global-prompt.json",
+        "screenshot": "evidence/workbuddy/global-prompt.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/agents/default",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom_prompt",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "instructions",
+      "group": "AI 资源管理",
+      "label": "自定义指令",
+      "path": "/admin/ai-resource/words/panel",
+      "captured_at": "2026-10-14T21:31:14+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "创建指令",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/instructions.json",
+        "screenshot": "evidence/workbuddy/instructions.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/agents/default",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "menu-edit",
+      "group": "客户端配置",
+      "label": "编辑菜单",
+      "path": "/admin/client-config/custom",
+      "captured_at": "2026-10-14T21:40:15+0800",
+      "columns": [
+        "序号",
+        "图标",
+        "菜单",
+        "类型",
+        "启用",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [
+        "导航菜单",
+        "新建对话页"
+      ],
+      "formLabels": [
+        "中文预览",
+        "English Preview"
+      ],
+      "buttons": [
+        "全部恢复默认",
+        "取消",
+        "帮助文档",
+        "新建自建菜单",
+        "管理子项",
+        "自定义"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/menu-edit.json",
+        "screenshot": "evidence/workbuddy/menu-edit.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/preview-merged",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/published",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/preview-merged",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/draft",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "metering",
+      "group": "企业设置",
+      "label": "计量设置",
+      "path": "/admin/setting/metering-settings",
+      "captured_at": "2026-10-14T21:32:50+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/metering.json",
+        "screenshot": "evidence/workbuddy/metering.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/usage/cycle",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "mobile-channels",
+      "group": "客户端配置",
+      "label": "移动端 APP 和小程序",
+      "path": "/admin/client-config/channel",
+      "captured_at": "2026-10-14T21:41:14+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [
+        "渠道列表",
+        "移动端 APP 和小程序"
+      ],
+      "formLabels": [],
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/mobile-channels.json",
+        "screenshot": "evidence/workbuddy/mobile-channels.png"
+      },
+      "embedded_paths": [
+        "/wwopen/ww-open-data-frame"
+      ],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/im-channel/config",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "model-create",
+      "group": "AI 资源管理",
+      "label": "新增自定义模型",
+      "path": "/admin/ai-resource/model/add",
+      "captured_at": "2026-10-14T21:34:42+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入模型名称，最多20个英文数字字符",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入模型 ID，用于请求模型入参，最多200字符",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "最多500个字符",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "url",
+          "placeholder": "输入完整的代理地址，为空则不使用代理",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入最大输入长度，范围：64000-1000000",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入最大输出长度，范围：512-1000000",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [
+        "模型名称",
+        "模型名称",
+        "模型 ID",
+        "模型 ID",
+        "模型提供商",
+        "模型提供商",
+        "模型描述",
+        "模型描述",
+        "鉴权方式",
+        "鉴权方式",
+        "API Key",
+        "AK/SK",
+        "网络代理地址",
+        "网络代理地址",
+        "是否支持图片",
+        "是否支持图片",
+        "支持",
+        "不支持",
+        "是否支持思考",
+        "是否支持思考",
+        "支持",
+        "不支持",
+        "模型最大输入长度",
+        "模型最大输入长度",
+        "模型最大输出长度",
+        "模型最大输出长度",
+        "可见范围",
+        "可见范围",
+        "所有成员",
+        "部分成员"
+      ],
+      "buttons": [
+        "仅保存",
+        "保存并启用",
+        "帮助文档",
+        "测试"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/model-create.json",
+        "screenshot": "evidence/workbuddy/model-create.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/builtin-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom-models/providers",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "model-personal",
+      "group": "AI 资源管理",
+      "label": "成员自定义模型",
+      "path": "/admin/ai-resource/model/",
+      "captured_at": "2026-10-14T21:37:32+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "修改策略",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/model-personal.json",
+        "screenshot": "evidence/workbuddy/model-personal.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/member-custom-model-policy",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "model-policies",
+      "group": "AI 资源管理",
+      "label": "模型策略",
+      "path": "/admin/ai-resource/model/",
+      "captured_at": "2026-10-14T21:37:30+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索策略名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [
+        "默认启用",
+        "默认关闭",
+        "全部",
+        "限定策略",
+        "屏蔽策略"
+      ],
+      "buttons": [
+        "帮助文档",
+        "新建策略",
+        "权限查询"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/model-policies.json",
+        "screenshot": "evidence/workbuddy/model-policies.png"
+      },
+      "embedded_paths": [
+        "/wwopen/ww-open-data-frame"
+      ],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/builtin-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/builtin-default-state/model",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/model-policies",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "models",
+      "group": "AI 资源管理",
+      "label": "模型管理",
+      "path": "/admin/ai-resource/model/",
+      "captured_at": "2026-10-14T21:31:08+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索模型名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档",
+        "新增自定义模型",
+        "编辑"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/models.json",
+        "screenshot": "evidence/workbuddy/models.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/builtin-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "monitor",
+      "group": "可观测中心",
+      "label": "实时监控",
+      "path": "/admin/observability/scene-monitor",
+      "captured_at": "2026-10-14T21:31:31+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部应用",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部组织（可多选，仅统计所选部门直属成员）",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "checkbox",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/monitor.json",
+        "screenshot": "evidence/workbuddy/monitor.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/module-switch/token",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/scene-sessions",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-records",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-records",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-records",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-summary",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-summary",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-trend",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-summary",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/metric-summary",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/scene-filter-options",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "network",
+      "group": "企业设置",
+      "label": "网络设置",
+      "path": "/admin/setting/network",
+      "captured_at": "2026-10-14T21:32:47+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "请输入允许访问的 IP 网段",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "复制",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/network.json",
+        "screenshot": "evidence/workbuddy/network.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/current-ip",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/ip_whitelist",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "new-chat-config",
+      "group": "客户端配置",
+      "label": "新建对话页",
+      "path": "/admin/client-config/custom",
+      "captured_at": "2026-10-14T21:41:09+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [
+        "导航菜单",
+        "新建对话页"
+      ],
+      "formLabels": [],
+      "buttons": [
+        "中 / EN",
+        "发布",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/new-chat-config.json",
+        "screenshot": "evidence/workbuddy/new-chat-config.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "DELETE",
+          "path": "/console/enterprises/{enterpriseId}/client-menu/clients/workbuddy/menus/draft",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-homepage/config",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "operation-logs",
+      "group": "日志管理",
+      "label": "操作日志",
+      "path": "/admin/log/list",
+      "captured_at": "2026-10-14T21:32:27+0800",
+      "columns": [
+        "操作",
+        "操作内容",
+        "操作端",
+        "操作人",
+        "IP 地址",
+        "操作时间"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择开始时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择结束时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索操作内容",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "今日",
+        "帮助文档",
+        "昨日",
+        "近3天",
+        "近7天"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/operation-logs.json",
+        "screenshot": "evidence/workbuddy/operation-logs.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/audit_log/operation-logs",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "organization",
+      "group": "组织与成员",
+      "label": "组织架构",
+      "path": "/admin/users",
+      "captured_at": "2026-10-14T21:32:34+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/organization.json",
+        "screenshot": "evidence/workbuddy/organization.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/account",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/oneid/admin/v2/check_gray",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v1/account/settings",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v1/users/beginnerGuide/modules",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/account/definition",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/roles/general_config",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v1/quotas",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/roles/join",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/menu_tree",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/blackAndWhiteList",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/bff/config/apps",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/users/inactivate/count",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/account",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/departments/roots",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/menu_tree",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v1/object/User/display",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/departments/roots",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/users:find_by_department",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "overview",
+      "group": "组织概览",
+      "label": "组织概览",
+      "path": "/admin/overview",
+      "captured_at": "2026-10-14T21:34:04+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "帮助文档",
+        "扩展席位",
+        "用量明细",
+        "续费套餐",
+        "订阅管理",
+        "购买 Credit"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/overview.json",
+        "screenshot": "evidence/workbuddy/overview.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/usage/overview/summary",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/usage/suite-product/overview",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/overview/info",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/overview/storage",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/license",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/overview/benefits",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "playbooks",
+      "group": "AI 资源管理",
+      "label": "Playbook",
+      "path": "/admin/ai-resource/playbook/list",
+      "captured_at": "2026-10-14T21:31:09+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索 Playbook 标题、摘要或标签…",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部分类",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部标签",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/playbooks.json",
+        "screenshot": "evidence/workbuddy/playbooks.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "quickstart",
+      "group": "企业智能体",
+      "label": "快速开始",
+      "path": "/admin/cloud-agent/quickstart",
+      "captured_at": "2026-10-14T21:34:10+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "file",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入 Agent 名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入 Agent 描述",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入 Agent 标题",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入欢迎语",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择归属部门",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "在此输入 System Prompt...\n\n或在左侧对话框中用自然语言描述，AI 将自动生成。",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [
+        "可见范围",
+        "可见范围"
+      ],
+      "buttons": [
+        "+ 添加问题",
+        "Auto\n模型id：auto",
+        "CRM 销售助手\n邮件\n报表\n客户跟进记录整理、回访邮件起草、销售周报生成",
+        "ERP 报表分析\nxlsx\n数据\n财务数据拉取、异常指标识别、月度经营报告生成",
+        "Manifest",
+        "Test Run",
+        "上传头像",
+        "代码评审助手\n代码\n安全\n代码质量检查、安全漏洞扫描、改进建议生成",
+        "发布",
+        "基础配置",
+        "帮助文档",
+        "技能 / 专家",
+        "构建模式",
+        "查看更多模板",
+        "空白 Agent\n从零开始自定义，通过对话逐步完善配置",
+        "高级配置"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/quickstart.json",
+        "screenshot": "evidence/workbuddy/quickstart.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/custom-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/builtin-models",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/knowledge-bases",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "roles",
+      "group": "角色管理",
+      "label": "角色管理",
+      "path": "/admin/admin",
+      "captured_at": "2026-10-14T21:32:37+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/roles.json",
+        "screenshot": "evidence/workbuddy/roles.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v2/certify/method",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/roles",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/oneid/admin/v3/permissions/users/find_by_role",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "runtimes",
+      "group": "企业智能体",
+      "label": "Runtimes",
+      "path": "/admin/cloud-agent/runtime/list",
+      "captured_at": "2026-10-14T21:30:46+0800",
+      "columns": [
+        "Runtime 名称",
+        "Runtime ID",
+        "沙箱模板",
+        "状态",
+        "创建时间",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部状态",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/runtimes.json",
+        "screenshot": "evidence/workbuddy/runtimes.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": null,
+          "path": "/console/enterprises/{enterpriseId}/cloudagent/agents",
+          "status": 200
+        },
+        {
+          "method": null,
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/cloudagent/runtimes",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "seats",
+      "group": "席位管理",
+      "label": "席位管理",
+      "path": "/admin/seats",
+      "captured_at": "2026-10-14T21:32:40+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "变配席位",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/seats.json",
+        "screenshot": "evidence/workbuddy/seats.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/license/banner",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/license/quota/app/ztPxdKSUDy6sAUE7azhv5g0v",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/menu_tree",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/admin/v3/license/access/seat_assignments",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "security-client",
+      "group": "安全中心",
+      "label": "客户端安全",
+      "path": "/admin/security/client",
+      "captured_at": "2026-10-14T21:31:50+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档",
+        "新建策略"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/security-client.json",
+        "screenshot": "evidence/workbuddy/security-client.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-security/policies",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "security-create",
+      "group": "安全中心",
+      "label": "新建策略",
+      "path": "/admin/security/client/create",
+      "captured_at": "2026-10-14T21:35:42+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入策略名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "placeholder": "请输入策略描述",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "+成员",
+        "+部门",
+        "保存",
+        "帮助文档",
+        "添加命令规则",
+        "添加域名",
+        "添加路径规则"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/security-create.json",
+        "screenshot": "evidence/workbuddy/security-create.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/ai-asset-security/config",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/client-security/policies",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "security-general",
+      "group": "安全中心",
+      "label": "综合管理",
+      "path": "/admin/security/general",
+      "captured_at": "2026-10-14T21:31:47+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/security-general.json",
+        "screenshot": "evidence/workbuddy/security-general.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/ai-asset-security/config",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "sessions",
+      "group": "企业智能体",
+      "label": "Session 列表",
+      "path": "/admin/cloud-agent/session/list",
+      "captured_at": "2026-10-14T21:30:48+0800",
+      "columns": [
+        "Session ID",
+        "名称",
+        "Runtime ID",
+        "状态",
+        "创建者",
+        "Agent",
+        "创建时间",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "Session ID",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "状态",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "Runtime ID",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "用户 ID",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "Agent ID / 业务 ID",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档",
+        "查询",
+        "重置"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/sessions.json",
+        "screenshot": "evidence/workbuddy/sessions.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/cloudagent/sessions",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "sharing",
+      "group": "客户端配置",
+      "label": "分享与协作",
+      "path": "/admin/client-config/share-collab",
+      "captured_at": "2026-10-14T21:31:43+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/sharing.json",
+        "screenshot": "evidence/workbuddy/sharing.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/share-collab/config",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "skill-categories",
+      "group": "AI 资源管理",
+      "label": "分类管理",
+      "path": "/admin/ai-resource/skill/list",
+      "captured_at": "2026-10-14T21:37:38+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/skill-categories.json",
+        "screenshot": "evidence/workbuddy/skill-categories.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skill-categories",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skills/admin-list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skill-page/assembly",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skill-categories/managed",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "skill-distribution",
+      "group": "AI 资源管理",
+      "label": "技能下发策略",
+      "path": "/admin/ai-resource/skill/list",
+      "captured_at": "2026-10-14T21:37:40+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索策略名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": [
+        "全部",
+        "限定策略",
+        "屏蔽策略"
+      ],
+      "buttons": [
+        "+ 新建策略",
+        "帮助文档",
+        "权限查询"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/skill-distribution.json",
+        "screenshot": "evidence/workbuddy/skill-distribution.png"
+      },
+      "embedded_paths": [
+        "/wwopen/ww-open-data-frame"
+      ],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/v2/plugin/login/gray-decision",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skill-policies",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "skill-personal",
+      "group": "AI 资源管理",
+      "label": "成员自定义技能",
+      "path": "/admin/ai-resource/skill/list",
+      "captured_at": "2026-10-14T21:37:42+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": [],
+      "buttons": [
+        "修改策略",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/skill-personal.json",
+        "screenshot": "evidence/workbuddy/skill-personal.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skill-upload-policy",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "skills",
+      "group": "AI 资源管理",
+      "label": "技能管理",
+      "path": "/admin/ai-resource/skill/list",
+      "captured_at": "2026-10-14T21:31:11+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索技能名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "+ 上传技能",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/skills.json",
+        "screenshot": "evidence/workbuddy/skills.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skill-categories",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/skills/admin-list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "subscriptions",
+      "group": "订阅与用量",
+      "label": "订阅管理",
+      "path": "/admin/usage/subscription",
+      "captured_at": "2026-10-14T21:32:05+0800",
+      "columns": [],
+      "fields": [],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "变配席位",
+        "帮助文档",
+        "查看详情 >",
+        "续费订阅",
+        "购买加量包"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/subscriptions.json",
+        "screenshot": "evidence/workbuddy/subscriptions.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/usage/boostpackage/auto-purchase-config",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/console/enterprises/{enterpriseId}/usage/boostpackage/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/subscription/info",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/subscription/license",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/usage/subscription/overview",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "traces",
+      "group": "可观测中心",
+      "label": "会话追踪",
+      "path": "/admin/observability/trace",
+      "captured_at": "2026-10-14T21:31:34+0800",
+      "columns": [
+        "输入 / 输出",
+        "开始时间",
+        "耗时",
+        "会话 ID（conversationId）",
+        "对话 ID（traceId）",
+        "用户 ID",
+        "应用名称",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部应用",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部组织（可多选，仅统计所选部门直属成员）",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "用户 ID / 昵称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "conversationId",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "traceId",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "最小",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "最大",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "年/月/日",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "年/月/日",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "帮助文档",
+        "搜索",
+        "选择",
+        "重置"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/traces.json",
+        "screenshot": "evidence/workbuddy/traces.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/trace-config",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/trace-stats",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/traces",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/observability/trace-filter-options",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "usage-apps",
+      "group": "订阅与用量",
+      "label": "应用用量",
+      "path": "/admin/usage/app",
+      "captured_at": "2026-10-14T21:32:14+0800",
+      "columns": [
+        "应用 ClientID",
+        "应用名称",
+        "用量消耗",
+        "周期限量",
+        "操作"
+      ],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "开始时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "结束时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入应用 ClientID 或名称",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "导出",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/usage-apps.json",
+        "screenshot": "evidence/workbuddy/usage-apps.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/usage/app/overview",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/console/enterprises/{enterpriseId}/usage/app/list",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "usage-details",
+      "group": "订阅与用量",
+      "label": "用量明细",
+      "path": "/admin/usage/detail",
+      "captured_at": "2026-10-14T21:32:17+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "开始时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "结束时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部产品",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入应用 ID",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "全部",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "导出",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/usage-details.json",
+        "screenshot": "evidence/workbuddy/usage-details.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/console/enterprises/{enterpriseId}/usage/detail/list",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "usage-members",
+      "group": "订阅与用量",
+      "label": "成员用量",
+      "path": "/admin/usage/member",
+      "captured_at": "2026-10-14T21:32:08+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "开始时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "结束时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择部门和成员",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请输入用户ID",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "checkbox",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "checkbox",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "checkbox",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "checkbox",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "checkbox",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "checkbox",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "checkbox",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "导出",
+        "帮助文档",
+        "批量调整限量",
+        "调整限量"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/usage-members.json",
+        "screenshot": "evidence/workbuddy/usage-members.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/usage/member/overview",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/console/enterprises/{enterpriseId}/usage/member/list",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "key": "usage-orgs",
+      "group": "订阅与用量",
+      "label": "组织用量",
+      "path": "/admin/usage/department",
+      "captured_at": "2026-10-14T21:32:11+0800",
+      "columns": [],
+      "fields": [
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "请选择",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "开始时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "结束时间",
+          "name": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "placeholder": "搜索部门名称",
+          "name": "",
+          "disabled": false
+        }
+      ],
+      "tabs": [],
+      "formLabels": null,
+      "buttons": [
+        "导出",
+        "帮助文档"
+      ],
+      "local_evidence": {
+        "capture": "evidence/workbuddy/usage-orgs.json",
+        "screenshot": "evidence/workbuddy/usage-orgs.png"
+      },
+      "embedded_paths": [],
+      "http_operations": [
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/usage/department/cycles",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/console/enterprises/{enterpriseId}/rbac/me",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/console/enterprises/{enterpriseId}/usage/department/list",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/oneid/v1/authn:get_self_v3",
+          "status": 200
+        }
+      ]
+    }
+  ]
+}
