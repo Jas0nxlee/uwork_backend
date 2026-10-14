@@ -22,7 +22,7 @@
 
 先以可单独验收的切片扩展 model-gateway：OpenAI-compatible function tools、assistant tool_calls、tool 消息及 JSON/SSE 往返。模型须显式启用 supportsTools，未知函数名、重复调用 ID、过大或不合法参数拒绝；工具定义、调用与结果均进入上下文上界预留和加密幂等缓存。只完成协议不代表服务端执行了工具。
 
-已采用固定版本 `@openai/agents-core@0.20.0` Runner 负责隔离代码工具循环，自有 GatewayAgentModel 端口逐次经过 Gateway 授权和账本，不另建绕过计量的 SDK HTTP 客户端。SDK 自动 tracing 和 exporter 全局关闭，Runner 也关闭 tracing，模型自动重试为 0；不把企业输入、代码、工具结果发送到外部 tracing 服务。当前工具仅为受控 SandboxService 的 execute_javascript，MCP 工具接入另列待办，模型不能选择 Docker 配置、凭据或宿主路径。循环限制模型轮次、工具调用数、总运行时长，取消贯穿模型和真实代码进程，重启不重放已执行副作用。
+已采用固定版本 `@openai/agents-core@0.20.0` Runner 负责受控工具循环，自有 GatewayAgentModel 端口逐次经过 Gateway 授权和账本，不另建绕过计量的 SDK HTTP 客户端。SDK 自动 tracing 和 exporter 全局关闭，Runner 也关闭 tracing，模型自动重试为 0；不把企业输入、代码、工具结果发送到外部 tracing 服务。工具为 SandboxService 的 execute_javascript 和已批准连接器的 MCP 工具；模型不能选择 Docker 配置、凭据或宿主路径。循环限制模型轮次、工具调用数、总运行时长，取消贯穿模型和真实代码进程，重启不重放已执行副作用。
 
 Agent 的隔离代码默认关闭，通过 `sandbox=true`、`maxTurns`（最多 20）、`maxToolCalls`（最多 20）、`toolTimeoutMs`（最多 60 秒）显式开启。每个 run 按需创建仅授权当前成员的独立沙箱，模型只能提交 code，不能选择 runtime。run_sandboxes 绑定与容器记录同事务写入；run_tools 以 run/callId 唯一、参数指纹防冲突，执行 ID 与持久化队列原子绑定，任何未确认结果均不重新执行。同 ID 的已成功结果可重放，不重新运行代码。
 
@@ -31,3 +31,15 @@ Agent 的隔离代码默认关闭，通过 `sandbox=true`、`maxTurns`（最多 
 沙箱生命周期继承父运行的剩余截止时间，不因较晚 provision 重置完整寿命。所有新调用也检查持久化的 started_at + timeout_ms，不能只等待事件循环定时器；容器 watchdog 通过 daemon 时间校准绝对截止点，并以剩余 duration 封顶，避免依赖宿主与 VM 时钟一致或因启动延迟延长期限。自然看门狗退出明确归类 TIMEOUT；created 状态的 exitCode=0 不是超时证据。
 
 参考：[OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling)、[SDK models/providers](https://developers.openai.com/api/docs/guides/agents/models)、[SDK observability](https://developers.openai.com/api/docs/guides/agents/integrations-observability)。
+
+## 受控 MCP 工具
+
+固定 `@modelcontextprotocol/client@2.3.1` 负责初始化握手、协议校验、工具清单和调用；自定义 Transport 只能经 ConnectorService 的 DNS 固定 safeRequest，不使用 SDK 默认 HTTP、stdio 或自动 OAuth。共享服务保留现有不透明 session 代理，真实 session 加密且不进入模型/客户端响应。响应的凭据/session 回显递归脱敏，顶层非协议字段剥离。
+
+Agent 引用的 connector 必须已审核发布、supportedClients 含 agent、成员及资产范围允许。run_connectors 冻结发布版本；allowedTools 与远端清单交集绑定固定函数名、资产/版本/remote_name，模型不能提供 URL、credentialId 或 session。MCP-only Agent 不要求 allowSandbox，但模型 supportsTools、有效席位/订阅、agents 渠道与网络出口策略始终检查。模型调用中途撤权或订阅到期不能再派发工具。
+
+每页响应最多 1 MiB、清单最多 4 页且合计 100 项，最多 63 个 MCP 工具；schema 沿用 100 KiB/20 层/10000 节点限制，并在 SDK 编译前拒绝正则、引用及 uniqueItems 构造。输入实际校验，工具结果最多 32 KiB。发现及单次调用有独立 toolTimeoutMs，总截止点不会重置；DNS 阶段也可取消。这里只实现 2025-03-26 POST JSON/SSE 工具子集，不宣称全协议兼容。
+
+run_tools 的 kind/dispatched/asset_id/asset_version/remote_name 是持久化审计合同。真正 HTTP 分派前在写事务中登记 dispatched；同 run/callId 仅确认成功时回放结果，未知结果不重发。取消通知只能尽力发送，断开连接不是远端已停止的证据：分派后任何未确认结果均保留 uncertain，父运行 failed/REMOTE_EFFECT_UNCONFIRMED；强制重启保留 uncertain/PROCESS_RESTARTED。本地会话释放不等于远端 session 删除或业务副作用回滚，远端回收仍由服务提供方负责。
+
+参考：[MCP SDK Client](https://ts.sdk.modelcontextprotocol.io/v2/clients/connect)、[MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports)、[MCP Cancellation](https://modelcontextprotocol.io/specification/2025-03-26/basic/utilities/cancellation)。

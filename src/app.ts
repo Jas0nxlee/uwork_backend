@@ -27,6 +27,7 @@ import { sandboxRoutes } from "./sandbox/routes.js";
 import { DockerSandboxDriver } from "./sandbox/docker.js";
 import type { SandboxDriver } from "./sandbox/contract.js";
 import { AgentToolRunner } from "./agent-runner.js";
+import { ConnectorService } from "./connector-service.js";
 
 export interface AppOptions {
   database: string;
@@ -86,7 +87,18 @@ export async function createApp(options: AppOptions) {
     requirePermission(actor, "execute");
     entitlements.subscription(actor.tenantId);
   });
-  const agentTools = new AgentToolRunner(db, vault, gateway, sandbox);
+  const connectors = new ConnectorService(
+    db,
+    vault,
+    options.allowPrivateUpstreams ?? false,
+  );
+  const agentTools = new AgentToolRunner(
+    db,
+    vault,
+    gateway,
+    sandbox,
+    connectors,
+  );
   const runtime = new Runtime(db, gateway, vault, agentTools);
   const automation = new AutomationWorker(
     db,
@@ -261,7 +273,7 @@ export async function createApp(options: AppOptions) {
     options.allowPrivateUpstreams ?? false,
     async () => (await sandbox.health()).available,
   );
-  connectorRoutes(app, db, vault, options.allowPrivateUpstreams ?? false);
+  connectorRoutes(app, db, connectors);
   staticRoutes(app);
   if (options.worker)
     interval = setInterval(() => {

@@ -50,8 +50,11 @@ export class Runtime {
       now(),
     );
     db.run(
-      "UPDATE run_tools SET status=CASE WHEN execution_id IS NOT NULL THEN 'uncertain' ELSE 'failed' END,error_code='PROCESS_RESTARTED',finished_at=? WHERE status IN ('proposed','running') AND run_id IN (SELECT id FROM runs WHERE status NOT IN ('queued','running'))",
+      "UPDATE run_tools SET status=CASE WHEN execution_id IS NOT NULL OR dispatched=1 THEN 'uncertain' ELSE 'failed' END,error_code='PROCESS_RESTARTED',finished_at=? WHERE status IN ('proposed','running') AND run_id IN (SELECT id FROM runs WHERE status NOT IN ('queued','running'))",
       now(),
+    );
+    db.run(
+      "DELETE FROM connector_sessions WHERE run_id IN (SELECT id FROM runs WHERE status NOT IN ('queued','running'))",
     );
   }
   agent(actor: Actor, agentId: string) {
@@ -253,34 +256,35 @@ export class Runtime {
         );
       }
       messages.push({ role: "user", content: input });
-      const output = agent.sandbox
-        ? await this.tools.execute(
-            run,
-            agent,
-            system,
-            messages.filter(
-              (
-                message,
-              ): message is { role: "user" | "assistant"; content: string } =>
-                message.role !== "system",
-            ),
-            controller.signal,
-          )
-        : (
-            await this.gateway.complete(
-              actor,
-              {
-                model: agent.modelId,
-                messages,
-                max_tokens: agent.maxOutputTokens,
-                temperature: 0.7,
-                stream: false,
-              },
-              `run:${run.id}`,
-              "agent-runtime",
+      const output =
+        agent.sandbox || agentRunContext(this.db, run.id).connectors.length > 0
+          ? await this.tools.execute(
+              run,
+              agent,
+              system,
+              messages.filter(
+                (
+                  message,
+                ): message is { role: "user" | "assistant"; content: string } =>
+                  message.role !== "system",
+              ),
               controller.signal,
             )
-          ).choices[0]!.message.content;
+          : (
+              await this.gateway.complete(
+                actor,
+                {
+                  model: agent.modelId,
+                  messages,
+                  max_tokens: agent.maxOutputTokens,
+                  temperature: 0.7,
+                  stream: false,
+                },
+                `run:${run.id}`,
+                "agent-runtime",
+                controller.signal,
+              )
+            ).choices[0]!.message.content;
       if (controller.signal.aborted)
         throw new ApiError(499, "CANCELLED", "任务已取消");
       agentRunContext(this.db, run.id);
@@ -291,8 +295,20 @@ export class Runtime {
         run.id,
       );
     } catch (error) {
+      if (
+        this.db.get(
+          "SELECT call_id FROM run_tools WHERE run_id=? AND kind='mcp' AND status='uncertain'",
+          run.id,
+        )
+      )
+        error = new ApiError(
+          502,
+          "REMOTE_EFFECT_UNCONFIRMED",
+          "远端工具结果未确认，不能重新执行",
+        );
       const unconfirmed =
-        error instanceof ApiError && error.code === "STOP_UNCONFIRMED";
+        error instanceof ApiError &&
+        ["STOP_UNCONFIRMED", "REMOTE_EFFECT_UNCONFIRMED"].includes(error.code);
       const deadlineExceeded =
         timedOut ||
         controller.signal.reason === "timeout" ||
@@ -305,7 +321,7 @@ export class Runtime {
             ? "cancelled"
             : "failed";
       const code = unconfirmed
-        ? "STOP_UNCONFIRMED"
+        ? (error as ApiError).code
         : deadlineExceeded
           ? "TIMEOUT"
           : controller.signal.aborted
@@ -549,12 +565,15 @@ export function runtimeRoutes(
     requirePermission(a, "read");
     const sandboxAvailable = await readSandboxCapability();
     return {
-      engine: sandboxAvailable ? "model-and-isolated-code" : "model-only",
+      engine: sandboxAvailable
+        ? "model-and-isolated-code"
+        : "model-and-connectors",
       arbitraryCodeExecution: sandboxAvailable,
       isolatedCodeExecution: sandboxAvailable,
       hostCodeExecution: false,
-      agentToolExecution: sandboxAvailable,
-      toolKinds: sandboxAvailable ? ["execute_javascript"] : [],
+      agentToolExecution: true,
+      controlledConnectorExecution: true,
+      toolKinds: [...(sandboxAvailable ? ["execute_javascript"] : []), "mcp"],
       maxModelTurns: 20,
       maxToolCalls: 20,
       maxConcurrentRuns: 4,

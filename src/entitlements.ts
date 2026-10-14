@@ -12,6 +12,19 @@ interface Subscription {
   ends_at: number;
   metering: string;
 }
+export function activeSubscription(db: Db, tenantId: string, time = now()) {
+  const subscription = db.get<Subscription>(
+    "SELECT * FROM subscriptions WHERE tenant_id=?",
+    tenantId,
+  );
+  if (
+    !subscription ||
+    time < subscription.starts_at ||
+    time >= subscription.ends_at
+  )
+    fail(402, "SUBSCRIPTION_INACTIVE", "订阅未生效或已过期");
+  return subscription;
+}
 export function billingPeriod(time: number, startsAt: number, mode: string) {
   const current = new Date(time);
   const anchor = new Date(startsAt);
@@ -48,13 +61,7 @@ export class Entitlements {
     );
   }
   subscription(tenantId: string, time = now()) {
-    const s = this.db.get<Subscription>(
-      "SELECT * FROM subscriptions WHERE tenant_id=?",
-      tenantId,
-    );
-    if (!s || time < s.starts_at || time >= s.ends_at)
-      fail(402, "SUBSCRIPTION_INACTIVE", "订阅未生效或已过期");
-    return s;
+    return activeSubscription(this.db, tenantId, time);
   }
   reserve(
     actor: Actor,

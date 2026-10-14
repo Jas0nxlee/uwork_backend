@@ -16,6 +16,7 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
+      - run: node --import tsx scripts/agent-mcp-crash-smoke.ts
       - run: npm run build
       - run: npm audit --audit-level=high
   docker:

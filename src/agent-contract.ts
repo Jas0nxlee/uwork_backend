@@ -41,6 +41,11 @@ export interface Run {
   cancel_requested: number;
 }
 export interface RunTool {
+  kind: string;
+  dispatched: number;
+  asset_id: string | null;
+  asset_version: number | null;
+  remote_name: string | null;
   run_id: string;
   call_id: string;
   name: string;

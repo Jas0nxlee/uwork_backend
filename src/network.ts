@@ -8,6 +8,30 @@ export function publicAddress(address: string) {
   const parsed = ipaddr.process(address);
   return parsed.range() === "unicast";
 }
+export async function resolveAddresses(
+  host: string,
+  signal: AbortSignal,
+  resolver = (hostname: string) => lookup(hostname, { all: true }),
+) {
+  signal.throwIfAborted();
+  if (isIP(host)) return [{ address: host, family: isIP(host) }];
+  return new Promise<Awaited<ReturnType<typeof resolver>>>(
+    (resolve, reject) => {
+      const aborted = () => reject(signal.reason);
+      signal.addEventListener("abort", aborted, { once: true });
+      void resolver(host).then(
+        (addresses) => {
+          signal.removeEventListener("abort", aborted);
+          resolve(addresses);
+        },
+        (error: unknown) => {
+          signal.removeEventListener("abort", aborted);
+          reject(error);
+        },
+      );
+    },
+  );
+}
 export async function safeRequest(
   url: string,
   options: {
@@ -17,6 +41,7 @@ export async function safeRequest(
     signal?: AbortSignal;
     timeout?: number;
     headers?: Record<string, string>;
+    onDispatch?: () => void;
   },
   allowPrivate = false,
 ) {
@@ -28,10 +53,12 @@ export async function safeRequest(
     !(allowPrivate && target.protocol === "http:")
   )
     fail(400, "HTTPS_REQUIRED", "上游必须使用 HTTPS");
+  const timeout = options.timeout ?? 120000;
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, AbortSignal.timeout(timeout)])
+    : AbortSignal.timeout(timeout);
   const host = target.hostname.replace(/^\[|\]$/g, "");
-  const addresses = isIP(host)
-    ? [{ address: host, family: isIP(host) }]
-    : await lookup(host, { all: true });
+  const addresses = await resolveAddresses(host, signal);
   if (
     !addresses.length ||
     (!allowPrivate && addresses.some((a) => !publicAddress(a.address)))
@@ -50,11 +77,9 @@ export async function safeRequest(
       timeout: 10000,
     },
   });
-  const timeout = options.timeout ?? 120000;
-  const signal = options.signal
-    ? AbortSignal.any([options.signal, AbortSignal.timeout(timeout)])
-    : AbortSignal.timeout(timeout);
   try {
+    signal.throwIfAborted();
+    options.onDispatch?.();
     const response = await request(target, {
       dispatcher: agent,
       method: options.method,

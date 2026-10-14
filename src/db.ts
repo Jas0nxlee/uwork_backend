@@ -129,6 +129,7 @@ export class Db {
       CREATE INDEX IF NOT EXISTS sandbox_execution_queue ON sandbox_executions(status,created_at);
       CREATE TABLE IF NOT EXISTS run_sandboxes(run_id TEXT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,runtime_id TEXT NOT NULL UNIQUE REFERENCES sandbox_runtimes(id));
       CREATE TABLE IF NOT EXISTS run_tools(run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,call_id TEXT NOT NULL,name TEXT NOT NULL,fingerprint TEXT NOT NULL,input TEXT NOT NULL,result TEXT,status TEXT NOT NULL,execution_id TEXT UNIQUE REFERENCES sandbox_executions(id) ON DELETE SET NULL,error_code TEXT,created_at INTEGER NOT NULL,finished_at INTEGER,PRIMARY KEY(run_id,call_id));
+      CREATE TABLE IF NOT EXISTS run_connectors(run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,asset_id TEXT NOT NULL,asset_version INTEGER NOT NULL,PRIMARY KEY(run_id,asset_id));
       INSERT OR IGNORE INTO schema_version VALUES(1,unixepoch()*1000);
       INSERT OR IGNORE INTO schema_version VALUES(2,unixepoch()*1000);
     `);
@@ -143,6 +144,32 @@ export class Db {
         this.run(
           "INSERT OR IGNORE INTO schema_version VALUES(4,unixepoch()*1000)",
         );
+        for (const [name, declaration] of [
+          ["kind", "TEXT NOT NULL DEFAULT 'sandbox'"],
+          ["dispatched", "INTEGER NOT NULL DEFAULT 0"],
+          ["asset_id", "TEXT"],
+          ["asset_version", "INTEGER"],
+          ["remote_name", "TEXT"],
+        ])
+          if (
+            !this.all<{ name: string }>("PRAGMA table_info(run_tools)").some(
+              (column) => column.name === name,
+            )
+          )
+            this.connection.exec(
+              `ALTER TABLE run_tools ADD COLUMN ${name} ${declaration}`,
+            );
+        this.run(
+          "INSERT OR IGNORE INTO schema_version VALUES(5,unixepoch()*1000)",
+        );
+        if (
+          !this.all<{ name: string }>(
+            "PRAGMA table_info(connector_sessions)",
+          ).some((column) => column.name === "run_id")
+        )
+          this.connection.exec(
+            "ALTER TABLE connector_sessions ADD COLUMN run_id TEXT REFERENCES runs(id) ON DELETE CASCADE",
+          );
       });
       if (
         this.all<{ name: string }>("PRAGMA table_info(instance_lease)").some(
