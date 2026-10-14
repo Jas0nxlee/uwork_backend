@@ -35,6 +35,15 @@ test(
     const { createSharedIdentitySessionStore } = await load(
       "packages/services/src/enterprise-identity/identitySessionStore.ts",
     );
+    const { createEnterpriseToolAuthorizationBridge } = await load(
+      "packages/services/src/zcode-agent/enterpriseToolAuthorizationBridge.ts",
+    );
+    const { createProtocolEnterpriseSkillsCatalog } = await load(
+      "apps/zcode-cli/packages/bootstrap/src/zcode-protocol/enterprise-skills-catalog.ts",
+    );
+    const { createRootTraceContext } = await load(
+      "apps/zcode-cli/packages/contracts/src/index.ts",
+    );
     const f = await fixture(t, "https://upstream.example.test/v1");
     const origin = await f.app.listen({ host: "127.0.0.1", port: 0 });
     const directory = await realpath(
@@ -198,6 +207,69 @@ test(
       assets: host,
       readAuthority: () => readEnterpriseIdentityAuthority(identity),
     });
+    const workspace = {
+      workspacePath: directory,
+      workspaceKey: "controlled",
+      workspaceIdentity: "controlled",
+    };
+    const pending = new Map<number, (value: unknown) => void>();
+    let nextId = 0;
+    const peer = {
+      isDisposed: false,
+      onClose: () => ({ dispose() {} }),
+      respond: async (id: number, value: unknown) => {
+        pending.get(id)!(JSON.parse(JSON.stringify(value)));
+      },
+      respondError: async () => {
+        throw new Error("Unexpected controlled protocol error");
+      },
+    };
+    const bridge = createEnterpriseToolAuthorizationBridge({
+      assets: host,
+      isCurrent: () => true,
+    });
+    const protocol = createProtocolEnterpriseSkillsCatalog({
+      workspace: () => workspace,
+      context: () => ({
+        async requestClient(
+          method: string,
+          params: unknown,
+          schema: { parse(value: unknown): unknown },
+          options: {
+            trace: { traceId: string };
+            signal?: AbortSignal;
+            timeoutMs: number;
+          },
+        ) {
+          assert.equal(method, "interaction/readEnterpriseSkills");
+          assert.equal(options.timeoutMs, 65000);
+          const id = ++nextId,
+            response = new Promise((resolve) => {
+              pending.set(id, resolve);
+            });
+          try {
+            await bridge.handleCatalog(
+              peer,
+              workspace,
+              id,
+              JSON.parse(JSON.stringify(params)),
+              options.trace.traceId,
+            );
+            return schema.parse(await response);
+          } finally {
+            pending.delete(id);
+          }
+        },
+        notify: (value: { params: unknown }) =>
+          bridge.cancel(peer, workspace, value.params),
+      }),
+    });
+    const requestCatalog = () =>
+      protocol.readCatalog({
+        sessionId: "controlled",
+        workspacePath: "/untrusted-caller-path",
+        traceContext: createRootTraceContext(),
+      });
     t.after(async () => {
       await lifecycle.disposeAllAndWait();
       await disposeEnterpriseIdentityService(identity);
@@ -223,7 +295,7 @@ test(
         .allowed,
       true,
     );
-    await host.readCatalog("controlled-reuse");
+    await requestCatalog();
     assert.equal(
       downloads,
       1,
@@ -248,7 +320,7 @@ test(
     });
     assert.equal(update.statusCode, 200, update.body);
     await publish(2);
-    const second = await host.readCatalog("controlled-update");
+    const second = await requestCatalog();
     assert.equal(second.status, "ready");
     assert.equal(downloads, 2);
     assert.equal(
@@ -295,5 +367,6 @@ test(
     );
     await lifecycle.disposeAllAndWait();
     await disposeEnterpriseIdentityService(identity);
+    assert.equal(pending.size, 0);
   },
 );
