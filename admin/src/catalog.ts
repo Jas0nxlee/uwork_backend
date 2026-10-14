@@ -81,6 +81,12 @@ export const views: View[] = [
         type: "checkbox",
         initial: false,
       },
+      {
+        key: "supportsTools",
+        label: "工具调用",
+        type: "checkbox",
+        initial: false,
+      },
       { key: "enabled", label: "启用", type: "checkbox", initial: true },
     ],
     columns: [

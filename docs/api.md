@@ -36,12 +36,17 @@
   "outputRate": 1000,
   "supportsVision": false,
   "supportsReasoning": false,
+  "supportsTools": false,
   "scope": { "all": true },
   "enabled": true
 }
 ```
 
 更新需要完整内容与 `revision`；旧 revision 返回 409。`GET /v1/models` 只返回本成员当前可用模型。`POST /v1/chat/completions` 使用本地模型 id，支持文本、SSE、可选 reasoning_effort，以及显式启用的 data URL 图片；不下载任意图片 URL。上游协议是 OpenAI-compatible；其他厂商专属签名协议未适配。
+
+Function tools 需模型显式启用 `supportsTools=true`。请求支持最多 64 个 `{type:"function",function:{name,description?,parameters,strict?}}`，`tool_choice` 为 auto/none/required 或指定 function，`parallel_tool_calls=false` 要求最多一个返回调用。assistant 消息可带最多 32 个 `{id,type:"function",function:{name,arguments}}`，tool 消息必须带 `tool_call_id` 与字符串内容。参数字符串必须为 JSON 对象；定义 schema 限 100 KiB、20 层及 10000 节点。
+
+JSON/SSE 均保留 function name、call id 与参数；SSE 的工具片段先重组，完整协议、计量、结算和幂等结果持久化成功后才转发，不能在尚未确认成功时提前分派副作用。未知函数、重复 ID、缺失片段、非法参数、违反指定函数/禁止并行合同均返回明确错误，已可能计费的失败保留 uncertain。工具定义、历史调用参数和工具结果计入输入上界。网关只是协议和计量代理，不在此接口执行工具；Agent SDK 执行闭环另行验收。这是 Chat Completions 合同，不宣称已适配 Responses 专属模型。
 
 Header `Idempotency-Key` 最长 128 字符；同键/同人/同内容重放成功结果，同键不同内容或处理中返回 409。成功缓存加密存储。输入按 UTF-8 字节及消息开销上界预留，输出按 max_tokens 预留，按真实 usage 结算；无 usage 时保守估算。每模型整数单价为每 1000 token 的 Credit，**Credit 不是美元或供应商账单**。
 

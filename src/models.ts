@@ -33,6 +33,7 @@ export const modelSchema = z
     outputRate: z.number().int().min(0).max(1000000).default(1000),
     supportsVision: z.boolean().default(false),
     supportsReasoning: z.boolean().default(false),
+    supportsTools: z.boolean().default(false),
     scope: scopeSchema.default({ all: false, members: [], departments: [] }),
     enabled: z.boolean().default(true),
   })

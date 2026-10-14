@@ -17,3 +17,11 @@
 - Docker 未配置或不可达返回明确不可用；不向容器注入模型/vault/后端密钥，也不挂载用户目录。
 
 验收包括真实容器中的读写、网络隔离、host 文件不可见、非 root、取消/超时、输出限制、并发拒绝、重启恢复和跨租户拒绝。后续 Agent 工具调用连接这套 Runtime，不能把单独的执行接口当作 Agent 工具闭环已完成。
+
+## 模型工具协议与循环
+
+先以可单独验收的切片扩展 model-gateway：OpenAI-compatible function tools、assistant tool_calls、tool 消息及 JSON/SSE 往返。模型须显式启用 supportsTools，未知函数名、重复调用 ID、过大或不合法参数拒绝；工具定义、调用与结果均进入上下文上界预留和加密幂等缓存。只完成协议不代表服务端执行了工具。
+
+后续使用成熟的 Agents SDK Runner 负责模型/工具循环，自有 Model 端口逐次经过 Gateway 授权和账本，不另建绕过计量的 SDK HTTP 客户端。SDK 自动 tracing 必须禁用，不把企业输入、代码、工具结果发送到外部 tracing 服务。工具只暴露受控 SandboxService/MCP 端口，模型不能选择 Docker 配置、凭据或宿主路径。循环限制模型轮次、工具调用数、总运行时长，取消贯穿模型和真实代码进程，重启不重放已执行副作用。
+
+参考：[OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling)、[SDK models/providers](https://developers.openai.com/api/docs/guides/agents/models)、[SDK observability](https://developers.openai.com/api/docs/guides/agents/integrations-observability)。

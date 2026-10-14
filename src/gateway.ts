@@ -10,6 +10,16 @@ import { getResource } from "./resources.js";
 import { allowedResource, type ModelData } from "./models.js";
 import { readJson, safeRequest } from "./network.js";
 import { assertExecution } from "./policy.js";
+import {
+  functionToolSchema,
+  toolCallSchema,
+  toolDeltaSchema,
+  toolChoiceSchema,
+  ToolCallAccumulator,
+  validateToolCalls,
+  type ToolCall,
+  type ToolDelta,
+} from "./completion-tools.js";
 
 export const completionSchema = z
   .object({
@@ -18,43 +28,83 @@ export const completionSchema = z
       .array(
         z
           .object({
-            role: z.enum(["system", "user", "assistant"]),
-            content: z.union([
-              z.string().max(200000),
-              z
-                .array(
-                  z.discriminatedUnion("type", [
-                    z
-                      .object({
-                        type: z.literal("text"),
-                        text: z.string().max(200000),
-                      })
-                      .strict(),
-                    z
-                      .object({
-                        type: z.literal("image_url"),
-                        image_url: z
-                          .object({
-                            url: z
-                              .string()
-                              .max(1400000)
-                              .regex(
-                                /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/,
-                              ),
-                            detail: z
-                              .enum(["auto", "low", "high"])
-                              .default("auto"),
-                          })
-                          .strict(),
-                      })
-                      .strict(),
-                  ]),
-                )
-                .min(1)
-                .max(8),
-            ]),
+            role: z.enum(["system", "user", "assistant", "tool"]),
+            content: z
+              .union([
+                z.string().max(200000),
+                z
+                  .array(
+                    z.discriminatedUnion("type", [
+                      z
+                        .object({
+                          type: z.literal("text"),
+                          text: z.string().max(200000),
+                        })
+                        .strict(),
+                      z
+                        .object({
+                          type: z.literal("image_url"),
+                          image_url: z
+                            .object({
+                              url: z
+                                .string()
+                                .max(1400000)
+                                .regex(
+                                  /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/,
+                                ),
+                              detail: z
+                                .enum(["auto", "low", "high"])
+                                .default("auto"),
+                            })
+                            .strict(),
+                        })
+                        .strict(),
+                    ]),
+                  )
+                  .min(1)
+                  .max(8),
+              ])
+              .nullable(),
+            tool_call_id: z.string().min(1).max(200).optional(),
+            tool_calls: z.array(toolCallSchema).min(1).max(32).optional(),
           })
-          .strict(),
+          .strict()
+          .superRefine((message, ctx) => {
+            if (message.role === "tool") {
+              if (
+                typeof message.content !== "string" ||
+                !message.tool_call_id ||
+                message.tool_calls
+              )
+                ctx.addIssue({
+                  code: "custom",
+                  message: "工具结果需要字符串内容及 tool_call_id",
+                });
+            } else if (message.role === "assistant") {
+              if (
+                message.tool_call_id ||
+                (message.content === null && !message.tool_calls?.length)
+              )
+                ctx.addIssue({
+                  code: "custom",
+                  message: "助理消息需要内容或工具调用",
+                });
+            } else if (
+              message.content === null ||
+              message.tool_calls ||
+              message.tool_call_id
+            )
+              ctx.addIssue({
+                code: "custom",
+                message: "普通消息不能携带工具调用字段",
+              });
+            if (
+              message.tool_calls &&
+              new Set(message.tool_calls.map((call) => call.id)).size !==
+                message.tool_calls.length
+            )
+              ctx.addIssue({ code: "custom", message: "工具调用 ID 不能重复" });
+          }),
       )
       .min(1)
       .max(200),
@@ -63,17 +113,41 @@ export const completionSchema = z
     stream: z.boolean().default(false),
     stream_options: z.object({ include_usage: z.boolean() }).optional(),
     reasoning_effort: z.enum(["low", "medium", "high"]).optional(),
+    tools: z.array(functionToolSchema).min(1).max(64).optional(),
+    tool_choice: toolChoiceSchema.optional(),
+    parallel_tool_calls: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((input, ctx) => {
+    const names = new Set(input.tools?.map((tool) => tool.function.name) ?? []);
+    if (
+      names.size !== (input.tools?.length ?? 0) ||
+      (input.tool_choice &&
+        input.tool_choice !== "none" &&
+        !input.tools?.length) ||
+      (typeof input.tool_choice === "object" &&
+        !names.has(input.tool_choice.function.name))
+    )
+      ctx.addIssue({ code: "custom", message: "工具定义或选择不正确" });
+  });
 export type CompletionInput = z.infer<typeof completionSchema>;
 const upstreamCompletion = z.object({
   choices: z
     .array(
       z.object({
-        message: z.object({
-          content: z.string().nullable(),
-          role: z.string().optional(),
-        }),
+        message: z
+          .object({
+            content: z.string().nullable().optional(),
+            role: z.string().optional(),
+            tool_calls: z.array(toolCallSchema).max(32).optional(),
+          })
+          .superRefine((message, ctx) => {
+            if (message.content === undefined && !message.tool_calls?.length)
+              ctx.addIssue({
+                code: "custom",
+                message: "上游消息缺少内容和工具调用",
+              });
+          }),
         finish_reason: z.string().nullable().optional(),
       }),
     )
@@ -92,7 +166,7 @@ export interface CompletionResult {
   model: string;
   choices: {
     index: number;
-    message: { role: string; content: string };
+    message: { role: string; content: string; tool_calls?: ToolCall[] };
     finish_reason: string;
   }[];
   usage: {
@@ -125,6 +199,7 @@ export class Gateway {
     application = "uwork",
     signal?: AbortSignal,
     onDelta?: (content: string) => void,
+    onToolDelta?: (deltas: ToolDelta[]) => void,
   ): Promise<CompletionResult> {
     requirePermission(actor, "execute");
     const model = getResource<ModelData>(
@@ -146,12 +221,20 @@ export class Gateway {
       input.max_tokens ?? model.data.maxOutputTokens,
       model.data.maxOutputTokens,
     );
+    if (
+      (input.tools?.length ||
+        input.messages.some(
+          (message) => message.role === "tool" || message.tool_calls?.length,
+        )) &&
+      !model.data.supportsTools
+    )
+      fail(400, "TOOLS_UNSUPPORTED", "模型未启用工具调用能力");
     const inputBound = input.messages.reduce(
       (n, m) =>
         n +
         (typeof m.content === "string"
           ? Buffer.byteLength(m.content)
-          : m.content.reduce((sum, part) => {
+          : (m.content?.reduce((sum, part) => {
               if (part.type === "image_url" && !model.data.supportsVision)
                 fail(400, "VISION_UNSUPPORTED", "模型未启用图片能力");
               return (
@@ -160,9 +243,11 @@ export class Gateway {
                   ? Buffer.byteLength(part.text)
                   : Buffer.byteLength(part.image_url.url) + 16384)
               );
-            }, 0)) +
+            }, 0) ?? 0)) +
+        (m.tool_calls ? Buffer.byteLength(JSON.stringify(m.tool_calls)) : 0) +
+        Buffer.byteLength(m.tool_call_id ?? "") +
         64,
-      256,
+      256 + (input.tools ? Buffer.byteLength(JSON.stringify(input.tools)) : 0),
     );
     if (input.reasoning_effort && !model.data.supportsReasoning)
       fail(400, "REASONING_UNSUPPORTED", "模型未启用思考能力");
@@ -189,6 +274,13 @@ export class Gateway {
         this.vault.open(cached.result, `${actor.tenantId}:${key}`),
       ) as CompletionResult;
       if (onDelta) onDelta(result.choices[0]!.message.content);
+      if (onToolDelta && result.choices[0]!.message.tool_calls)
+        onToolDelta(
+          result.choices[0]!.message.tool_calls.map((call, index) => ({
+            ...call,
+            index,
+          })),
+        );
       return result;
     }
     const cost = (i: number, o: number) =>
@@ -222,6 +314,11 @@ export class Gateway {
           body: {
             model: model.data.upstreamModel,
             messages: input.messages,
+            ...(input.tools ? { tools: input.tools } : {}),
+            ...(input.tool_choice ? { tool_choice: input.tool_choice } : {}),
+            ...(input.parallel_tool_calls === undefined
+              ? {}
+              : { parallel_tool_calls: input.parallel_tool_calls }),
             ...(input.reasoning_effort
               ? { reasoning_effort: input.reasoning_effort }
               : {}),
@@ -240,6 +337,7 @@ export class Gateway {
       let content = "",
         reason = "stop",
         usage: { prompt_tokens: number; completion_tokens: number } | undefined;
+      let calls: ToolCall[] = [];
       if (!input.stream) {
         const data = upstreamCompletion.safeParse(await readJson(response));
         if (!data.success)
@@ -247,11 +345,13 @@ export class Gateway {
         content = data.data.choices[0]!.message.content ?? "";
         reason = data.data.choices[0]!.finish_reason ?? "stop";
         usage = data.data.usage;
+        calls = data.data.choices[0]!.message.tool_calls ?? [];
       } else {
         try {
           if (response.statusCode !== 200)
             fail(502, "UPSTREAM_REJECTED", `上游返回 ${response.statusCode}`);
           const decoder = new TextDecoder();
+          const toolCalls = new ToolCallAccumulator();
           let buffer = "",
             size = 0,
             done = false;
@@ -261,6 +361,7 @@ export class Gateway {
                 z.object({
                   delta: z.object({
                     content: z.string().nullable().optional(),
+                    tool_calls: z.array(toolDeltaSchema).max(32).optional(),
                   }),
                   finish_reason: z.string().nullable().optional(),
                 }),
@@ -301,6 +402,10 @@ export class Gateway {
                 fail(502, "UPSTREAM_FORMAT", "流式响应格式不正确");
               }
               const delta = parsed.choices?.[0]?.delta.content ?? "";
+              const toolDeltas = parsed.choices?.[0]?.delta.tool_calls;
+              if (toolDeltas?.length) {
+                toolCalls.add(toolDeltas);
+              }
               content += delta;
               if (delta) onDelta?.(delta);
               if (parsed.choices?.[0]?.finish_reason)
@@ -309,14 +414,26 @@ export class Gateway {
             }
           }
           if (!done) fail(502, "UPSTREAM_INCOMPLETE", "上游流未提供终态");
+          calls = toolCalls.finish();
         } finally {
           await response.close();
         }
       }
+      calls = validateToolCalls(
+        calls,
+        input.tools,
+        input.tool_choice,
+        reason,
+        input.parallel_tool_calls,
+      );
       promptTokens = usage?.prompt_tokens ?? inputBound;
       outputTokens =
         usage?.completion_tokens ??
-        Math.min(Buffer.byteLength(content), maxTokens);
+        Math.min(
+          Buffer.byteLength(content) +
+            (calls.length ? Buffer.byteLength(JSON.stringify(calls)) : 0),
+          maxTokens,
+        );
       if (promptTokens > inputBound || outputTokens > maxTokens)
         fail(502, "METERING_INVALID", "上游计量超出请求限制");
       const result: CompletionResult = {
@@ -327,7 +444,11 @@ export class Gateway {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content },
+            message: {
+              role: "assistant",
+              content,
+              ...(calls.length ? { tool_calls: calls } : {}),
+            },
             finish_reason: reason,
           },
         ],
@@ -359,6 +480,8 @@ export class Gateway {
         started,
         null,
       );
+      if (input.stream && calls.length)
+        onToolDelta?.(calls.map((call, index) => ({ ...call, index })));
       return result;
     } catch (error) {
       const knownNotExecuted =
@@ -467,6 +590,12 @@ export function gatewayRoutes(app: FastifyInstance, db: Db, gateway: Gateway) {
             object: "chat.completion.chunk",
             model: data.model,
             choices: [{ index: 0, delta: { content }, finish_reason: null }],
+          }),
+        (tool_calls) =>
+          emit({
+            object: "chat.completion.chunk",
+            model: data.model,
+            choices: [{ index: 0, delta: { tool_calls }, finish_reason: null }],
           }),
       );
       emit({
