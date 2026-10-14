@@ -12,6 +12,7 @@ export function integrationRoutes(
   db: Db,
   vault: Vault,
   allowPrivate: boolean,
+  readSandboxCapability: () => Promise<boolean>,
 ) {
   const p = "/api/tenants/:tenantId/integrations";
   app.get(p, async (req) => {
@@ -21,6 +22,7 @@ export function integrationRoutes(
       "SELECT kind,enabled,base_url,credential_id FROM integrations WHERE tenant_id=?",
       a.tenantId,
     );
+    const sandboxAvailable = await readSandboxCapability();
     return {
       integrations: rows,
       capabilities: {
@@ -28,9 +30,9 @@ export function integrationRoutes(
           ? "configured-adapter"
           : "unavailable",
         payments: "unavailable",
-        cloudSandbox: "unavailable",
+        cloudSandbox: sandboxAvailable ? "isolated-docker" : "unavailable",
         modelProtocol: "openai-compatible",
-        runtime: "model-only",
+        runtime: sandboxAvailable ? "model-and-isolated-code" : "model-only",
       },
     };
   });

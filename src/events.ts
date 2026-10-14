@@ -21,5 +21,6 @@ export function audit(
 export interface RetentionPorts {
   purgeCalls(tenantId: string, before: number): number;
   purgeRuns(tenantId: string, before: number): number;
+  purgeSandbox(tenantId: string, before: number): number;
   purgeIdentity(time: number): void;
 }

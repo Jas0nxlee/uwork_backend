@@ -15,7 +15,7 @@ npm start
 
 ## 生产与容器
 
-Dockerfile 为多阶段构建，Compose 仅绑定 loopback 端口、只读 root、去除 capabilities，数据使用持久卷。**本轮本机 Docker daemon 不可用，镜像构建/启动未执行。**
+Dockerfile 为固定基础镜像摘要的多阶段构建，Compose 仅绑定 loopback 端口、只读 root、去除 capabilities，数据使用持久卷。已在独立 Colima `uwork-backend` 实例实际构建镜像，使用独立数据卷验证初始化、登录、配置发布和重启持久化；不修改用户默认 Docker context。
 
 1. 在目标主机准备 `.env`，MASTER_KEY 为 64 位随机 hex；PUBLIC_URL 为实际 HTTPS origin。不要沿用开发实例密码/密钥。
 2. 数据目录必须归运行 UID 所有；镜像 node UID/GID 为 1000，bind mount 下应提前准备权限。Linux 主机的现有用户目录不能直接假定适配容器 UID。
@@ -23,7 +23,7 @@ Dockerfile 为多阶段构建，Compose 仅绑定 loopback 端口、只读 root�
 4. 反向代理提供 TLS；PUBLIC_URL 必须与浏览器访问 origin 相同。不要开放管理服务的明文公网端口。
 5. `/health`、实际 `/` 登录与业务调用分别验收；健康不等于上游生成、企微登录或投递成功。
 
-单实例约束：SQLite WAL 只用于本机持久卷，禁止 NFS/共享卷和多副本写入。数据库实例租约在进程存活时拒绝第二个 worker，防止第二个启动恢复程序修改仍在运行的任务。扩展到多实例需迁移 PostgreSQL/共享工作队列并完成并发测试。
+单实例约束：SQLite WAL 只用于本机持久卷，禁止 NFS/共享卷和多副本写入。服务和初始化命令均须先持租约再迁移/恢复。租约使用宿主启动身份及 PID 命名空间，15 秒心跳；同命名空间检查进程存活，其他命名空间必须等待 120 秒失联才能接管，不能用本地 PID 不存在推断远端死亡。未知旧版租约必须先正常停止旧实例释放。失去租约的进程停止工作器、拒绝 HTTP 请求，写入在 SQLite 写事务内校验归属。跨宿主/容器共享临时库已验证拒绝接管且保留运行记录。扩展到多实例仍需迁移 PostgreSQL/共享工作队列并完成并发测试。
 
 生产上游必须 HTTPS 且为公网地址；每次 DNS 检查后固定连接地址，不跟随重定向。ALLOW_PRIVATE_UPSTREAMS 仅在明确接入受控内部服务时开启，会扩大所有已授权配置的网络出口边界。
 
@@ -33,11 +33,25 @@ Dockerfile 为多阶段构建，Compose 仅绑定 loopback 端口、只读 root�
 npm run backup -- /absolute/protected/backups/uwork-snapshot.sqlite
 ```
 
-使用 SQLite 在线 backup API，包含一致 WAL 状态；目标已存在则拒绝覆盖。主密钥 `.env` 中的 MASTER_KEY 必须另行受保护备份，丢失后无法恢复 vault、任务和缓存密文。备份不是把运行中的 sqlite 文件单独复制一份。
+使用独立只读连接调用 SQLite 在线 backup API，包含一致 WAL 状态，不迁移源数据库；以 0600 独占创建目标，已存在则拒绝覆盖。主密钥 `.env` 中的 MASTER_KEY 必须另行受保护备份，丢失后无法恢复 vault、任务和缓存密文。备份不是把运行中的 sqlite 文件单独复制一份。
 
-恢复：先停止服务并保存当前数据快照，在新目录恢复 snapshot，保持 0600/0700 和正确 UID，用对应 MASTER_KEY 启动，验证登录、vault 解密、已发布配置和账本。快照自带旧实例租约；若原进程已停止，启动会回收。不要同时运行源实例与共享副本。备份恢复测试已使用独立临时目录执行。
+恢复：先停止服务并保存当前数据快照，在新目录恢复 snapshot，保持 0600/0700 和正确 UID，用对应 MASTER_KEY 启动，验证登录、vault 解密、已发布配置和账本。快照自带旧实例租约；同命名空间旧进程已停止时可回收，跨命名空间须等待其心跳过期。未知旧版租约应在确认所有实例都已停止后由管理员离线清除，禁止在线删除。不要同时运行源实例与共享副本。备份恢复测试已使用独立临时目录执行。
 
-升级/回滚：先备份数据库与主密钥、记录代码 commit，停止旧实例后启动新版本；失败时停止新实例并恢复对应版本的数据库快照。不能只回滚代码并假定未来 schema 可向后兼容。当前 schema 为初始 v1，无生产迁移历史。
+升级/回滚：先备份数据库与主密钥、记录代码 commit，停止旧实例后启动新版本；失败时停止新实例并恢复对应版本的数据库快照。不能只回滚代码并假定未来 schema 可向后兼容。当前 schema 为 v3：v2 增加隔离 Runtime，v3 增加命名空间租约；没有生产迁移历史。
+
+## 隔离代码执行
+
+默认关闭。专用 Docker engine 应与其他生产负载隔离；后端持有 socket 等同拥有该 engine 管理权限，不能复用承载其他业务的 Docker socket。执行容器不会挂载该 socket、宿主目录或后端凭据。
+
+```sh
+docker --context colima-uwork-backend build -f Dockerfile.sandbox -t uwork-sandbox:local .
+```
+
+本机后端配置 `SANDBOX_DOCKER_SOCKET=/Users/ljp/.colima/uwork-backend/docker.sock` 和 `SANDBOX_IMAGE=uwork-sandbox:local`；此路径为本机专用环境，不是生产通用路径。生产 Linux 容器可使用 `compose.sandbox.yaml`，先设置 `SANDBOX_HOST_SOCKET` 为专用 engine 的 Unix socket、`SANDBOX_SOCKET_GID` 为该 socket 的实际组，再以两个 compose 文件启动；不要把 socket 权限改为 world-writable。macOS 的宿主 socket 转发路径不能当作 Linux engine 上的 bind mount 路径。
+
+管理员创建 Runtime 并指定范围；执行还要求成员有效、席位、订阅、助理入口和安全策略 `allowSandbox=true`。沙箱始终无网络；`network=false` 不阻止已明确允许的离线代码计算。执行 UID 1000 与保护 TTL 的 watchdog UID 999 分离，防止用户代码终止过期计时器。取消/超时/输出超限会停止整个 Runtime，其 tmpfs 不承诺持久化。
+
+真实验证命令（均使用独立受控数据，自动清理自身容器）：`node --import tsx scripts/docker-smoke.ts`、`scripts/sandbox-driver-smoke.ts`、`scripts/sandbox-api-smoke.ts`、`scripts/sandbox-crash-smoke.ts`、`scripts/lease-namespace-smoke.ts`。后三者也需相同的 `node --import tsx` 前缀。Docker context 默认 `colima-uwork-backend`，可通过 `UWORK_DOCKER_CONTEXT` 显式改到专用验证 engine。Agent 模型工具调用闭环仍单独跟踪，不能将执行 API 等同其已完成。
 
 ## 外部接入
 

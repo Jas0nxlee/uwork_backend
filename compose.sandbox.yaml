@@ -1,0 +1,9 @@
+services:
+  backend:
+    environment:
+      SANDBOX_DOCKER_SOCKET: /run/uwork-sandbox.sock
+      SANDBOX_IMAGE: ${SANDBOX_IMAGE:-uwork-sandbox:local}
+    volumes:
+      - ${SANDBOX_HOST_SOCKET:?Set the dedicated Linux Docker engine socket}:/run/uwork-sandbox.sock
+    group_add:
+      - ${SANDBOX_SOCKET_GID:?Set the dedicated socket group id}

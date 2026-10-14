@@ -2,7 +2,7 @@ import Fastify, { LogController } from "fastify";
 import { z } from "zod";
 import { Db } from "./db.js";
 import { ApiError, fail, id } from "./core.js";
-import { authenticate, tenantAccess } from "./access.js";
+import { authenticate, tenantAccess, requirePermission } from "./access.js";
 import { identityRoutes, purgeIdentity } from "./identity.js";
 import { directoryRoutes } from "./directory.js";
 import { Vault, vaultRoutes } from "./vault.js";
@@ -22,6 +22,10 @@ import { connectorRoutes } from "./connectors.js";
 import { staticRoutes } from "./static.js";
 import { openApi } from "./openapi.js";
 import { clientUsageRoutes } from "./client-usage.js";
+import { SandboxService } from "./sandbox/service.js";
+import { sandboxRoutes } from "./sandbox/routes.js";
+import { DockerSandboxDriver } from "./sandbox/docker.js";
+import type { SandboxDriver } from "./sandbox/contract.js";
 
 export interface AppOptions {
   database: string;
@@ -31,6 +35,9 @@ export interface AppOptions {
   logger?: boolean;
   worker?: boolean;
   wecomProvider?: WecomProvider;
+  sandboxDriver?: SandboxDriver;
+  sandboxSocket?: string;
+  sandboxImage?: string;
 }
 export async function createApp(options: AppOptions) {
   if (options.masterKey.length !== 32)
@@ -51,16 +58,11 @@ export async function createApp(options: AppOptions) {
     requestTimeout: 60000,
     trustProxy: false,
   });
-  const db = new Db(options.database);
   const instanceOwner = id();
-  if (options.database !== ":memory:") {
-    try {
-      db.acquireInstance(instanceOwner);
-    } catch (error) {
-      db.close();
-      throw error;
-    }
-  }
+  const db = new Db(
+    options.database,
+    options.database !== ":memory:" ? instanceOwner : undefined,
+  );
   openApi(app, options.publicUrl);
   const vault = new Vault(db, options.masterKey);
   const entitlements = new Entitlements(db);
@@ -79,6 +81,61 @@ export async function createApp(options: AppOptions) {
     options.allowPrivateUpstreams ?? false,
   );
   const evaluation = new EvaluationWorker(db, runtime, vault);
+  const sandboxDriver =
+    options.sandboxDriver ??
+    (options.sandboxSocket
+      ? new DockerSandboxDriver(
+          options.sandboxSocket,
+          options.sandboxImage ?? "uwork-sandbox:local",
+        )
+      : undefined);
+  const sandbox = new SandboxService(db, vault, sandboxDriver, (actor) => {
+    requirePermission(actor, "execute");
+    entitlements.subscription(actor.tenantId);
+  });
+  let workerHealthy = true;
+  let leaseLost = false;
+  let interval: ReturnType<typeof setInterval> | undefined;
+  let delivery: Promise<void> | undefined;
+  const stopWorkers = () =>
+    Promise.allSettled([runtime.stop(), sandbox.stop(), automation.stop()]);
+  const heartbeat =
+    options.database !== ":memory:"
+      ? setInterval(() => {
+          try {
+            db.renewInstance(instanceOwner);
+          } catch {
+            leaseLost = true;
+            workerHealthy = false;
+            clearInterval(interval);
+            clearInterval(heartbeat);
+            void stopWorkers();
+            app.log.error(
+              { code: "INSTANCE_LEASE_LOST" },
+              "Database lease lost; workers stopped",
+            );
+          }
+        }, 15000)
+      : undefined;
+  heartbeat?.unref();
+  app.addHook("onClose", async () => {
+    clearInterval(interval);
+    clearInterval(heartbeat);
+    const result = await stopWorkers();
+    if (result.some((item) => item.status === "rejected"))
+      app.log.error(
+        { code: "WORKER_SHUTDOWN_FAILURE" },
+        "One or more workers failed during shutdown",
+      );
+    db.close();
+  });
+  try {
+    await sandbox.recover();
+    db.assertInstance();
+  } catch (error) {
+    await app.close();
+    throw error;
+  }
   const services = {
     db,
     vault,
@@ -87,9 +144,17 @@ export async function createApp(options: AppOptions) {
     runtime,
     automation,
     evaluation,
+    sandbox,
   };
   app.decorate("services", services);
+  const decorated = app as typeof app & { services: typeof services };
   app.addHook("onRequest", async (req, reply) => {
+    try {
+      if (leaseLost) throw new Error("Lease lost");
+      db.assertInstance();
+    } catch {
+      fail(503, "INSTANCE_LEASE_LOST", "数据库实例所有权已失效，请重启服务");
+    }
     reply
       .header("x-content-type-options", "nosniff")
       .header("x-frame-options", "DENY")
@@ -151,9 +216,8 @@ export async function createApp(options: AppOptions) {
       requestId: req.id,
     });
   });
-  let workerHealthy = true;
   app.get("/health", async (_req, reply) => {
-    const healthy = workerHealthy && !!db.get("SELECT 1");
+    const healthy = workerHealthy && !sandbox.failure && !!db.get("SELECT 1");
     return reply
       .code(healthy ? 200 : 503)
       .send({ status: healthy ? "ok" : "degraded", version: "0.1.0" });
@@ -168,26 +232,39 @@ export async function createApp(options: AppOptions) {
   policyRoutes(app, db);
   clientRoutes(app, db);
   clientUsageRoutes(app, db);
-  runtimeRoutes(app, db, runtime);
+  sandboxRoutes(app, db, sandbox);
+  runtimeRoutes(
+    app,
+    db,
+    runtime,
+    async () => (await sandbox.health()).available,
+  );
   automationRoutes(app, db, runtime, vault);
   evaluationRoutes(app, db, runtime, vault, evaluation);
   wecomRoutes(app, db, vault, options.publicUrl, options.wecomProvider);
   telemetryRoutes(app, db, {
     purgeCalls: (tenant, before) => gateway.purgeCalls(tenant, before),
     purgeRuns: (tenant, before) => runtime.purgeFinished(tenant, before),
+    purgeSandbox: (tenant, before) => sandbox.purgeFinished(tenant, before),
     purgeIdentity: (time) => purgeIdentity(db, time),
   });
-  integrationRoutes(app, db, vault, options.allowPrivateUpstreams ?? false);
+  integrationRoutes(
+    app,
+    db,
+    vault,
+    options.allowPrivateUpstreams ?? false,
+    async () => (await sandbox.health()).available,
+  );
   connectorRoutes(app, db, vault, options.allowPrivateUpstreams ?? false);
   staticRoutes(app);
-  let interval: ReturnType<typeof setInterval> | undefined;
-  let delivery: Promise<void> | undefined;
   if (options.worker)
     interval = setInterval(() => {
       try {
+        db.assertInstance();
         workerHealthy = true;
         automation.tick();
         runtime.pump();
+        sandbox.pump();
         evaluation.tick();
         if (!delivery)
           delivery = automation
@@ -207,12 +284,6 @@ export async function createApp(options: AppOptions) {
         app.log.error({ code: "SCHEDULER_FAILURE" }, "Scheduler failed");
       }
     }, 1000);
-  app.addHook("onClose", async () => {
-    clearInterval(interval);
-    await runtime.stop();
-    await automation.stop();
-    if (options.database !== ":memory:") db.releaseInstance(instanceOwner);
-    db.close();
-  });
-  return app as typeof app & { services: typeof services };
+  // Fastify's thenable signature otherwise erases decorated types when awaited.
+  return decorated as Omit<typeof decorated, "then">;
 }

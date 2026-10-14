@@ -21,6 +21,8 @@ export function environment() {
       HOST: z.string().default("127.0.0.1"),
       PORT: z.coerce.number().int().min(1).max(65535).default(3000),
       ALLOW_PRIVATE_UPSTREAMS: z.enum(["true", "false"]).default("false"),
+      SANDBOX_DOCKER_SOCKET: z.string().max(512).optional(),
+      SANDBOX_IMAGE: z.string().max(256).default("uwork-sandbox:local"),
     })
     .parse(process.env);
   if (
@@ -37,5 +39,7 @@ export function environment() {
     host: env.HOST,
     port: env.PORT,
     allowPrivateUpstreams: env.ALLOW_PRIVATE_UPSTREAMS === "true",
+    sandboxSocket: env.SANDBOX_DOCKER_SOCKET,
+    sandboxImage: env.SANDBOX_IMAGE,
   };
 }

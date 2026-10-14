@@ -18,3 +18,22 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm audit --audit-level=high
+  docker:
+    runs-on: ubuntu-latest
+    env:
+      UWORK_DOCKER_CONTEXT: default
+      UWORK_SANDBOX_SOCKET: /var/run/docker.sock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: docker build -t uwork-backend:local .
+      - run: docker build -f Dockerfile.sandbox -t uwork-sandbox:local .
+      - run: node --import tsx scripts/docker-smoke.ts
+      - run: node --import tsx scripts/sandbox-driver-smoke.ts
+      - run: node --import tsx scripts/sandbox-api-smoke.ts
+      - run: node --import tsx scripts/sandbox-crash-smoke.ts
+      - run: node --import tsx scripts/lease-namespace-smoke.ts

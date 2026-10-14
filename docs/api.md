@@ -63,14 +63,17 @@ Header `Idempotency-Key` 最长 128 字符；同键/同人/同内容重放成功
 
 ## Runtime 与观测
 
-- `/agents` 创建/更新/发布；运行锁定发布版本，启动时重新检查模型和资产授权。运行器为独立上下文的模型执行器，不运行任意 shell，不冒充云代码沙箱。
+- `/agents` 创建/更新/发布；运行锁定发布版本，启动时重新检查模型和资产授权。现有 Agent 仍为独立上下文的模型执行器；下面的隔离代码 API 已实现，但模型自主工具调用闭环尚未接入，不运行宿主 shell。
 - POST `/runs` `{agentId,input,sessionId?,timeoutMs?}` → 202；GET 列表/详情，POST `/{id}/cancel`。queued/running/succeeded/failed/cancelled/timed_out 均持久化；最长 30 分钟，重启中断任务为 failed/PROCESS_RESTARTED。
 - `/automations` 支持 once/interval/cron（含秒、显式时区），生效至 endsAt；持久化唯一触发键，禁止重叠，不重放离线期间每个历史时点。Webhook 凭据内容为 `{url,token?,type:webhook|feishu}`；最多 3 次投递，at-least-once，接收方用 run id 去重。
 - `/datasets` 的样本为 `{input,expected,match:exact|contains}`；POST `/evaluations` 创建真实运行，GET 报告、POST `/{id}/cancel`；不把字符串匹配评分冒充 AI 评审质量分。
+- GET `/runtimes/capability` 报告实际专用 Docker 镜像可用性及限制；未配置不可声称可执行。POST `/runtimes` `{name,scope?,ttlMinutes:1..30}` 创建非 root、无网络、无宿主挂载的真实容器，省略范围只授权创建者；GET 列表/详情，PATCH `/{id}` `{name,scope,revision}`，POST `/{id}/stop`，DELETE `/{id}`。每租户最多 4 个，全实例最多 16 个。停止/删除串行化，迟到 provision/inspect/reaper 不能复活已删除记录。
+- POST `/runtimes/{id}/executions` `{code,timeoutMs:100..1800000}` → 202 `{id}`，只接受容器内 Node.js 代码；代码和输出加密保存。GET `/sandbox-executions` 支持 page/pageSize/runtimeId/status，GET `/{id}` 返回本成员或有 read 权限管理员可访问的解密内容，POST `/{id}/cancel`。执行需有效席位/订阅、助理 agents 渠道、Runtime 范围与安全策略 `allowSandbox=true`；默认关闭。即使允许网络，沙箱本身仍无网络。
+- 一次 Runtime 同时只执行一个任务，工作器并发 4；输出总计上限 128 KiB。取消、超时、输出超限停止整个容器；崩溃恢复会实际停止中断代码进程并记录 failed/PROCESS_RESTARTED。TTL watchdog 与代码执行 UID 分离，最多 30 分钟。临时工作目录只能在该容器存活期间复用，不是持久网盘。
 - `/audit`、`/traces`、`/usage`、`/client-events` 支持 page/pageSize/q/from/to/userId；trace/usage 另支持 application/status。`format=csv` 上限 10000 条，CSV 防公式注入，使用时间范围分段导出。
 - `/metrics`、`/usage/aggregates?groupBy=member|department|application` 聚合自有账本。成员 `/api/client/usage` 仅看自己的统计，Credit 单位明确。
 - POST `/retention/purge` `{days:90}` 清理诊断记录、临时缓存和可删除终态任务；业务账本、评测、自动化历史按业务保留，需按企业要求补充归档策略。
 
 ## 外部适配
 
-`/integrations` 声明能力状态。网盘经自有 HTTPS 适配网关提供 health/capacity/files/logs 及容量策略，不直接宣称已实现腾讯网盘私有协议。缺少配置返回 503。支付和云沙箱明确 unavailable。
+`/integrations` 声明能力状态。网盘经自有 HTTPS 适配网关提供 health/capacity/files/logs 及容量策略，不直接宣称已实现腾讯网盘私有协议。缺少配置返回 503。支付仍 unavailable；隔离 Docker 沙箱仅在实际 daemon 和配置镜像检查通过时报告可用，不代表外部云供应商服务。

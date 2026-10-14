@@ -1,6 +1,25 @@
 import type { FastifyRequest } from "fastify";
 import type { Db } from "./db.js";
 import { fail, hash, now, type Actor, type Role, type Scope } from "./core.js";
+export function currentActor(db: Db, tenantId: string, userId: string): Actor {
+  const m = db.get<{
+    role: Role;
+    department_id: string | null;
+    seat: number;
+    status: string;
+  }>("SELECT * FROM members WHERE tenant_id=? AND user_id=?", tenantId, userId);
+  if (!m || m.status !== "active") fail(403, "MEMBER_INACTIVE", "成员不可用");
+  return {
+    tenantId,
+    userId,
+    role: m.role,
+    departmentId: m.department_id,
+    seat: !!m.seat,
+    kind: "runtime",
+    sessionHash: "",
+    scopes: ["execute"],
+  };
+}
 
 export function authenticate(db: Db, request: FastifyRequest): Actor {
   const authorization = request.headers.authorization;

@@ -200,6 +200,7 @@ export function telemetryRoutes(
         );
       counts.gateway_calls = retention.purgeCalls(a.tenantId, now() - 86400000);
       counts.runs = retention.purgeRuns(a.tenantId, before);
+      counts.sandbox_executions = retention.purgeSandbox(a.tenantId, before);
       retention.purgeIdentity(now());
       audit(db, a, "telemetry.retention.purge", undefined, { days: d.days });
       return counts;

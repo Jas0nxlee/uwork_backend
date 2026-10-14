@@ -20,6 +20,7 @@ export const securitySchema = z
     allowShell: z.boolean().default(false),
     allowFilesystem: z.boolean().default(false),
     allowNetwork: z.boolean().default(true),
+    allowSandbox: z.boolean().default(false),
     dangerousSkills: z.boolean().default(false),
     allowedDomains: z
       .array(
@@ -241,11 +242,10 @@ export function ipAllowed(db: Db, a: Actor, ip: string) {
     return false;
   }
 }
-export function assertExecution(
+export function assertChannel(
   db: Db,
   a: Actor,
   kind: "local" | "agents" | "cloud",
-  upstreamUrl?: string,
 ) {
   const assistant = configurationSchemas.assistants.parse(
     configuration(db, a.tenantId, "assistants").published,
@@ -256,6 +256,14 @@ export function assertExecution(
     !inScope(db, assistant.scope, a)
   )
     fail(403, "CHANNEL_DISABLED", "助理渠道已关闭或未授权");
+}
+export function assertExecution(
+  db: Db,
+  a: Actor,
+  kind: "local" | "agents" | "cloud",
+  upstreamUrl?: string,
+) {
+  assertChannel(db, a, kind);
   const security = effectiveSecurity(db, a);
   if (!security.allowNetwork)
     fail(403, "NETWORK_DISABLED", "企业安全策略禁止网络访问");

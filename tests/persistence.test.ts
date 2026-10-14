@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../src/app.js";
 import { bootstrap } from "../src/identity.js";
-import { Db } from "../src/db.js";
+import { DatabaseSync } from "node:sqlite";
 test("persistent tenant data survives backup/restore and a second worker cannot recover a live database", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "uwork-test-"));
   t.after(() => rm(dir, { recursive: true, force: true }));
@@ -50,12 +50,13 @@ test("persistent tenant data survives backup/restore and a second worker cannot 
     "running",
   );
   await app.services.db.backupTo(join(dir, "backup.sqlite"));
-  const copy = new Db(join(dir, "backup.sqlite"));
+  const copy = new DatabaseSync(join(dir, "backup.sqlite"), { readOnly: true });
   assert.equal(
-    copy.get<{ name: string }>(
-      "SELECT name FROM tenants WHERE id=?",
-      b.tenantId,
-    )!.name,
+    (
+      copy.prepare("SELECT name FROM tenants WHERE id=?").get(b.tenantId) as {
+        name: string;
+      }
+    ).name,
     "Persistent",
   );
   copy.close();

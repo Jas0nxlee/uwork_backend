@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { fixture } from "./fixtures.js";
-import { currentActor } from "../src/runtime.js";
+import { currentActor } from "../src/access.js";
 import { now } from "../src/core.js";
 
 test("SSE finishes with usage and incomplete upstream is a terminal error", async (t) => {

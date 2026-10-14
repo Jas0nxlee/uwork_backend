@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { Db } from "./db.js";
 import { bootstrap } from "./identity.js";
 import { environment } from "./config.js";
+import { id } from "./core.js";
 
 if (process.argv[2] !== "init") throw new Error("Supported command: init");
 if (!process.env.MASTER_KEY) {
@@ -19,7 +20,7 @@ if (!process.env.MASTER_KEY) {
   process.loadEnvFile(".env");
 }
 const config = environment();
-const db = new Db(config.database);
+const db = new Db(config.database, id());
 try {
   if (db.get("SELECT id FROM tenants LIMIT 1")) {
     console.log("Database already initialized. No accounts changed.");

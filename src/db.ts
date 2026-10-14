@@ -1,12 +1,77 @@
 import { DatabaseSync, backup, type SQLInputValue } from "node:sqlite";
-import { mkdirSync, chmodSync, existsSync } from "node:fs";
+import {
+  mkdirSync,
+  chmodSync,
+  readlinkSync,
+  openSync,
+  closeSync,
+  rmSync,
+  readFileSync,
+} from "node:fs";
 import { dirname } from "node:path";
+import { hostname } from "node:os";
+import { createHash, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
+
+const LEASE_EXPIRY_MS = 120000;
+const hostId = (() => {
+  let namespace = "host";
+  let boot: string;
+  try {
+    if (process.platform === "linux") {
+      namespace = readlinkSync("/proc/self/ns/pid");
+      boot = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
+    } else if (process.platform === "darwin")
+      boot = execFileSync("/usr/sbin/sysctl", ["-n", "kern.bootsessionuuid"], {
+        encoding: "utf8",
+        timeout: 1000,
+      }).trim();
+    else throw new Error("Unverified boot identity");
+    if (!boot) throw new Error("Empty boot identity");
+  } catch {
+    boot = `unverified:${randomUUID()}`;
+  }
+  return createHash("sha256")
+    .update(`${process.platform}:${hostname()}:${boot}:${namespace}`)
+    .digest("hex");
+})();
+
+async function copyDatabase(connection: DatabaseSync, destination: string) {
+  mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
+  try {
+    closeSync(openSync(destination, "wx", 0o600));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST")
+      throw new Error("Backup destination already exists");
+    throw error;
+  }
+  try {
+    await backup(connection, destination);
+  } catch (error) {
+    rmSync(destination, { force: true });
+    throw error;
+  }
+}
+
+export async function backupDatabase(source: string, destination: string) {
+  const connection = new DatabaseSync(source, { readOnly: true });
+  try {
+    await copyDatabase(connection, destination);
+  } finally {
+    connection.close();
+  }
+}
 
 export class Db {
   private static activeInstances = new Set<string>();
   private connection: DatabaseSync;
   private depth = 0;
-  constructor(path: string) {
+  private activeOwner?: string;
+  constructor(path: string, owner?: string) {
+    if (path !== ":memory:" && !owner)
+      throw new Error(
+        "Persistent database writes require an instance lease owner",
+      );
     if (path !== ":memory:")
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.connection = new DatabaseSync(path);
@@ -14,9 +79,14 @@ export class Db {
     this.connection.exec(
       "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",
     );
-    this.connection.exec(`
+    this.connection.exec(
+      "CREATE TABLE IF NOT EXISTS instance_lease(id INTEGER PRIMARY KEY CHECK(id=1),owner TEXT NOT NULL,pid INTEGER NOT NULL,host_id TEXT,heartbeat_at INTEGER)",
+    );
+    try {
+      if (owner) this.acquireInstance(owner);
+      this.transaction(() =>
+        this.connection.exec(`
       CREATE TABLE IF NOT EXISTS schema_version(version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS instance_lease(id INTEGER PRIMARY KEY CHECK(id=1),owner TEXT NOT NULL,pid INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS tenants(id TEXT PRIMARY KEY, name TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'local', settings TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, email TEXT UNIQUE, name TEXT NOT NULL, password TEXT, created_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS departments(id TEXT NOT NULL, tenant_id TEXT NOT NULL REFERENCES tenants(id), name TEXT NOT NULL, parent_id TEXT, source TEXT NOT NULL DEFAULT 'local', external_id TEXT, PRIMARY KEY(tenant_id,id), UNIQUE(tenant_id,external_id));
@@ -53,10 +123,34 @@ export class Db {
       CREATE TABLE IF NOT EXISTS deliveries(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, run_id TEXT NOT NULL, credential_id TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL, error_code TEXT, UNIQUE(run_id,credential_id));
       CREATE TABLE IF NOT EXISTS datasets(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, name TEXT NOT NULL, cases TEXT NOT NULL, created_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS evaluations(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, user_id TEXT NOT NULL, agent_id TEXT NOT NULL, dataset_id TEXT NOT NULL, status TEXT NOT NULL, report TEXT NOT NULL, created_at INTEGER NOT NULL, finished_at INTEGER);
+      CREATE TABLE IF NOT EXISTS sandbox_runtimes(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL REFERENCES tenants(id),user_id TEXT NOT NULL,name TEXT NOT NULL,scope TEXT NOT NULL,owner_token TEXT NOT NULL,container_id TEXT,status TEXT NOT NULL,error_code TEXT,created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 1);
+      CREATE INDEX IF NOT EXISTS sandbox_runtime_tenant ON sandbox_runtimes(tenant_id,status);
+      CREATE TABLE IF NOT EXISTS sandbox_executions(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,runtime_id TEXT NOT NULL REFERENCES sandbox_runtimes(id),user_id TEXT NOT NULL,status TEXT NOT NULL,code TEXT NOT NULL,stdout TEXT,stderr TEXT,exit_code INTEGER,error_code TEXT,timeout_ms INTEGER NOT NULL,created_at INTEGER NOT NULL,started_at INTEGER,finished_at INTEGER);
+      CREATE INDEX IF NOT EXISTS sandbox_execution_queue ON sandbox_executions(status,created_at);
       INSERT OR IGNORE INTO schema_version VALUES(1,unixepoch()*1000);
-    `);
+      INSERT OR IGNORE INTO schema_version VALUES(2,unixepoch()*1000);
+    `),
+      );
+      if (
+        this.all<{ name: string }>("PRAGMA table_info(instance_lease)").some(
+          (column) => column.name === "host_id",
+        )
+      )
+        this.run(
+          "INSERT OR IGNORE INTO schema_version VALUES(3,unixepoch()*1000)",
+        );
+    } catch (error) {
+      if (this.activeOwner) this.releaseInstance(this.activeOwner);
+      this.connection.close();
+      throw error;
+    }
   }
   run(sql: string, ...params: SQLInputValue[]) {
+    if (this.activeOwner && this.depth === 0)
+      return this.transaction(() =>
+        this.connection.prepare(sql).run(...params),
+      );
+    this.assertInstance();
     return this.connection.prepare(sql).run(...params);
   }
   get<T>(sql: string, ...params: SQLInputValue[]): T | undefined {
@@ -67,9 +161,11 @@ export class Db {
   }
   transaction<T>(fn: () => T): T {
     const nested = this.depth > 0;
-    const savepoint = `sp_${this.depth++}`;
+    const savepoint = `sp_${this.depth}`;
     this.connection.exec(nested ? `SAVEPOINT ${savepoint}` : "BEGIN IMMEDIATE");
+    this.depth++;
     try {
+      this.assertInstance();
       const result = fn();
       this.connection.exec(nested ? `RELEASE ${savepoint}` : "COMMIT");
       return result;
@@ -84,44 +180,88 @@ export class Db {
     }
   }
   close() {
+    if (this.activeOwner) this.releaseInstance(this.activeOwner);
     this.connection.close();
   }
   acquireInstance(owner: string) {
     this.transaction(() => {
-      const previous = this.get<{ owner: string; pid: number }>(
-        "SELECT owner,pid FROM instance_lease WHERE id=1",
-      );
+      const previous = this.get<{
+        owner: string;
+        pid: number;
+        host_id?: string;
+        heartbeat_at?: number;
+      }>("SELECT * FROM instance_lease WHERE id=1");
       if (previous) {
-        let alive =
-          previous.pid !== process.pid ||
-          Db.activeInstances.has(previous.owner);
-        try {
-          process.kill(previous.pid, 0);
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === "ESRCH") alive = false;
+        if (previous.host_id !== hostId) {
+          if (
+            !previous.heartbeat_at ||
+            Date.now() - previous.heartbeat_at < LEASE_EXPIRY_MS
+          )
+            throw new Error(
+              "Database belongs to another or legacy namespace; stop its backend before migration or wait for the foreign lease to expire",
+            );
+        } else {
+          let alive =
+            previous.pid !== process.pid ||
+            Db.activeInstances.has(previous.owner);
+          try {
+            process.kill(previous.pid, 0);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ESRCH")
+              alive = false;
+          }
+          if (alive)
+            throw new Error(
+              "Database already belongs to a running backend instance",
+            );
         }
-        if (alive)
-          throw new Error(
-            "Database already belongs to a running backend instance",
-          );
       }
+      const columns = this.all<{ name: string }>(
+        "PRAGMA table_info(instance_lease)",
+      );
+      if (!columns.some((column) => column.name === "host_id"))
+        this.connection.exec(
+          "ALTER TABLE instance_lease ADD COLUMN host_id TEXT",
+        );
+      if (!columns.some((column) => column.name === "heartbeat_at"))
+        this.connection.exec(
+          "ALTER TABLE instance_lease ADD COLUMN heartbeat_at INTEGER",
+        );
       this.run(
-        "INSERT INTO instance_lease VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,pid=excluded.pid",
+        "INSERT INTO instance_lease(id,owner,pid,host_id,heartbeat_at) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,pid=excluded.pid,host_id=excluded.host_id,heartbeat_at=excluded.heartbeat_at",
         owner,
         process.pid,
+        hostId,
+        Date.now(),
       );
     });
     Db.activeInstances.add(owner);
+    this.activeOwner = owner;
+  }
+  assertInstance() {
+    if (
+      this.activeOwner &&
+      this.get<{ owner: string }>("SELECT owner FROM instance_lease WHERE id=1")
+        ?.owner !== this.activeOwner
+    )
+      throw new Error("Database instance lease lost");
+  }
+  renewInstance(owner: string) {
+    const result = this.connection
+      .prepare(
+        "UPDATE instance_lease SET heartbeat_at=? WHERE id=1 AND owner=?",
+      )
+      .run(Date.now(), owner);
+    if (result.changes !== 1) throw new Error("Database instance lease lost");
   }
   releaseInstance(owner: string) {
-    this.run("DELETE FROM instance_lease WHERE id=1 AND owner=?", owner);
+    this.connection
+      .prepare("DELETE FROM instance_lease WHERE id=1 AND owner=?")
+      .run(owner);
     Db.activeInstances.delete(owner);
+    if (this.activeOwner === owner) this.activeOwner = undefined;
   }
   async backupTo(destination: string) {
-    if (existsSync(destination))
-      throw new Error("Backup destination already exists");
-    mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
-    await backup(this.connection, destination);
-    chmodSync(destination, 0o600);
+    await copyDatabase(this.connection, destination);
   }
 }

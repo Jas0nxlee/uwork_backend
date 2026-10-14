@@ -213,6 +213,7 @@ const fieldNames: Record<string, string> = {
   allowShell: "命令执行",
   allowFilesystem: "文件访问",
   allowNetwork: "网络访问",
+  allowSandbox: "隔离代码执行",
   dangerousSkills: "高风险技能",
   allowedDomains: "允许的域名",
 };

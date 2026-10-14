@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
 import type { Gateway } from "./gateway.js";
 import type { Vault } from "./vault.js";
-import { authenticate, requirePermission } from "./access.js";
+import { authenticate, requirePermission, currentActor } from "./access.js";
 import { audit } from "./events.js";
 import {
   ApiError,
@@ -57,25 +57,6 @@ export interface Run {
   created_at: number;
   started_at: number | null;
   finished_at: number | null;
-}
-export function currentActor(db: Db, tenantId: string, userId: string): Actor {
-  const m = db.get<{
-    role: Actor["role"];
-    department_id: string | null;
-    seat: number;
-    status: string;
-  }>("SELECT * FROM members WHERE tenant_id=? AND user_id=?", tenantId, userId);
-  if (!m || m.status !== "active") fail(403, "MEMBER_INACTIVE", "成员不可用");
-  return {
-    tenantId,
-    userId,
-    role: m.role,
-    departmentId: m.department_id,
-    seat: !!m.seat,
-    kind: "runtime",
-    sessionHash: "",
-    scopes: ["execute"],
-  };
 }
 export class Runtime {
   private active = new Map<
@@ -370,7 +351,12 @@ export class Runtime {
     }
   }
 }
-export function runtimeRoutes(app: FastifyInstance, db: Db, runtime: Runtime) {
+export function runtimeRoutes(
+  app: FastifyInstance,
+  db: Db,
+  runtime: Runtime,
+  readSandboxCapability: () => Promise<boolean>,
+) {
   const p = "/api/tenants/:tenantId";
   app.get(`${p}/agents`, async (req) => {
     const a = authenticate(db, req);
@@ -574,9 +560,13 @@ export function runtimeRoutes(app: FastifyInstance, db: Db, runtime: Runtime) {
   app.get(`${p}/runtime`, async (req) => {
     const a = authenticate(db, req);
     requirePermission(a, "read");
+    const sandboxAvailable = await readSandboxCapability();
     return {
-      engine: "model-only",
-      arbitraryCodeExecution: false,
+      engine: sandboxAvailable ? "model-and-isolated-code" : "model-only",
+      arbitraryCodeExecution: sandboxAvailable,
+      isolatedCodeExecution: sandboxAvailable,
+      hostCodeExecution: false,
+      agentToolExecution: false,
       maxConcurrentRuns: 4,
       maxRunTimeMs: 1800000,
       statuses: db.all(

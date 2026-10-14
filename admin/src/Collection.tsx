@@ -110,6 +110,25 @@ export function Collection({
     });
   }
   function edit(r: Row) {
+    if (view.id === "runtimes") {
+      setForm({
+        title: "Runtime 设置",
+        fields: [
+          { key: "name", label: "名称", required: true },
+          { key: "scope", label: "可见范围", type: "json", required: true },
+        ],
+        initial: { name: r.name, scope: r.scope },
+        submit: async (d) => {
+          await api(`${base}/runtimes/${r.id}`, "PATCH", {
+            ...d,
+            revision: r.revision,
+          });
+          await load();
+          notify("Runtime 已更新");
+        },
+      });
+      return;
+    }
     if (view.id === "credentials") {
       setForm({
         title: "轮换凭据",
@@ -273,7 +292,7 @@ export function Collection({
                       <span className={`status ${display(r.status)}`}>
                         {display(r.status)}
                       </span>
-                    ) : c.key.endsWith("_at") ? (
+                    ) : c.key.endsWith("_at") || c.key.endsWith("At") ? (
                       date(nested(r, c.key))
                     ) : (
                       display(nested(r, c.key))
@@ -288,7 +307,13 @@ export function Collection({
                     onClick={() =>
                       void invoke(async () => {
                         if (
-                          ["runs", "datasets", "evaluations"].includes(view.id)
+                          [
+                            "runs",
+                            "datasets",
+                            "evaluations",
+                            "runtimes",
+                            "sandbox-executions",
+                          ].includes(view.id)
                         )
                           setDetail(await api(`${base}${view.path}/${r.id}`));
                         else setDetail(r);
@@ -306,6 +331,7 @@ export function Collection({
                         "members",
                         "departments",
                         "credentials",
+                        "runtimes",
                       ].includes(view.id) && (
                         <button
                           className="icon"
@@ -386,7 +412,67 @@ export function Collection({
                           <Play size={16} />
                         </button>
                       )}
-                      {["runs", "evaluations"].includes(view.id) &&
+                      {view.id === "runtimes" && (
+                        <>
+                          <button
+                            className="icon"
+                            title="执行代码"
+                            aria-label="执行代码"
+                            disabled={r.status !== "ready"}
+                            onClick={() =>
+                              setForm({
+                                title: "隔离代码执行",
+                                fields: [
+                                  {
+                                    key: "code",
+                                    label: "JavaScript",
+                                    type: "textarea",
+                                    required: true,
+                                    initial: "console.log(1 + 1)",
+                                  },
+                                  {
+                                    key: "timeoutMs",
+                                    label: "超时 / 毫秒",
+                                    type: "number",
+                                    initial: 30000,
+                                    min: 100,
+                                    max: 1800000,
+                                  },
+                                ],
+                                submit: async (d) => {
+                                  const result = await api(
+                                    `${base}/runtimes/${r.id}/executions`,
+                                    "POST",
+                                    d,
+                                  );
+                                  setDetail(result);
+                                  notify("代码执行已受理");
+                                  await load();
+                                },
+                              })
+                            }
+                          >
+                            <Play size={16} />
+                          </button>
+                          {["ready", "busy"].includes(String(r.status)) && (
+                            <button
+                              className="icon danger"
+                              title="停止 Runtime"
+                              aria-label="停止 Runtime"
+                              onClick={() =>
+                                void invoke(() =>
+                                  api(`${base}/runtimes/${r.id}/stop`, "POST"),
+                                )
+                              }
+                            >
+                              <Square size={15} />
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {["runs", "evaluations", "sandbox-executions"].includes(
+                        view.id,
+                      ) &&
                         ["running", "queued"].includes(String(r.status)) && (
                           <button
                             className="icon danger"
@@ -422,9 +508,12 @@ export function Collection({
                           <Power size={16} />
                         </button>
                       )}
-                      {!["members", "runs", "evaluations"].includes(
-                        view.id,
-                      ) && (
+                      {![
+                        "members",
+                        "runs",
+                        "evaluations",
+                        "sandbox-executions",
+                      ].includes(view.id) && (
                         <button
                           className="icon danger"
                           title="停用或删除"
