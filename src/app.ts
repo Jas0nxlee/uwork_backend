@@ -12,6 +12,7 @@ import { Gateway, gatewayRoutes } from "./gateway.js";
 import { assetRoutes } from "./assets.js";
 import { policyRoutes, ipAllowed } from "./policy.js";
 import { clientRoutes } from "./client.js";
+import { clientConsoleRoutes } from "./client-console.js";
 import { Runtime, runtimeRoutes } from "./runtime.js";
 import { AutomationWorker, automationRoutes } from "./automation.js";
 import { EvaluationWorker, evaluationRoutes } from "./evaluation.js";
@@ -249,6 +250,7 @@ export async function createApp(options: AppOptions) {
   assetRoutes(app, db);
   policyRoutes(app, db);
   clientRoutes(app, db);
+  clientConsoleRoutes(app, db, runtime);
   clientUsageRoutes(app, db);
   sandboxRoutes(app, db, sandbox);
   runtimeRoutes(
