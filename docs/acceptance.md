@@ -21,7 +21,7 @@
 
 自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run ledger:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts scripts/client-policy-contract-smoke.ts scripts/client-assets-contract-smoke.ts scripts/client-assets-host-contract-smoke.ts scripts/client-assets-rpc-contract-smoke.ts`，共 6 项，另加 `scripts/client-connectors-mcp-contract-smoke.ts` 的连接器闭环，使用真实适配源码和受控企微 provider/本机 HTTP，未调用真实企业凭据。
 
-自动化结果：后端 137 项测试通过，0 失败/跳过；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库 services 233 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。
+自动化结果：后端 139 项测试通过，0 失败/跳过（本轮新增企业设置与留存组合的两条真实 HTTP 回归）；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库此前 services 233 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。本轮后端真实 TCP、磁盘库、Docker、浏览器及安全负面场景的独立记录见 `docs/backend-system-test-2026-10-15.md`；本轮没有重复声明客户端平台验收。
 
 Host 准入：独立适配副本中的 CLI 使用现有 PermissionService 承载不可由项目/yolo/Hook/用户审批覆盖的企业裁决端口，反向 RPC 绑定当前连接和工作区。Host 每次向真实后端查询当前订阅、渠道和安全策略；私有身份代际、共享会话修订、issuer 与配置指纹阻止退出/撤权/换端点后的迟到允许。已进入受管模式的 Host 遇到配置消失仍拒绝，显式 UCAS 保留旧行为。原生前台/后台进程另行准入；受管 HTTP 强制手工跳转与公网出口，并逐跳裁决目标域名。拒绝会发布工具终止错误。
 

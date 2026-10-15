@@ -65,4 +65,4 @@ Agent 隔离代码默认关闭，需发布 Agent 的 sandbox 开关并同时满�
 
 UWork：适配副本 `/Users/ljp/Desktop/uwork_backend-client` 公开配置显式增加 `backend: "uwork"`，apiBaseUrl 设为部署 HTTPS origin，组织 orgId 对应后端 tenant id，回调为同源 `/api/auth/wecom/callback`。Secret/Token 不能进入公开配置。
 
-当前身份、模型、终端凭据和 Credit 用量服务适配通过实际源码合同联调；菜单/资产与路径/命令等本地安全 enforcement 仍需接入现有 Host 所有者并进行真实桌面验收。后端 `UWorkBackendClient` 提供这些端口合同，不新增 Renderer 身份所有者。
+当前身份、模型、终端凭据和 Credit 用量服务适配通过实际源码合同联调；菜单、资产与路径/命令等本地安全 enforcement 已接入既有 Host 所有者，并通过实际源码/stdio 合同测试。已安装桌面客户端、远程工作区与三平台仍需实际验收，不能由源码联调代替。后端 `UWorkBackendClient` 提供这些端口合同，不新增 Renderer 身份所有者。2026-10-15 后端整体实测另见 `docs/backend-system-test-2026-10-15.md`。
