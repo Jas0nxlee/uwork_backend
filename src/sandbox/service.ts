@@ -731,6 +731,18 @@ export class SandboxService {
         controller.signal,
       );
       controller.signal.throwIfAborted();
+      try {
+        this.authorizeJob(job);
+        if (runtime.expires_at <= now())
+          fail(408, "TIMEOUT", "沙箱生命周期已到期");
+      } catch (error) {
+        controller.abort(
+          error instanceof ApiError && error.code === "TIMEOUT"
+            ? "timeout"
+            : "revoked",
+        );
+        throw error;
+      }
       this.db.run(
         "UPDATE sandbox_executions SET status=?,stdout=?,stderr=?,exit_code=?,finished_at=? WHERE id=? AND status='running'",
         output.exitCode === 0 ? "succeeded" : "failed",

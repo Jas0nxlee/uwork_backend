@@ -152,13 +152,14 @@ export class AutomationWorker {
     );
     for (const d of rows) {
       try {
+        const credential = this.vault.read(d.tenant_id, d.credential_id);
         const target = z
           .object({
             url: z.url(),
             token: z.string().optional(),
             type: z.enum(["webhook", "feishu"]).default("webhook"),
           })
-          .parse(JSON.parse(this.vault.read(d.tenant_id, d.credential_id)));
+          .parse(JSON.parse(credential));
         const run = this.runtime.decode(
           this.db.get<Run>(
             "SELECT * FROM runs WHERE tenant_id=? AND id=?",
@@ -189,6 +190,14 @@ export class AutomationWorker {
             body: payload,
             token: target.token,
             timeout: 15000,
+            onDispatch: () => {
+              requirePermission(
+                currentActor(this.db, d.tenant_id, run.user_id),
+                "execute",
+              );
+              if (this.vault.read(d.tenant_id, d.credential_id) !== credential)
+                fail(409, "CREDENTIAL_CHANGED", "通知凭据在请求前已变更");
+            },
           },
           this.allowPrivate,
         );

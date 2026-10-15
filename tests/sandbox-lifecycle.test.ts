@@ -16,8 +16,10 @@ class GatedDriver implements SandboxDriver {
   createGate: ReturnType<typeof gate> | undefined;
   stopGate: ReturnType<typeof gate> | undefined;
   inspectGate: ReturnType<typeof gate> | undefined;
+  executeGate: ReturnType<typeof gate> | undefined;
   entered = gate();
   private calls = 0;
+  stopFailure = false;
   async health() {
     return { available: true, image: "controlled" };
   }
@@ -40,6 +42,7 @@ class GatedDriver implements SandboxDriver {
       : { running, exitCode: running ? null : 0, containerId: o.id };
   }
   async stop(o: SandboxOwner) {
+    if (this.stopFailure) throw new Error("Controlled stop failure");
     if (this.stopGate && this.calls++ === 0) {
       this.entered.release();
       await this.stopGate.promise;
@@ -51,6 +54,10 @@ class GatedDriver implements SandboxDriver {
     this.containers.delete(o.id);
   }
   async execute() {
+    if (this.executeGate) {
+      this.entered.release();
+      await this.executeGate.promise;
+    }
     return { stdout: "", stderr: "", exitCode: 0 };
   }
 }
@@ -73,6 +80,7 @@ async function fixture(t: TestContext) {
     driver.createGate?.release();
     driver.stopGate?.release();
     driver.inspectGate?.release();
+    driver.executeGate?.release();
     await sandbox.stop();
     db.close();
   });
@@ -101,6 +109,75 @@ test("late stop completion cannot revive a deleted runtime", async (t) => {
     "deleted",
   );
 });
+for (const outcome of [
+  "member-disabled",
+  "lifetime-expired",
+  "stop-unconfirmed",
+] as const)
+  test(`late successful sandbox output is withheld for ${outcome}`, async (t) => {
+    const f = await fixture(t);
+    f.db.run(
+      "INSERT INTO configurations(tenant_id,kind,draft,published,revision,version,updated_at) VALUES(?,'security',?,?,1,1,?)",
+      f.actor.tenantId,
+      JSON.stringify({ allowSandbox: true }),
+      JSON.stringify({ allowSandbox: true }),
+      Date.now(),
+    );
+    const runtime = await f.sandbox.create(
+      f.actor,
+      "Controlled runtime",
+      { all: true, members: [], departments: [] },
+      1,
+    );
+    const execution = await f.sandbox.enqueue(f.actor, runtime.id, "42", 1000);
+    f.driver.executeGate = gate();
+    const work = f.sandbox.drain();
+    await f.driver.entered.promise;
+    if (outcome === "lifetime-expired")
+      t.mock.method(Date, "now", () => runtime.expiresAt + 1);
+    else
+      f.db.run(
+        "UPDATE members SET status='disabled' WHERE tenant_id=? AND user_id=?",
+        f.actor.tenantId,
+        f.actor.userId,
+      );
+    f.driver.stopFailure = outcome === "stop-unconfirmed";
+    f.driver.executeGate.release();
+    await work;
+    const result = f.db.get<{
+      status: string;
+      error_code: string;
+      stdout: string | null;
+    }>(
+      "SELECT status,error_code,stdout FROM sandbox_executions WHERE id=?",
+      execution,
+    )!;
+    assert.equal(
+      result.status,
+      outcome === "stop-unconfirmed"
+        ? "failed"
+        : outcome === "lifetime-expired"
+          ? "timed_out"
+          : "cancelled",
+    );
+    assert.equal(
+      result.error_code,
+      outcome === "stop-unconfirmed"
+        ? "STOP_UNCONFIRMED"
+        : outcome === "lifetime-expired"
+          ? "TIMEOUT"
+          : "ACCESS_REVOKED",
+    );
+    assert.equal(result.stdout, null);
+    assert.equal(
+      f.driver.containers.get(runtime.id),
+      outcome === "stop-unconfirmed"
+        ? true
+        : outcome === "lifetime-expired"
+          ? undefined
+          : false,
+    );
+  });
 test("late inspection cannot resurrect a deleted runtime", async (t) => {
   const f = await fixture(t);
   const runtime = await f.sandbox.create(
