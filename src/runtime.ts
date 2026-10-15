@@ -498,8 +498,12 @@ export function runtimeRoutes(
       a.tenantId,
       ...(query.status ? [query.status] : []),
       ...(query.sessionId ? [query.sessionId] : []),
+      ...(query.q ? Array<string>(6).fill(query.q.toLowerCase()) : []),
     ];
-    const where = `tenant_id=?${query.status ? " AND status=?" : ""}${query.sessionId ? " AND session_id=?" : ""}`;
+    const search = query.q
+      ? " AND (instr(lower(id),?)>0 OR instr(lower(agent_id),?)>0 OR instr(lower(session_id),?)>0 OR instr(lower(user_id),?)>0 OR instr(lower(status),?)>0 OR instr(lower(coalesce(error_code,'')),?)>0)"
+      : "";
+    const where = `tenant_id=?${query.status ? " AND status=?" : ""}${query.sessionId ? " AND session_id=?" : ""}${search}`;
     return {
       items: db.all<Omit<Run, "input" | "output">>(
         `SELECT id,tenant_id,user_id,session_id,agent_id,agent_version,status,error_code,timeout_ms,created_at,started_at,finished_at FROM runs WHERE ${where} ORDER BY created_at DESC,id LIMIT ? OFFSET ?`,
@@ -546,16 +550,21 @@ export function runtimeRoutes(
     const a = authenticate(db, req);
     requirePermission(a, "read");
     const q = pageSchema.parse(req.query);
+    const params = [
+      a.tenantId,
+      ...(q.q ? Array<string>(3).fill(q.q.toLowerCase()) : []),
+    ];
+    const where = `s.tenant_id=?${q.q ? " AND (instr(lower(s.id),?)>0 OR instr(lower(s.agent_id),?)>0 OR instr(lower(s.user_id),?)>0)" : ""}`;
     return {
       items: db.all(
-        "SELECT s.*,count(r.id) as run_count FROM runtime_sessions s LEFT JOIN runs r ON r.session_id=s.id WHERE s.tenant_id=? GROUP BY s.id ORDER BY s.created_at DESC LIMIT ? OFFSET ?",
-        a.tenantId,
+        `SELECT s.*,count(r.id) as run_count FROM runtime_sessions s LEFT JOIN runs r ON r.session_id=s.id WHERE ${where} GROUP BY s.id ORDER BY s.created_at DESC,s.id DESC LIMIT ? OFFSET ?`,
+        ...params,
         q.pageSize,
         (q.page - 1) * q.pageSize,
       ),
       total: db.get<{ n: number }>(
-        "SELECT count(*) n FROM runtime_sessions WHERE tenant_id=?",
-        a.tenantId,
+        `SELECT count(*) n FROM runtime_sessions s WHERE ${where}`,
+        ...params,
       )!.n,
       ...q,
     };
