@@ -113,6 +113,7 @@ for (const outcome of [
   "member-disabled",
   "lifetime-expired",
   "stop-unconfirmed",
+  "execution-expired",
 ] as const)
   test(`late successful sandbox output is withheld for ${outcome}`, async (t) => {
     const f = await fixture(t);
@@ -135,7 +136,13 @@ for (const outcome of [
     await f.driver.entered.promise;
     if (outcome === "lifetime-expired")
       t.mock.method(Date, "now", () => runtime.expiresAt + 1);
-    else
+    else if (outcome === "execution-expired") {
+      const started = f.db.get<{ started_at: number }>(
+        "SELECT started_at FROM sandbox_executions WHERE id=?",
+        execution,
+      )!.started_at;
+      t.mock.method(Date, "now", () => started + 1001);
+    } else
       f.db.run(
         "UPDATE members SET status='disabled' WHERE tenant_id=? AND user_id=?",
         f.actor.tenantId,
@@ -156,7 +163,7 @@ for (const outcome of [
       result.status,
       outcome === "stop-unconfirmed"
         ? "failed"
-        : outcome === "lifetime-expired"
+        : outcome === "lifetime-expired" || outcome === "execution-expired"
           ? "timed_out"
           : "cancelled",
     );
@@ -164,7 +171,7 @@ for (const outcome of [
       result.error_code,
       outcome === "stop-unconfirmed"
         ? "STOP_UNCONFIRMED"
-        : outcome === "lifetime-expired"
+        : outcome === "lifetime-expired" || outcome === "execution-expired"
           ? "TIMEOUT"
           : "ACCESS_REVOKED",
     );
@@ -250,5 +257,39 @@ test("expiration reaper and delete preserve the deleted terminal state", async (
       runtime.id,
     )!.status,
     "deleted",
+  );
+});
+
+test("waiting for a write transaction does not consume a queued execution's runtime budget", async (t) => {
+  const f = await fixture(t);
+  f.db.run(
+    "INSERT INTO configurations(tenant_id,kind,draft,published,revision,version,updated_at) VALUES(?,'security',?,?,1,1,?)",
+    f.actor.tenantId,
+    JSON.stringify({ allowSandbox: true }),
+    JSON.stringify({ allowSandbox: true }),
+    Date.now(),
+  );
+  const runtime = await f.sandbox.create(
+    f.actor,
+    "Queued runtime",
+    { all: true, members: [], departments: [] },
+    1,
+  );
+  const execution = await f.sandbox.enqueue(f.actor, runtime.id, "42", 1000);
+  let time = Date.now();
+  t.mock.method(Date, "now", () => time);
+  const transaction = f.db.transaction.bind(f.db);
+  t.mock.method(f.db, "transaction", <T>(operation: () => T): T => {
+    // 模拟 BEGIN 等待已有写锁后才进入事务回调，而不是执行期间消耗预算。
+    time += 5000;
+    return transaction(operation);
+  });
+  await f.sandbox.drain();
+  assert.equal(
+    f.db.get<{ status: string }>(
+      "SELECT status FROM sandbox_executions WHERE id=?",
+      execution,
+    )!.status,
+    "succeeded",
   );
 });

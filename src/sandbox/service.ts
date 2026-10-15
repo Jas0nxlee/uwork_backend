@@ -611,25 +611,25 @@ export class SandboxService {
       "SELECT * FROM sandbox_executions WHERE status='queued' ORDER BY created_at,id LIMIT 100",
     )) {
       if (this.active.size >= 4) break;
-      if (
-        !this.db.transaction(() => {
-          if (
-            !this.db.run(
-              "UPDATE sandbox_executions SET status='running',started_at=? WHERE id=? AND status='queued'",
-              now(),
-              row.id,
-            ).changes
-          )
-            return false;
-          this.db.run(
-            "UPDATE sandbox_runtimes SET status='busy',updated_at=? WHERE id=? AND status='ready'",
-            now(),
-            row.runtime_id,
-          );
-          return true;
-        })
-      )
-        continue;
+      const startedAt = this.db.transaction(() => {
+        const started = now();
+        if (
+          !this.db.run(
+            "UPDATE sandbox_executions SET status='running',started_at=? WHERE id=? AND status='queued'",
+            started,
+            row.id,
+          ).changes
+        )
+          return undefined;
+        this.db.run(
+          "UPDATE sandbox_runtimes SET status='busy',updated_at=? WHERE id=? AND status='ready'",
+          now(),
+          row.runtime_id,
+        );
+        return started;
+      });
+      if (startedAt === undefined) continue;
+      row.started_at = startedAt;
       const controller = new AbortController();
       const promise = this.run(row, controller)
         .catch(() => {
@@ -718,7 +718,10 @@ export class SandboxService {
     }
   }
   private async run(job: SandboxExecutionRow, controller: AbortController) {
-    const timer = setTimeout(() => controller.abort("timeout"), job.timeout_ms);
+    const timer = setTimeout(
+      () => controller.abort("timeout"),
+      Math.max(0, (job.started_at ?? now()) + job.timeout_ms - now()),
+    );
     let runtime: SandboxRuntimeRow | undefined;
     try {
       runtime = this.row(job.tenant_id, job.runtime_id);
@@ -820,6 +823,9 @@ export class SandboxService {
     }
   }
   private authorizeJob(job: SandboxExecutionRow) {
+    // timer 可能尚未被事件循环调度，持久化的执行预算仍必须在发送/返回前生效。
+    if (job.started_at !== null && now() >= job.started_at + job.timeout_ms)
+      fail(408, "TIMEOUT", "代码执行时间预算已耗尽");
     this.authorize(
       currentActor(this.db, job.tenant_id, job.user_id),
       this.row(job.tenant_id, job.runtime_id),
