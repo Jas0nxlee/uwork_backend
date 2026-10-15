@@ -91,6 +91,18 @@ button:disabled {
   align-items: center;
   flex-wrap: wrap;
 }
+/* 只读筛选器：横向排列的标签+下拉，不占满整行。 */
+.toolbar > .filter {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #45585a;
+  white-space: nowrap;
+}
+.toolbar > .filter select {
+  padding: 7px 8px;
+}
 input:not([type="checkbox"]),
 textarea,
 select {

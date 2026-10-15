@@ -50,12 +50,23 @@ export function Collection({
       submit: (d: Row) => Promise<void>;
     } | null>(null),
     [detail, setDetail] = useState<unknown>(null),
-    [pendingDelete, setPendingDelete] = useState<Row | null>(null);
+    [pendingDelete, setPendingDelete] = useState<Row | null>(null),
+    [filters, setFilters] = useState<Record<string, string>>({});
+  const filterQuery = () =>
+    (view.filters ?? [])
+      .map(
+        (filter) =>
+          `${encodeURIComponent(filter.key)}=${encodeURIComponent(
+            filters[filter.key] ?? filter.options[0]?.value ?? "",
+          )}`,
+      )
+      .join("&");
   async function load() {
     setLoading(true);
     try {
+      const extra = filterQuery();
       const data = await api<Row[] | { items: Row[]; total: number }>(
-        `${base}${view.path}?page=${page}&pageSize=25&q=${encodeURIComponent(q)}`,
+        `${base}${view.path}?page=${page}&pageSize=25&q=${encodeURIComponent(q)}${extra ? `&${extra}` : ""}`,
       );
       let items = Array.isArray(data) ? data : data.items;
       if (view.id === "security")
@@ -76,10 +87,11 @@ export function Collection({
   useEffect(() => {
     setPage(1);
     setQ("");
+    setFilters({});
   }, [view.id]);
   useEffect(() => {
     void load();
-  }, [view.id, base, page]);
+  }, [view.id, base, page, filters]);
   const invoke = async (fn: () => Promise<unknown>, message = "操作完成") => {
     try {
       await fn();
@@ -242,6 +254,28 @@ export function Collection({
           />
           <button type="submit">查询</button>
         </form>
+        {(view.filters ?? []).map((filter) => (
+          <label key={filter.key} className="filter">
+            {filter.label}
+            <select
+              aria-label={filter.label}
+              value={filters[filter.key] ?? filter.options[0]?.value ?? ""}
+              onChange={(e) => {
+                setPage(1);
+                setFilters((current) => ({
+                  ...current,
+                  [filter.key]: e.target.value,
+                }));
+              }}
+            >
+              {filter.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
         <div className="actions">
           <button
             className="icon"

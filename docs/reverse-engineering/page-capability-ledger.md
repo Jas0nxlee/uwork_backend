@@ -126,10 +126,10 @@
 | 页面 | 控制台路径 | 观察到的表单/列表 | 自有实现（模块与端点） | 管理端 | 验证 | 状态 | 缺口 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 订阅管理（`subscriptions`） | `/admin/usage/subscription` | 纯浏览页（无表单字段观察） | `entitlements.ts`<br>`/api/tenants/{tenantId}/subscription` | subscription | tests/flows.test.ts（订阅月末夹取与周期重置） | 部分实现 | 购买/续费/变配/加量包需要真实支付与供应商，未接入；订阅为本地账期事实，不称为供应商账单 |
-| 应用用量（`usage-apps`） | `/admin/usage/app` | 表单字段 6 / 列表列 5 | `telemetry.ts`<br>`/api/tenants/{tenantId}/usage/aggregates?groupBy=application` | usage | tests/wecom-telemetry.test.ts | 已实现 | 应用维度取自自有客户端事件与账本字段；尚无用真实第三方应用流量验证的报告 |
+| 应用用量（`usage-apps`） | `/admin/usage/app` | 表单字段 6 / 列表列 5 | `telemetry.ts`<br>`/api/tenants/{tenantId}/usage/aggregates?groupBy=application` | usage-aggregates | tests/wecom-telemetry.test.ts（应用维度聚合）<br>docs/acceptance.md（实际浏览器切换维度验证） | 已实现 | 应用维度取自自有客户端事件与账本字段；尚无用真实第三方应用流量验证的报告 |
 | 用量明细（`usage-details`） | `/admin/usage/detail` | 表单字段 14 | `telemetry.ts`<br>`entitlements.ts`<br>`/api/tenants/{tenantId}/usage`<br>`/api/tenants/{tenantId}/usage/{id}/reconcile`<br>`/api/tenants/{tenantId}/audit` | usage<br>audit | tests/wecom-telemetry.test.ts（分页/CSV/脱敏） | 已实现 | — |
 | 成员用量（`usage-members`） | `/admin/usage/member` | 表单字段 15 | `telemetry.ts`<br>`entitlements.ts`<br>`/api/tenants/{tenantId}/usage`<br>`/api/tenants/{tenantId}/usage/aggregates` | usage | tests/wecom-telemetry.test.ts<br>tests/flows.test.ts | 已实现 | — |
-| 组织用量（`usage-orgs`） | `/admin/usage/department` | 表单字段 4 | `telemetry.ts`<br>`/api/tenants/{tenantId}/usage/aggregates?groupBy=department` | usage | tests/wecom-telemetry.test.ts | 已实现 | — |
+| 组织用量（`usage-orgs`） | `/admin/usage/department` | 表单字段 4 | `telemetry.ts`<br>`/api/tenants/{tenantId}/usage/aggregates?groupBy=department` | usage-aggregates | tests/wecom-telemetry.test.ts（部门维度聚合）<br>docs/acceptance.md（实际浏览器切换维度验证） | 已实现 | — |
 
 ## 表单字段观察明细
 

@@ -2,11 +2,7 @@
   "authority": "self-built-implementation-audit",
   "console_evidence": "docs/reverse-engineering/runtime-inventory.json",
   "generated_by": "scripts/build_page_ledger.mjs",
-  "statuses": [
-    "implemented",
-    "partial",
-    "external"
-  ],
+  "statuses": ["implemented", "partial", "external"],
   "pages": {
     "overview": {
       "capability": "组织概览：成员/席位/登录入口、套餐剩余席位与有效期、Credit 与容量概览",
@@ -17,14 +13,8 @@
         "/api/tenants/{tenantId}/usage/aggregates",
         "/api/tenants/{tenantId}/metrics"
       ],
-      "admin": [
-        "overview"
-      ],
-      "modules": [
-        "directory.ts",
-        "entitlements.ts",
-        "telemetry.ts"
-      ],
+      "admin": ["overview"],
+      "modules": ["directory.ts", "entitlements.ts", "telemetry.ts"],
       "verification": [
         "tests/flows.test.ts（组织/席位/用量聚合）",
         "docs/acceptance.md（管理 Web 实际登录与布局验证记录）"
@@ -45,15 +35,8 @@
         "/api/tenants/{tenantId}/wecom",
         "/api/tenants/{tenantId}/wecom/sync"
       ],
-      "admin": [
-        "members",
-        "departments"
-      ],
-      "modules": [
-        "directory.ts",
-        "access.ts",
-        "wecom.ts"
-      ],
+      "admin": ["members", "departments"],
+      "modules": ["directory.ts", "access.ts", "wecom.ts"],
       "verification": [
         "tests/identity.test.ts",
         "tests/flows.test.ts",
@@ -70,15 +53,9 @@
         "/api/tenants/{tenantId}/roles",
         "/api/tenants/{tenantId}/permissions/{userId}"
       ],
-      "admin": [
-        "members"
-      ],
-      "modules": [
-        "access.ts"
-      ],
-      "verification": [
-        "tests/identity.test.ts（角色守卫与最后 owner）"
-      ],
+      "admin": ["members"],
+      "modules": ["access.ts"],
+      "verification": ["tests/identity.test.ts（角色守卫与最后 owner）"],
       "status": "implemented",
       "gaps": []
     },
@@ -89,17 +66,9 @@
         "/api/tenants/{tenantId}/limits",
         "/api/tenants/{tenantId}/limits/{resource}/{id}"
       ],
-      "admin": [
-        "members",
-        "usage"
-      ],
-      "modules": [
-        "entitlements.ts",
-        "directory.ts"
-      ],
-      "verification": [
-        "tests/flows.test.ts"
-      ],
+      "admin": ["members", "usage"],
+      "modules": ["entitlements.ts", "directory.ts"],
+      "verification": ["tests/flows.test.ts"],
       "status": "implemented",
       "gaps": [
         "企微模式下原站把席位分配指向企微后台；席位上限与成员席位标记在自有后端强制执行"
@@ -107,18 +76,10 @@
     },
     "subscriptions": {
       "capability": "订阅与续期查看：套餐、周期、席位与 Credit 周期",
-      "surface": [
-        "/api/tenants/{tenantId}/subscription"
-      ],
-      "admin": [
-        "subscription"
-      ],
-      "modules": [
-        "entitlements.ts"
-      ],
-      "verification": [
-        "tests/flows.test.ts（订阅月末夹取与周期重置）"
-      ],
+      "surface": ["/api/tenants/{tenantId}/subscription"],
+      "admin": ["subscription"],
+      "modules": ["entitlements.ts"],
+      "verification": ["tests/flows.test.ts（订阅月末夹取与周期重置）"],
       "status": "partial",
       "gaps": [
         "购买/续费/变配/加量包需要真实支付与供应商，未接入；订阅为本地账期事实，不称为供应商账单"
@@ -130,17 +91,9 @@
         "/api/tenants/{tenantId}/usage",
         "/api/tenants/{tenantId}/usage/aggregates"
       ],
-      "admin": [
-        "usage"
-      ],
-      "modules": [
-        "telemetry.ts",
-        "entitlements.ts"
-      ],
-      "verification": [
-        "tests/wecom-telemetry.test.ts",
-        "tests/flows.test.ts"
-      ],
+      "admin": ["usage"],
+      "modules": ["telemetry.ts", "entitlements.ts"],
+      "verification": ["tests/wecom-telemetry.test.ts", "tests/flows.test.ts"],
       "status": "implemented",
       "gaps": []
     },
@@ -149,14 +102,11 @@
       "surface": [
         "/api/tenants/{tenantId}/usage/aggregates?groupBy=department"
       ],
-      "admin": [
-        "usage"
-      ],
-      "modules": [
-        "telemetry.ts"
-      ],
+      "admin": ["usage-aggregates"],
+      "modules": ["telemetry.ts"],
       "verification": [
-        "tests/wecom-telemetry.test.ts"
+        "tests/wecom-telemetry.test.ts（部门维度聚合）",
+        "docs/acceptance.md（实际浏览器切换维度验证）"
       ],
       "status": "implemented",
       "gaps": []
@@ -166,14 +116,11 @@
       "surface": [
         "/api/tenants/{tenantId}/usage/aggregates?groupBy=application"
       ],
-      "admin": [
-        "usage"
-      ],
-      "modules": [
-        "telemetry.ts"
-      ],
+      "admin": ["usage-aggregates"],
+      "modules": ["telemetry.ts"],
       "verification": [
-        "tests/wecom-telemetry.test.ts"
+        "tests/wecom-telemetry.test.ts（应用维度聚合）",
+        "docs/acceptance.md（实际浏览器切换维度验证）"
       ],
       "status": "implemented",
       "gaps": [
@@ -187,17 +134,9 @@
         "/api/tenants/{tenantId}/usage/{id}/reconcile",
         "/api/tenants/{tenantId}/audit"
       ],
-      "admin": [
-        "usage",
-        "audit"
-      ],
-      "modules": [
-        "telemetry.ts",
-        "entitlements.ts"
-      ],
-      "verification": [
-        "tests/wecom-telemetry.test.ts（分页/CSV/脱敏）"
-      ],
+      "admin": ["usage", "audit"],
+      "modules": ["telemetry.ts", "entitlements.ts"],
+      "verification": ["tests/wecom-telemetry.test.ts（分页/CSV/脱敏）"],
       "status": "implemented",
       "gaps": []
     },
@@ -207,13 +146,8 @@
         "/api/tenants/{tenantId}/policies/security",
         "/api/tenants/{tenantId}/configurations/{kind}"
       ],
-      "admin": [
-        "security",
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts"
-      ],
+      "admin": ["security", "configuration"],
+      "modules": ["policy.ts"],
       "verification": [
         "tests/policy-assets.test.ts（最高优先级整条生效）",
         "tests/client-authorization.test.ts"
@@ -227,30 +161,17 @@
         "/api/tenants/{tenantId}/policies/security",
         "/api/tenants/{tenantId}/policies"
       ],
-      "admin": [
-        "security"
-      ],
-      "modules": [
-        "policy.ts",
-        "assets.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "admin": ["security"],
+      "modules": ["policy.ts", "assets.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "implemented",
       "gaps": []
     },
     "security-create": {
       "capability": "新建/编辑安全策略：作用域、优先级、允许与禁止项",
-      "surface": [
-        "/api/tenants/{tenantId}/policies/security"
-      ],
-      "admin": [
-        "security"
-      ],
-      "modules": [
-        "policy.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/policies/security"],
+      "admin": ["security"],
+      "modules": ["policy.ts"],
       "verification": [
         "tests/policy-assets.test.ts",
         "tests/security-regression.test.ts"
@@ -265,34 +186,18 @@
         "/api/tenants/{tenantId}/wecom",
         "/api/tenants/{tenantId}/wecom/sync"
       ],
-      "admin": [
-        "enterprise"
-      ],
-      "modules": [
-        "directory.ts",
-        "wecom.ts"
-      ],
-      "verification": [
-        "tests/flows.test.ts",
-        "tests/identity.test.ts"
-      ],
+      "admin": ["enterprise"],
+      "modules": ["directory.ts", "wecom.ts"],
+      "verification": ["tests/flows.test.ts", "tests/identity.test.ts"],
       "status": "implemented",
       "gaps": []
     },
     "metering": {
       "capability": "计量周期：订阅生效日切片或自然月",
-      "surface": [
-        "/api/tenants/{tenantId}/subscription"
-      ],
-      "admin": [
-        "subscription"
-      ],
-      "modules": [
-        "entitlements.ts"
-      ],
-      "verification": [
-        "tests/flows.test.ts（月末夹取/周期重置）"
-      ],
+      "surface": ["/api/tenants/{tenantId}/subscription"],
+      "admin": ["subscription"],
+      "modules": ["entitlements.ts"],
+      "verification": ["tests/flows.test.ts（月末夹取/周期重置）"],
       "status": "implemented",
       "gaps": []
     },
@@ -303,13 +208,8 @@
         "/api/tenants/{tenantId}/configurations/{kind}/draft",
         "/api/tenants/{tenantId}/configurations/{kind}/publish"
       ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts",
-        "client.ts"
-      ],
+      "admin": ["configuration"],
+      "modules": ["policy.ts", "client.ts"],
       "verification": [
         "tests/client-authorization.test.ts（CIDR 与 deny-all 哨兵）"
       ],
@@ -322,12 +222,8 @@
         "/api/tenants/{tenantId}/models",
         "/api/tenants/{tenantId}/models/{id}"
       ],
-      "admin": [
-        "models"
-      ],
-      "modules": [
-        "models.ts"
-      ],
+      "admin": ["models"],
+      "modules": ["models.ts"],
       "verification": [
         "tests/gateway.test.ts",
         "tests/model-capabilities.test.ts"
@@ -342,14 +238,8 @@
         "/api/tenants/{tenantId}/models/{id}",
         "/api/tenants/{tenantId}/models/{id}/probe"
       ],
-      "admin": [
-        "models"
-      ],
-      "modules": [
-        "models.ts",
-        "vault.ts",
-        "network.ts"
-      ],
+      "admin": ["models"],
+      "modules": ["models.ts", "vault.ts", "network.ts"],
       "verification": [
         "tests/model-capabilities.test.ts",
         "tests/network.test.ts（SSRF 与私网拒绝）"
@@ -359,37 +249,19 @@
     },
     "model-policies": {
       "capability": "模型访问策略：可见范围基准、allow 取交集、deny 优先",
-      "surface": [
-        "/api/tenants/{tenantId}/policies"
-      ],
-      "admin": [
-        "policies"
-      ],
-      "modules": [
-        "assets.ts",
-        "models.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/policies"],
+      "admin": ["policies"],
+      "modules": ["assets.ts", "models.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "implemented",
       "gaps": []
     },
     "model-personal": {
       "capability": "个人模型使用策略",
-      "surface": [
-        "/api/tenants/{tenantId}/configurations/{kind}"
-      ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts",
-        "client.ts"
-      ],
-      "verification": [
-        "tests/client-authorization.test.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/configurations/{kind}"],
+      "admin": ["configuration"],
+      "modules": ["policy.ts", "client.ts"],
+      "verification": ["tests/client-authorization.test.ts"],
       "status": "implemented",
       "gaps": []
     },
@@ -402,13 +274,8 @@
         "/api/tenants/{tenantId}/assets/{id}/review",
         "/api/tenants/{tenantId}/assets/{id}/publish"
       ],
-      "admin": [
-        "assets"
-      ],
-      "modules": [
-        "assets.ts",
-        "asset-paths.ts"
-      ],
+      "admin": ["assets"],
+      "modules": ["assets.ts", "asset-paths.ts"],
       "verification": [
         "tests/policy-assets.test.ts",
         "tests/client-asset-admission.test.ts"
@@ -422,16 +289,9 @@
         "/api/tenants/{tenantId}/categories",
         "/api/tenants/{tenantId}/categories/{id}"
       ],
-      "admin": [
-        "categories"
-      ],
-      "modules": [
-        "assets.ts",
-        "resources.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "admin": ["categories"],
+      "modules": ["assets.ts", "resources.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "implemented",
       "gaps": []
     },
@@ -441,17 +301,9 @@
         "/api/tenants/{tenantId}/policies",
         "/api/tenants/{tenantId}/configurations/{kind}"
       ],
-      "admin": [
-        "policies",
-        "configuration"
-      ],
-      "modules": [
-        "assets.ts",
-        "policy.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "admin": ["policies", "configuration"],
+      "modules": ["assets.ts", "policy.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "implemented",
       "gaps": [
         "个人上传策略只按控制台可见的布尔开关实现，未复现原站逐技能白名单"
@@ -459,18 +311,10 @@
     },
     "skill-personal": {
       "capability": "个人技能策略开关",
-      "surface": [
-        "/api/tenants/{tenantId}/configurations/{kind}"
-      ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts"
-      ],
-      "verification": [
-        "tests/client-authorization.test.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/configurations/{kind}"],
+      "admin": ["configuration"],
+      "modules": ["policy.ts"],
+      "verification": ["tests/client-authorization.test.ts"],
       "status": "implemented",
       "gaps": []
     },
@@ -482,12 +326,8 @@
         "/api/tenants/{tenantId}/assets/{id}/review",
         "/api/tenants/{tenantId}/assets/{id}/publish"
       ],
-      "admin": [
-        "assets"
-      ],
-      "modules": [
-        "assets.ts"
-      ],
+      "admin": ["assets"],
+      "modules": ["assets.ts"],
       "verification": [
         "tests/policy-assets.test.ts",
         "scripts/client-assets-host-contract-smoke.ts"
@@ -501,33 +341,18 @@
         "/api/tenants/{tenantId}/categories",
         "/api/tenants/{tenantId}/categories/{id}"
       ],
-      "admin": [
-        "categories"
-      ],
-      "modules": [
-        "assets.ts",
-        "resources.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "admin": ["categories"],
+      "modules": ["assets.ts", "resources.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "implemented",
       "gaps": []
     },
     "expert-distribution": {
       "capability": "专家下发策略（限定/屏蔽、交集、deny 优先）",
-      "surface": [
-        "/api/tenants/{tenantId}/policies"
-      ],
-      "admin": [
-        "policies"
-      ],
-      "modules": [
-        "assets.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/policies"],
+      "admin": ["policies"],
+      "modules": ["assets.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "implemented",
       "gaps": []
     },
@@ -541,14 +366,8 @@
         "/api/client/assets/{id}/download",
         "/api/client/connectors/{id}/rpc"
       ],
-      "admin": [
-        "assets"
-      ],
-      "modules": [
-        "assets.ts",
-        "connector-service.ts",
-        "connectors.ts"
-      ],
+      "admin": ["assets"],
+      "modules": ["assets.ts", "connector-service.ts", "connectors.ts"],
       "verification": [
         "tests/client-connectors.test.ts",
         "tests/agent-connectors.test.ts",
@@ -566,14 +385,8 @@
         "/api/tenants/{tenantId}/credentials",
         "/api/tenants/{tenantId}/assets/{id}"
       ],
-      "admin": [
-        "assets",
-        "credentials"
-      ],
-      "modules": [
-        "assets.ts",
-        "vault.ts"
-      ],
+      "admin": ["assets", "credentials"],
+      "modules": ["assets.ts", "vault.ts"],
       "verification": [
         "tests/client-connectors.test.ts",
         "tests/agent-connectors.test.ts"
@@ -587,17 +400,9 @@
         "/api/tenants/{tenantId}/policies",
         "/api/tenants/{tenantId}/configurations/{kind}"
       ],
-      "admin": [
-        "policies",
-        "configuration"
-      ],
-      "modules": [
-        "assets.ts",
-        "policy.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "admin": ["policies", "configuration"],
+      "modules": ["assets.ts", "policy.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "implemented",
       "gaps": [
         "控制台对连接器白名单是否“额外获得”与 allow 取交集存在冲突，自有实现按保守的可见范围+交集+deny 优先"
@@ -605,32 +410,18 @@
     },
     "connector-personal": {
       "capability": "个人连接器策略与 MCP Hub 地址",
-      "surface": [
-        "/api/tenants/{tenantId}/configurations/{kind}"
-      ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts"
-      ],
-      "verification": [
-        "tests/client-authorization.test.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/configurations/{kind}"],
+      "admin": ["configuration"],
+      "modules": ["policy.ts"],
+      "verification": ["tests/client-authorization.test.ts"],
       "status": "implemented",
       "gaps": []
     },
     "playbooks": {
       "capability": "Playbook：控制台只有只读 Cookbook 卡片与帮助入口，无可发布资产接口",
-      "surface": [
-        "/api/tenants/{tenantId}/assets"
-      ],
-      "admin": [
-        "assets"
-      ],
-      "modules": [
-        "assets.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/assets"],
+      "admin": ["assets"],
+      "modules": ["assets.ts"],
       "verification": [
         "tests/policy-assets.test.ts",
         "tests/client-asset-admission.test.ts（显式声明 uwork 返回 400 CLIENT_UNSUPPORTED）"
@@ -642,37 +433,23 @@
     },
     "instructions": {
       "capability": "自定义指令：控制台对 WorkBuddy/企业智能体均标注暂不支持",
-      "surface": [
-        "/api/tenants/{tenantId}/assets"
-      ],
-      "admin": [
-        "assets"
-      ],
-      "modules": [
-        "assets.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/assets"],
+      "admin": ["assets"],
+      "modules": ["assets.ts"],
       "verification": [
         "tests/client-asset-admission.test.ts（CLIENT_UNSUPPORTED）"
       ],
       "status": "partial",
-      "gaps": [
-        "类型已建模但不下发给 UWork；终端所有者仍未接入"
-      ]
+      "gaps": ["类型已建模但不下发给 UWork；终端所有者仍未接入"]
     },
     "global-prompt": {
       "capability": "历史全局提示词页：控制台自身提示不再对客户端生效",
       "surface": [],
       "admin": [],
-      "modules": [
-        "assets.ts"
-      ],
-      "verification": [
-        "SPEC-ai-assets.md（明确不注入旧全局提示词）"
-      ],
+      "modules": ["assets.ts"],
+      "verification": ["SPEC-ai-assets.md（明确不注入旧全局提示词）"],
       "status": "partial",
-      "gaps": [
-        "按控制台证据不实现旧全局提示词注入；仅保留历史说明，不静默启用"
-      ]
+      "gaps": ["按控制台证据不实现旧全局提示词注入；仅保留历史说明，不静默启用"]
     },
     "quickstart": {
       "capability": "快速开始/构建模式/Test Run：Agent 创建与一次性执行",
@@ -682,15 +459,8 @@
         "/api/tenants/{tenantId}/runs",
         "/api/tenants/{tenantId}/runtime"
       ],
-      "admin": [
-        "agents",
-        "runs"
-      ],
-      "modules": [
-        "runtime.ts",
-        "agent-runner.ts",
-        "sandbox/"
-      ],
+      "admin": ["agents", "runs"],
+      "modules": ["runtime.ts", "agent-runner.ts", "sandbox/"],
       "verification": [
         "tests/runtime.test.ts",
         "tests/agent-tools.test.ts",
@@ -706,16 +476,9 @@
         "/api/tenants/{tenantId}/agents/{id}",
         "/api/tenants/{tenantId}/agents/{id}/publish"
       ],
-      "admin": [
-        "agents"
-      ],
-      "modules": [
-        "runtime.ts",
-        "agent-contract.ts"
-      ],
-      "verification": [
-        "tests/runtime.test.ts"
-      ],
+      "admin": ["agents"],
+      "modules": ["runtime.ts", "agent-contract.ts"],
+      "verification": ["tests/runtime.test.ts"],
       "status": "implemented",
       "gaps": []
     },
@@ -728,14 +491,8 @@
         "/api/tenants/{tenantId}/runtimes/{id}/stop",
         "/api/tenants/{tenantId}/runtimes/{id}/executions"
       ],
-      "admin": [
-        "runtimes",
-        "sandbox-executions"
-      ],
-      "modules": [
-        "agent-sandbox.ts",
-        "sandbox/"
-      ],
+      "admin": ["runtimes", "sandbox-executions"],
+      "modules": ["agent-sandbox.ts", "sandbox/"],
       "verification": [
         "tests/sandbox-lifecycle.test.ts",
         "scripts/sandbox-api-smoke.ts",
@@ -753,18 +510,9 @@
         "/api/tenants/{tenantId}/runs",
         "/api/tenants/{tenantId}/runs/{id}/tools"
       ],
-      "admin": [
-        "sessions",
-        "runs"
-      ],
-      "modules": [
-        "runtime.ts",
-        "agent-runner.ts"
-      ],
-      "verification": [
-        "tests/runtime.test.ts",
-        "tests/agent-tools.test.ts"
-      ],
+      "admin": ["sessions", "runs"],
+      "modules": ["runtime.ts", "agent-runner.ts"],
+      "verification": ["tests/runtime.test.ts", "tests/agent-tools.test.ts"],
       "status": "implemented",
       "gaps": []
     },
@@ -774,30 +522,17 @@
         "/api/tenants/{tenantId}/credentials",
         "/api/tenants/{tenantId}/credentials/{id}"
       ],
-      "admin": [
-        "credentials"
-      ],
-      "modules": [
-        "vault.ts"
-      ],
-      "verification": [
-        "tests/gateway.test.ts（数据库无原文、列表脱敏、吊销）"
-      ],
+      "admin": ["credentials"],
+      "modules": ["vault.ts"],
+      "verification": ["tests/gateway.test.ts（数据库无原文、列表脱敏、吊销）"],
       "status": "implemented",
       "gaps": []
     },
     "credential-create": {
       "capability": "新建凭据：AES-GCM 加密存储与按授权引用注入",
-      "surface": [
-        "/api/tenants/{tenantId}/credentials"
-      ],
-      "admin": [
-        "credentials"
-      ],
-      "modules": [
-        "vault.ts",
-        "network.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/credentials"],
+      "admin": ["credentials"],
+      "modules": ["vault.ts", "network.ts"],
       "verification": [
         "tests/gateway.test.ts",
         "tests/security-regression.test.ts"
@@ -811,15 +546,9 @@
         "/api/tenants/{tenantId}/automations",
         "/api/tenants/{tenantId}/automations/{id}"
       ],
-      "admin": [
-        "automations"
-      ],
-      "modules": [
-        "automation.ts"
-      ],
-      "verification": [
-        "tests/runtime.test.ts（cron 时区与唯一触发键）"
-      ],
+      "admin": ["automations"],
+      "modules": ["automation.ts"],
+      "verification": ["tests/runtime.test.ts（cron 时区与唯一触发键）"],
       "status": "implemented",
       "gaps": []
     },
@@ -829,15 +558,9 @@
         "/api/tenants/{tenantId}/automations",
         "/api/tenants/{tenantId}/deliveries"
       ],
-      "admin": [
-        "automations"
-      ],
-      "modules": [
-        "automation.ts"
-      ],
-      "verification": [
-        "tests/runtime.test.ts"
-      ],
+      "admin": ["automations"],
+      "modules": ["automation.ts"],
+      "verification": ["tests/runtime.test.ts"],
       "status": "partial",
       "gaps": [
         "飞书 Bot 与真实通知渠道需要外部服务，未接入；Webhook 投递与重放语义已有测试，单次执行 30 分钟上限由运行时限执行"
@@ -852,16 +575,9 @@
         "/api/tenants/{tenantId}/evaluations/{id}",
         "/api/tenants/{tenantId}/evaluations/{id}/cancel"
       ],
-      "admin": [
-        "datasets",
-        "evaluations"
-      ],
-      "modules": [
-        "evaluation.ts"
-      ],
-      "verification": [
-        "tests/runtime.test.ts（评测打分与取消）"
-      ],
+      "admin": ["datasets", "evaluations"],
+      "modules": ["evaluation.ts"],
+      "verification": ["tests/runtime.test.ts（评测打分与取消）"],
       "status": "implemented",
       "gaps": []
     },
@@ -872,16 +588,9 @@
         "/api/tenants/{tenantId}/configurations/{kind}/draft",
         "/api/tenants/{tenantId}/configurations/{kind}/publish"
       ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts",
-        "client.ts"
-      ],
-      "verification": [
-        "tests/client-authorization.test.ts"
-      ],
+      "admin": ["configuration"],
+      "modules": ["policy.ts", "client.ts"],
+      "verification": ["tests/client-authorization.test.ts"],
       "status": "partial",
       "gaps": [
         "发布快照与客户端读取入口已实现；UWork Host/UI 的实际应用属于 T13c，尚未完成"
@@ -889,22 +598,12 @@
     },
     "mobile-channels": {
       "capability": "移动 APP/小程序渠道启停",
-      "surface": [
-        "/api/tenants/{tenantId}/configurations/{kind}"
-      ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts"
-      ],
-      "verification": [
-        "tests/client-authorization.test.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/configurations/{kind}"],
+      "admin": ["configuration"],
+      "modules": ["policy.ts"],
+      "verification": ["tests/client-authorization.test.ts"],
       "status": "partial",
-      "gaps": [
-        "渠道布尔在快照中发布；移动端应用未接入（无真实移动渠道资源）"
-      ]
+      "gaps": ["渠道布尔在快照中发布；移动端应用未接入（无真实移动渠道资源）"]
     },
     "client-custom": {
       "capability": "客户端定制：内置/自建菜单、图标/命名/排序/启停、草稿与发布",
@@ -913,39 +612,22 @@
         "/api/tenants/{tenantId}/configurations/{kind}/draft",
         "/api/tenants/{tenantId}/configurations/{kind}/publish"
       ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts",
-        "client.ts"
-      ],
+      "admin": ["configuration"],
+      "modules": ["policy.ts", "client.ts"],
       "verification": [
         "tests/policy-assets.test.ts（草稿不生效、旧修订冲突、发布版本）"
       ],
       "status": "partial",
-      "gaps": [
-        "服务端草稿/发布与快照已实现；UWork 终端菜单应用属于 T13c"
-      ]
+      "gaps": ["服务端草稿/发布与快照已实现；UWork 终端菜单应用属于 T13c"]
     },
     "custom-menu-create": {
       "capability": "新建自建菜单：中英文名称、HTTPS iframe 地址、排序",
-      "surface": [
-        "/api/tenants/{tenantId}/configurations/{kind}"
-      ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/configurations/{kind}"],
+      "admin": ["configuration"],
+      "modules": ["policy.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "partial",
-      "gaps": [
-        "同上：终端菜单渲染与 iframe 免登绑定未接入"
-      ]
+      "gaps": ["同上：终端菜单渲染与 iframe 免登绑定未接入"]
     },
     "menu-edit": {
       "capability": "菜单编辑与整体发布（草稿取消会触发服务端草稿清理）",
@@ -954,19 +636,11 @@
         "/api/tenants/{tenantId}/configurations/{kind}/draft",
         "/api/tenants/{tenantId}/configurations/{kind}/publish"
       ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "admin": ["configuration"],
+      "modules": ["policy.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "partial",
-      "gaps": [
-        "同上：终端菜单应用未接入"
-      ]
+      "gaps": ["同上：终端菜单应用未接入"]
     },
     "new-chat-config": {
       "capability": "新建对话页：欢迎语与不可关闭的 AI 风险前缀",
@@ -974,16 +648,9 @@
         "/api/tenants/{tenantId}/configurations/{kind}",
         "/api/client/configuration"
       ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts",
-        "client.ts"
-      ],
-      "verification": [
-        "tests/policy-assets.test.ts"
-      ],
+      "admin": ["configuration"],
+      "modules": ["policy.ts", "client.ts"],
+      "verification": ["tests/policy-assets.test.ts"],
       "status": "partial",
       "gaps": [
         "风险前缀在客户端快照中强制返回（riskPrefix）；终端渲染应用属于 T13c"
@@ -995,16 +662,9 @@
         "/api/tenants/{tenantId}/configurations/{kind}",
         "/api/client/authorize（action=share）"
       ],
-      "admin": [
-        "configuration"
-      ],
-      "modules": [
-        "policy.ts",
-        "client.ts"
-      ],
-      "verification": [
-        "tests/client-authorization.test.ts"
-      ],
+      "admin": ["configuration"],
+      "modules": ["policy.ts", "client.ts"],
+      "verification": ["tests/client-authorization.test.ts"],
       "status": "partial",
       "gaps": [
         "服务端范围裁决已实现；UWork 分享入口的应用与三平台分享行为待 T13c/T13d"
@@ -1012,19 +672,10 @@
     },
     "operation-logs": {
       "capability": "操作日志：时间范围、操作者、终端、IP 与内容过滤",
-      "surface": [
-        "/api/tenants/{tenantId}/audit"
-      ],
-      "admin": [
-        "audit"
-      ],
-      "modules": [
-        "telemetry.ts",
-        "events.ts"
-      ],
-      "verification": [
-        "tests/wecom-telemetry.test.ts（分页/导出/脱敏）"
-      ],
+      "surface": ["/api/tenants/{tenantId}/audit"],
+      "admin": ["audit"],
+      "modules": ["telemetry.ts", "events.ts"],
+      "verification": ["tests/wecom-telemetry.test.ts（分页/导出/脱敏）"],
       "status": "implemented",
       "gaps": []
     },
@@ -1035,17 +686,9 @@
         "/api/tenants/{tenantId}/client-events",
         "/api/tenants/{tenantId}/retention/purge"
       ],
-      "admin": [
-        "traces",
-        "client-events"
-      ],
-      "modules": [
-        "telemetry.ts",
-        "client-usage.ts"
-      ],
-      "verification": [
-        "tests/wecom-telemetry.test.ts"
-      ],
+      "admin": ["traces", "client-events"],
+      "modules": ["telemetry.ts", "client-usage.ts"],
+      "verification": ["tests/wecom-telemetry.test.ts"],
       "status": "implemented",
       "gaps": [
         "原始 prompt 不入日志；任务内容按企业策略加密留存，归档保留策略仍需按企业补齐"
@@ -1057,16 +700,9 @@
         "/api/tenants/{tenantId}/metrics",
         "/api/tenants/{tenantId}/usage/aggregates"
       ],
-      "admin": [
-        "overview",
-        "usage"
-      ],
-      "modules": [
-        "telemetry.ts"
-      ],
-      "verification": [
-        "tests/wecom-telemetry.test.ts"
-      ],
+      "admin": ["overview", "usage"],
+      "modules": ["telemetry.ts"],
+      "verification": ["tests/wecom-telemetry.test.ts"],
       "status": "implemented",
       "gaps": [
         "指标来自自有账本与请求事实的聚合口径，非原站监控后端；实时性以请求采样为准"
@@ -1074,16 +710,9 @@
     },
     "traces": {
       "capability": "会话追踪搜索与详情（Trace/工具调用）",
-      "surface": [
-        "/api/tenants/{tenantId}/traces"
-      ],
-      "admin": [
-        "traces"
-      ],
-      "modules": [
-        "telemetry.ts",
-        "agent-runner.ts"
-      ],
+      "surface": ["/api/tenants/{tenantId}/traces"],
+      "admin": ["traces"],
+      "modules": ["telemetry.ts", "agent-runner.ts"],
       "verification": [
         "tests/wecom-telemetry.test.ts",
         "tests/agent-tools.test.ts"
@@ -1099,12 +728,8 @@
         "/api/tenants/{tenantId}/integrations/drive/capacity",
         "/api/tenants/{tenantId}/integrations/drive/health"
       ],
-      "admin": [
-        "integrations"
-      ],
-      "modules": [
-        "integrations.ts"
-      ],
+      "admin": ["integrations"],
+      "modules": ["integrations.ts"],
       "verification": [
         "tests/integrations.test.ts（未配置返回 503、真实服务路由与容量写入门禁）"
       ],
@@ -1119,19 +744,11 @@
         "/api/tenants/{tenantId}/integrations/drive/logs",
         "/api/tenants/{tenantId}/integrations/drive/files"
       ],
-      "admin": [
-        "integrations"
-      ],
-      "modules": [
-        "integrations.ts"
-      ],
-      "verification": [
-        "tests/integrations.test.ts"
-      ],
+      "admin": ["integrations"],
+      "modules": ["integrations.ts"],
+      "verification": ["tests/integrations.test.ts"],
       "status": "external",
-      "gaps": [
-        "同上：需真实网盘服务；本地只实现适配网关合同与能力声明"
-      ]
+      "gaps": ["同上：需真实网盘服务；本地只实现适配网关合同与能力声明"]
     }
   }
 }

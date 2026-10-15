@@ -8,6 +8,12 @@ export interface View {
   columns?: { key: string; label: string }[];
   paged?: boolean;
   readonly?: boolean;
+  /** 只读筛选器：选择值直接作为查询参数，用于聚合等按维度查询的视图。 */
+  filters?: {
+    key: string;
+    label: string;
+    options: { value: string; label: string }[];
+  }[];
 }
 const name: Field = { key: "name", label: "名称", required: true };
 const scope: Field = {
@@ -493,6 +499,31 @@ export const views: View[] = [
       { key: "input_tokens", label: "输入 Token" },
       { key: "output_tokens", label: "输出 Token" },
       { key: "created_at", label: "时间" },
+    ],
+  },
+  {
+    id: "usage-aggregates",
+    label: "用量聚合",
+    group: "用量与观测",
+    path: "/usage/aggregates",
+    readonly: true,
+    filters: [
+      {
+        key: "groupBy",
+        label: "聚合维度",
+        options: [
+          { value: "member", label: "成员" },
+          { value: "department", label: "部门" },
+          { value: "application", label: "应用" },
+        ],
+      },
+    ],
+    columns: [
+      { key: "subject", label: "对象" },
+      { key: "credits", label: "Credit" },
+      { key: "inputTokens", label: "输入 Token" },
+      { key: "outputTokens", label: "输出 Token" },
+      { key: "requests", label: "请求数" },
     ],
   },
   {

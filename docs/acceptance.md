@@ -57,6 +57,8 @@ MCP 闭环：真实本机 HTTP 服务完成 SDK 握手、白名单清单、SSE �
 
 容器：专用 Colima profile `uwork-backend`，用户默认 Docker context 保持 `default`。镜像真实构建，并在独立数据卷验证非 root、只读 root、cap-drop ALL、初始化/登录/配置发布/重启持久化。沙箱实测 UID1000、watchdog UID999、无网络、无宿主文件/主密钥、资源限额、容器存活期工作区复用、错误归属拒绝、取消/超时/输出超限实际停止进程、租户隔离和 4 个容量上限。静默 16 秒执行超过 transport timeout 仍成功；后端 SIGKILL 后从持久数据库恢复并停止实际 running exec。验证脚本只清理自己持有匹配 owner label 的资源。
 
+管理 UI：新增「用量聚合」视图（成员/部门/应用维度切换，`admin/src/Collection.tsx` 的只读筛选器），在受控实例上用真实账本数据验证三个维度分别得到 2/2/1 行、合计 45 Credit 与总览一致，320px 下文档宽度 320px 且表格内部滚动、Runtime exception 0；截图在 ignored `evidence/admin-usage-aggregates*.png`。
+
 管理 UI：真实创建 Runtime、修改 revision、执行代码得到 `result=42,uid=1000`、查看 stdout、停止和删除，临时执行策略已删除、容器已清理。桌面与 320px 手机布局截图在 ignored `evidence/admin-sandbox-*.png`；手机文档宽度 320px，表格内部滚动，Runtime exception 0。菜单新增隔离 Runtime 与代码执行视图。
 
 Agent 管理 UI 另在独立受控实例验证创建、发布、执行、刷新状态和查看工具参数/结果，实际 Docker 输出 `42 (UID 1000)`；新增 sandbox、maxTurns、maxToolCalls、toolTimeoutMs 控件生效。桌面与 320px 截图在 ignored `evidence/admin-agent-*.png`，文档宽度 320px，Runtime exception 0。受控域名隔离主实例 Cookie，验证进程/标签页/容器均已清理。
