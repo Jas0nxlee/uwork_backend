@@ -21,7 +21,7 @@
 
 自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run ledger:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts scripts/client-policy-contract-smoke.ts scripts/client-assets-contract-smoke.ts scripts/client-assets-host-contract-smoke.ts scripts/client-assets-rpc-contract-smoke.ts`，共 6 项，另加 `scripts/client-connectors-mcp-contract-smoke.ts` 的连接器闭环，使用真实适配源码和受控企微 provider/本机 HTTP，未调用真实企业凭据。
 
-自动化结果：后端 140 项测试通过，0 失败/跳过（含企业设置/留存 HTTP 回归和上游工具 index 兼容回归）；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库此前 services 233 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。本轮后端真实 TCP、磁盘库、Docker、浏览器及安全负面场景的独立记录见 `docs/backend-system-test-2026-10-15.md`；本轮没有重复声明客户端平台验收。
+自动化结果：后端 144 项测试通过，0 失败/跳过（含企业设置/留存 HTTP、上游工具 index、运行/会话搜索及真实 CLI 信号关闭回归）；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，前轮依赖审计 0 个已知漏洞。UWork 适配仓库此前 services 233 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。本轮后端真实 TCP、磁盘库、Docker、浏览器及安全负面场景的独立记录见 `docs/backend-system-test-2026-10-15.md`；后续真实业务与模型验证见 `docs/live-business-test-2026-10-15.md`；本轮没有重复声明客户端平台验收。
 
 Host 准入：独立适配副本中的 CLI 使用现有 PermissionService 承载不可由项目/yolo/Hook/用户审批覆盖的企业裁决端口，反向 RPC 绑定当前连接和工作区。Host 每次向真实后端查询当前订阅、渠道和安全策略；私有身份代际、共享会话修订、issuer 与配置指纹阻止退出/撤权/换端点后的迟到允许。已进入受管模式的 Host 遇到配置消失仍拒绝，显式 UCAS 保留旧行为。原生前台/后台进程另行准入；受管 HTTP 强制手工跳转与公网出口，并逐跳裁决目标域名。拒绝会发布工具终止错误。
 
@@ -90,3 +90,5 @@ REA：此前已复用 55 份页面和发布脚本证据并对 automation-fL5mZb_
 使用用户已配置的真实上游与现有智能体，通过实际 HTTP 完成 Docker JavaScript 输出、运行中取消，以及“真实模型生成工具调用 → Docker 执行 → 第二轮模型回答”。上游 JSON 工具调用带可选 `index`，原严格响应校验将其拒为 `UPSTREAM_FORMAT`；新增仅限上游的 0–31 整数元数据兼容并在响应/缓存/后续消息前丢弃，客户端输入合同和工具准入不变。修前回归失败，修后 140 项全通过，类型/Lint/格式/构建通过。
 
 真实复测两轮模型调用均 settled，聚合预留为 0，代码实际输出符合预期，临时 Runtime/容器已清理；已发布现有智能体的隔离代码能力，宿主命令与宿主文件权限仍关闭。首轮失败保留 uncertain 账目，未冒充供应商账单已核实。真实记录、配置快照和本地计量证据只保存在 ignored evidence，不提交凭据、模型服务地址或实际租户/运行标识。
+
+后续真实业务验证完成资产审核/发布/换版/撤权、模型消费资产、会话续接、正反例评测、一次性调度、RBAC/席位/配额、幂等和设备吊销、在线备份独立恢复与当前容器镜像重启持久化。修复运行/会话搜索忽略 q，以及 SDK 信号处理导致应用关闭前退出、遗留租约两个问题。后端与专用 Docker profile 按用户要求保持运行；原模型和已发布智能体配置未改动。测试成员及资源已停用，自动化和临时策略已删除，评测引用及审计历史按 API 约束保留。外部接入仍遵循上述未验收边界。

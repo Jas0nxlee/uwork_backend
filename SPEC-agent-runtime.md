@@ -3,6 +3,7 @@
 目标：Agent 配置发布、隔离的模型执行上下文、Session、超时/取消终态、自动化/结果投递、评测。
 实现：src/runtime.ts、src/automation.ts、src/evaluation.ts；持久化 queued/running/terminal，最大 30 分钟；单进程工作器，重启对中断任务记录 failed；cron-parser 明确时区，禁止任务重叠。
 运行与会话列表的 q 按可见元数据做不区分 ASCII 大小写的字面子串查询，不检索加密输入/输出。运行支持任务/智能体/会话/成员 ID、状态与错误码，会话支持会话/智能体/成员 ID；与租户、状态、会话条件相交，总数与分页使用同一过滤，排序包含唯一 ID。
+CLI 的 SIGINT/SIGTERM 关闭由应用单次负责；关闭完成前保留信号监听器，避免 SDK 的信号处理提前退出。先等待工作器关闭并释放数据库租约，再退出；不缩短命名空间保护窗口或强制删除租约。
 验收：真实 HTTP 模型执行，取消传播、超时、重启终态、唯一调度触发、Webhook 重试边界、评测汇总。取消只终止业务任务，不能认定上游未计费；中断用量遵循 entitlements 的 uncertain 对账规则。
 命令：npm test；npm run build。测试包含本机真实上游和时钟边界。
 
