@@ -29,13 +29,15 @@ export function directoryRoutes(app: FastifyInstance, db: Db) {
       .object({ name: text, contact: z.string().max(200).optional() })
       .strict()
       .parse(req.body);
-    db.run(
-      "UPDATE tenants SET name=?,settings=? WHERE id=?",
-      data.name,
-      JSON.stringify({ contact: data.contact }),
-      a.tenantId,
-    );
-    audit(db, a, "directory.enterprise.update");
+    db.transaction(() => {
+      db.run(
+        "UPDATE tenants SET name=?,settings=json_patch(coalesce(settings,'{}'),?) WHERE id=?",
+        data.name,
+        JSON.stringify({ contact: data.contact }),
+        a.tenantId,
+      );
+      audit(db, a, "directory.enterprise.update");
+    });
     return { ok: true };
   });
   app.get(`${prefix}/roles`, async (req) => {
