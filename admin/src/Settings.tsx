@@ -20,11 +20,14 @@ export function Settings({
       submit: (d: Row) => Promise<void>;
     } | null>(null),
     [detail, setDetail] = useState<unknown>(null),
+    [retention, setRetention] = useState<Row>({}),
     [limits, setLimits] = useState<Row[]>([]);
   async function load() {
     try {
-      if (view === "enterprise") setData(await api<Row>(base));
-      else if (view === "integrations")
+      if (view === "enterprise") {
+        setData(await api<Row>(base));
+        setRetention(await api<Row>(`${base}/retention`));
+      } else if (view === "integrations")
         setData(await api<Row>(`${base}/integrations`));
       else {
         setData(await api<Row>(`${base}/subscription`));
@@ -106,6 +109,50 @@ export function Settings({
                 }
               >
                 角色权限
+              </button>
+            </div>
+          </section>
+          <section className="settings-section">
+            <h2>日志与留存</h2>
+            <p className="settings-value">
+              {retention.configured
+                ? `已配置：保留 ${display(retention.days)} 天`
+                : `未配置：按默认 ${display(retention.days)} 天，仅手动清理`}
+            </p>
+            <div className="actions">
+              <button
+                onClick={() =>
+                  open(
+                    "留存天数",
+                    [
+                      {
+                        key: "days",
+                        label: "保留天数（7-3650）",
+                        type: "number",
+                        initial: retention.days,
+                        required: true,
+                        min: 7,
+                      },
+                    ],
+                    `${base}/retention`,
+                  )
+                }
+              >
+                <Save size={16} />
+                设置留存
+              </button>
+              <button
+                onClick={() =>
+                  void perform(
+                    async () =>
+                      setDetail(
+                        await api(`${base}/retention/purge`, "POST", {}),
+                      ),
+                    "已按留存窗口清理",
+                  )
+                }
+              >
+                立即清理
               </button>
             </div>
           </section>

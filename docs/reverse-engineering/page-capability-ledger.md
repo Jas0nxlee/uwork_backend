@@ -64,8 +64,8 @@
 
 | 页面 | 控制台路径 | 观察到的表单/列表 | 自有实现（模块与端点） | 管理端 | 验证 | 状态 | 缺口 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 对话日志（`dialogue-logs`） | `/admin/log/sessions` | 纯浏览页（无表单字段观察） | `telemetry.ts`<br>`client-usage.ts`<br>`/api/tenants/{tenantId}/traces`<br>`/api/tenants/{tenantId}/client-events`<br>`/api/tenants/{tenantId}/retention/purge` | traces<br>client-events | tests/wecom-telemetry.test.ts | 已实现 | 原始 prompt 不入日志；任务内容按企业策略加密留存，归档保留策略仍需按企业补齐 |
-| 操作日志（`operation-logs`） | `/admin/log/list` | 表单字段 5 / 列表列 6 | `telemetry.ts`<br>`events.ts`<br>`/api/tenants/{tenantId}/audit` | audit | tests/wecom-telemetry.test.ts（分页/导出/脱敏） | 已实现 | — |
+| 对话日志（`dialogue-logs`） | `/admin/log/sessions` | 纯浏览页（无表单字段观察） | `telemetry.ts`<br>`client-usage.ts`<br>`/api/tenants/{tenantId}/traces`<br>`/api/tenants/{tenantId}/client-events`<br>`/api/tenants/{tenantId}/retention/purge`<br>`/api/tenants/{tenantId}/retention` | traces<br>client-events | tests/wecom-telemetry.test.ts（分页/导出/脱敏）<br>tests/retention.test.ts（企业留存窗口与巡检） | 已实现 | 原始 prompt 不入日志；任务内容按企业策略加密留存。企业级留存天数与每小时巡检已实现，日志归档到外部对象存储仍按企业部署补齐 |
+| 操作日志（`operation-logs`） | `/admin/log/list` | 表单字段 5 / 列表列 6 | `telemetry.ts`<br>`events.ts`<br>`/api/tenants/{tenantId}/audit`<br>`/api/tenants/{tenantId}/retention/purge` | audit | tests/wecom-telemetry.test.ts（分页/导出/脱敏） | 已实现 | 审计事实只按企业留存窗口清理，导出为同步 CSV；大规模归档导出仍需按企业部署补齐 |
 
 ## 腾讯网盘
 

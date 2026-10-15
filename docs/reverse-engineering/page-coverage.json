@@ -672,26 +672,35 @@
     },
     "operation-logs": {
       "capability": "操作日志：时间范围、操作者、终端、IP 与内容过滤",
-      "surface": ["/api/tenants/{tenantId}/audit"],
+      "surface": [
+        "/api/tenants/{tenantId}/audit",
+        "/api/tenants/{tenantId}/retention/purge"
+      ],
       "admin": ["audit"],
       "modules": ["telemetry.ts", "events.ts"],
       "verification": ["tests/wecom-telemetry.test.ts（分页/导出/脱敏）"],
       "status": "implemented",
-      "gaps": []
+      "gaps": [
+        "审计事实只按企业留存窗口清理，导出为同步 CSV；大规模归档导出仍需按企业部署补齐"
+      ]
     },
     "dialogue-logs": {
       "capability": "对话日志入口与留存清理",
       "surface": [
         "/api/tenants/{tenantId}/traces",
         "/api/tenants/{tenantId}/client-events",
-        "/api/tenants/{tenantId}/retention/purge"
+        "/api/tenants/{tenantId}/retention/purge",
+        "/api/tenants/{tenantId}/retention"
       ],
       "admin": ["traces", "client-events"],
       "modules": ["telemetry.ts", "client-usage.ts"],
-      "verification": ["tests/wecom-telemetry.test.ts"],
+      "verification": [
+        "tests/wecom-telemetry.test.ts（分页/导出/脱敏）",
+        "tests/retention.test.ts（企业留存窗口与巡检）"
+      ],
       "status": "implemented",
       "gaps": [
-        "原始 prompt 不入日志；任务内容按企业策略加密留存，归档保留策略仍需按企业补齐"
+        "原始 prompt 不入日志；任务内容按企业策略加密留存。企业级留存天数与每小时巡检已实现，日志归档到外部对象存储仍按企业部署补齐"
       ]
     },
     "monitor": {

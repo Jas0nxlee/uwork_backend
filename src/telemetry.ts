@@ -5,6 +5,83 @@ import { authenticate, requirePermission } from "./access.js";
 import { audit, type RetentionPorts } from "./events.js";
 import { csv, now, pageSchema, parseJson } from "./core.js";
 
+export const DEFAULT_RETENTION_DAYS = 90;
+/** 企业级留存天数：写入 tenants.settings，未配置时为 undefined（调用方决定默认值）。 */
+export const retentionSchema = z.object({
+  days: z.number().int().min(7).max(3650),
+});
+export function tenantSettings(
+  db: Db,
+  tenantId: string,
+): Record<string, unknown> {
+  const row = db.get<{ settings: string | null }>(
+    "SELECT settings FROM tenants WHERE id=?",
+    tenantId,
+  );
+  return row?.settings ? parseJson<Record<string, unknown>>(row.settings) : {};
+}
+export function tenantRetentionDays(
+  db: Db,
+  tenantId: string,
+): number | undefined {
+  const value = tenantSettings(db, tenantId).retentionDays;
+  return typeof value === "number" &&
+    retentionSchema.shape.days.safeParse(value).success
+    ? value
+    : undefined;
+}
+export function purgeTenantTelemetry(
+  db: Db,
+  retention: RetentionPorts,
+  tenantId: string,
+  before: number,
+): Record<string, number> {
+  return db.transaction(() => {
+    const counts: Record<string, number> = {};
+    for (const table of ["audit", "traces", "client_events"] as const)
+      counts[table] = Number(
+        db.run(
+          `DELETE FROM ${table} WHERE tenant_id=? AND created_at<?`,
+          tenantId,
+          before,
+        ).changes,
+      );
+    // 计费调用记录保留 1 天用于对账；运行与沙箱执行按企业留存窗口清理。
+    counts.gateway_calls = retention.purgeCalls(tenantId, now() - 86400000);
+    counts.runs = retention.purgeRuns(tenantId, before);
+    counts.sandbox_executions = retention.purgeSandbox(tenantId, before);
+    retention.purgeIdentity(now());
+    return counts;
+  });
+}
+/**
+ * 后台留存巡检：只处理显式配置了留存天数的企业，未配置的企业保持原状，
+ * 由管理员显式设置后再进入自动清理，避免默认值静默删除历史。
+ */
+export function retentionSweep(
+  db: Db,
+  retention: RetentionPorts,
+  time: number,
+): { tenants: number; purged: number } {
+  const tenants = db.all<{ id: string }>(
+    "SELECT id FROM tenants WHERE settings IS NOT NULL",
+  );
+  let purged = 0,
+    swept = 0;
+  for (const tenant of tenants) {
+    const days = tenantRetentionDays(db, tenant.id);
+    if (days === undefined) continue;
+    const counts = purgeTenantTelemetry(
+      db,
+      retention,
+      tenant.id,
+      time - days * 86400000,
+    );
+    purged += Object.values(counts).reduce((sum, value) => sum + value, 0);
+    swept++;
+  }
+  return { tenants: swept, purged };
+}
 export function telemetryRoutes(
   app: FastifyInstance,
   db: Db,
@@ -180,30 +257,47 @@ export function telemetryRoutes(
       q.to,
     );
   });
+  app.get(`${p}/retention`, async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "read");
+    const days = tenantRetentionDays(db, a.tenantId);
+    return {
+      days: days ?? DEFAULT_RETENTION_DAYS,
+      configured: days !== undefined,
+    };
+  });
+  app.put(`${p}/retention`, async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "identity");
+    const d = retentionSchema.parse(req.body ?? {});
+    const settings = tenantSettings(db, a.tenantId);
+    db.run(
+      "UPDATE tenants SET settings=? WHERE id=?",
+      JSON.stringify({ ...settings, retentionDays: d.days }),
+      a.tenantId,
+    );
+    audit(db, a, "telemetry.retention.update", undefined, { days: d.days });
+    return { days: d.days, configured: true };
+  });
   app.post(`${p}/retention/purge`, async (req) => {
     const a = authenticate(db, req);
     requirePermission(a, "identity");
     const d = z
-      .object({ days: z.number().int().min(7).max(3650).default(90) })
+      .object({ days: retentionSchema.shape.days.optional() })
       .strict()
       .parse(req.body ?? {});
-    const before = now() - d.days * 86400000;
-    return db.transaction(() => {
-      const counts: Record<string, number> = {};
-      for (const table of ["audit", "traces", "client_events"] as const)
-        counts[table] = Number(
-          db.run(
-            `DELETE FROM ${table} WHERE tenant_id=? AND created_at<?`,
-            a.tenantId,
-            before,
-          ).changes,
-        );
-      counts.gateway_calls = retention.purgeCalls(a.tenantId, now() - 86400000);
-      counts.runs = retention.purgeRuns(a.tenantId, before);
-      counts.sandbox_executions = retention.purgeSandbox(a.tenantId, before);
-      retention.purgeIdentity(now());
-      audit(db, a, "telemetry.retention.purge", undefined, { days: d.days });
-      return counts;
+    // 未显式给出天数时按企业配置执行；未配置才回退默认值，避免清理口径漂移。
+    const days =
+      d.days ?? tenantRetentionDays(db, a.tenantId) ?? DEFAULT_RETENTION_DAYS;
+    const counts = purgeTenantTelemetry(
+      db,
+      retention,
+      a.tenantId,
+      now() - days * 86400000,
+    );
+    db.transaction(() => {
+      audit(db, a, "telemetry.retention.purge", undefined, { days });
     });
+    return counts;
   });
 }

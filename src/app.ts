@@ -1,7 +1,7 @@
 import Fastify, { LogController } from "fastify";
 import { z } from "zod";
 import { Db } from "./db.js";
-import { ApiError, fail, id } from "./core.js";
+import { ApiError, fail, id, now } from "./core.js";
 import { authenticate, tenantAccess, requirePermission } from "./access.js";
 import { identityRoutes, purgeIdentity } from "./identity.js";
 import { directoryRoutes } from "./directory.js";
@@ -16,7 +16,7 @@ import { Runtime, runtimeRoutes } from "./runtime.js";
 import { AutomationWorker, automationRoutes } from "./automation.js";
 import { EvaluationWorker, evaluationRoutes } from "./evaluation.js";
 import { wecomRoutes, type WecomProvider } from "./wecom.js";
-import { telemetryRoutes } from "./telemetry.js";
+import { retentionSweep, telemetryRoutes } from "./telemetry.js";
 import { integrationRoutes } from "./integrations.js";
 import { connectorRoutes } from "./connectors.js";
 import { staticRoutes } from "./static.js";
@@ -260,12 +260,16 @@ export async function createApp(options: AppOptions) {
   automationRoutes(app, db, runtime, vault);
   evaluationRoutes(app, db, runtime, vault, evaluation);
   wecomRoutes(app, db, vault, options.publicUrl, options.wecomProvider);
-  telemetryRoutes(app, db, {
-    purgeCalls: (tenant, before) => gateway.purgeCalls(tenant, before),
-    purgeRuns: (tenant, before) => runtime.purgeFinished(tenant, before),
-    purgeSandbox: (tenant, before) => sandbox.purgeFinished(tenant, before),
-    purgeIdentity: (time) => purgeIdentity(db, time),
-  });
+  const retentionPorts = {
+    purgeCalls: (tenant: string, before: number) =>
+      gateway.purgeCalls(tenant, before),
+    purgeRuns: (tenant: string, before: number) =>
+      runtime.purgeFinished(tenant, before),
+    purgeSandbox: (tenant: string, before: number) =>
+      sandbox.purgeFinished(tenant, before),
+    purgeIdentity: (time: number) => purgeIdentity(db, time),
+  };
+  telemetryRoutes(app, db, retentionPorts);
   integrationRoutes(
     app,
     db,
@@ -275,11 +279,26 @@ export async function createApp(options: AppOptions) {
   );
   connectorRoutes(app, db, connectors);
   staticRoutes(app);
+  // 企业留存巡检：每小时一次，只清理显式配置过留存天数的企业。
+  let lastRetentionSweep = 0;
+  const RETENTION_SWEEP_INTERVAL_MS = 3600000;
   if (options.worker)
     interval = setInterval(() => {
       try {
         db.assertInstance();
         workerHealthy = true;
+        if (now() - lastRetentionSweep >= RETENTION_SWEEP_INTERVAL_MS) {
+          lastRetentionSweep = now();
+          try {
+            retentionSweep(db, retentionPorts, now());
+          } catch {
+            // 留存巡检失败不能让自动化/任务分派停摆；下一小时重试。
+            app.log.error(
+              { code: "RETENTION_SWEEP_FAILURE" },
+              "Retention sweep failed",
+            );
+          }
+        }
         automation.tick();
         runtime.pump();
         sandbox.pump();
