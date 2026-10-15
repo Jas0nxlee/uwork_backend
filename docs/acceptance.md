@@ -21,7 +21,7 @@
 
 自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run ledger:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts scripts/client-policy-contract-smoke.ts scripts/client-assets-contract-smoke.ts scripts/client-assets-host-contract-smoke.ts scripts/client-assets-rpc-contract-smoke.ts`，共 6 项，另加 `scripts/client-connectors-mcp-contract-smoke.ts` 的连接器闭环，使用真实适配源码和受控企微 provider/本机 HTTP，未调用真实企业凭据。
 
-自动化结果：后端 135 项测试通过，0 失败/跳过；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库 services 231 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。
+自动化结果：后端 137 项测试通过，0 失败/跳过；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库 services 233 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。
 
 Host 准入：独立适配副本中的 CLI 使用现有 PermissionService 承载不可由项目/yolo/Hook/用户审批覆盖的企业裁决端口，反向 RPC 绑定当前连接和工作区。Host 每次向真实后端查询当前订阅、渠道和安全策略；私有身份代际、共享会话修订、issuer 与配置指纹阻止退出/撤权/换端点后的迟到允许。已进入受管模式的 Host 遇到配置消失仍拒绝，显式 UCAS 保留旧行为。原生前台/后台进程另行准入；受管 HTTP 强制手工跳转与公网出口，并逐跳裁决目标域名。拒绝会发布工具终止错误。
 
@@ -71,7 +71,7 @@ REA：此前已复用 55 份页面和发布脚本证据并对 automation-fL5mZb_
 
 - 自有企微每个实际组织的新扫码、真实 callback 和通讯录权限。
 - 真实模型生成/供应商计量对账及长时/负载测试。
-- 附加远程工作区完整企业准入、云/移动与组织协作渠道，以及 Windows/macOS/Linux 的实际安装回归；本机 Host 菜单、新会话、资产、分享与个人策略已通过源码/真实 HTTP/stdio/组件浏览器验收。
+- 附加远程工作区完整企业准入、云/移动与组织协作渠道，以及 Windows/macOS/Linux 的实际安装回归；本机 Host 菜单（既有自动化/插件商店）、新会话、资产、分享与个人策略已通过源码/真实 HTTP/stdio/组件浏览器验收。
 - 真实外部 MCP 服务对接与服务商侧 session/远端资源回收确认（本机受控调用及不确定性处理已通过）。
 - 生产 TLS、目标主机备份演练、外部网盘、支付、生产沙箱部署和通知渠道验收。
 
@@ -80,3 +80,7 @@ REA：此前已复用 55 份页面和发布脚本证据并对 automation-fL5mZb_
 本轮代码复核与补齐的当前结果另见 [2026-10-15 复核记录](review-2026-10-15.md)，其中区分本地通过、跨源码通过和仍未完成的真实外部验收。
 
 本轮合并快照：后端 135 项、跨源码十个脚本共 12 项、客户端 services 231 项与 CLI core 60 项通过；精确 Node 24.14.0/pnpm 10.33.2 的客户端类型、格式、架构（0）与 Lint（114 warnings/0 errors）通过。真实 Docker API/SDK/生产镜像 SDK 复核通过；专用 profile 已恢复初始关闭状态。T13c1–T13c5 的本地实现已完成，T13c6/T13d 与真实服务验收继续保留。
+
+菜单后续选择：按用户要求映射 UWork 既有自动化/插件商店，独立企业页面导航撤下；保留兼容 ID 与当前菜单准入。后端 Agent API 作为独立能力保留，权限不再关联本地自动化菜单，具体跟进测试见本轮复核记录。
+
+菜单调整跟进验证：后端 137 项、客户端 services 233 项及十个跨仓合同脚本共 12 项通过；精确 Node 24.14.0 的客户端类型/架构、9 项导航与权限回归、格式及 Lint（114 warnings/0 errors）通过。真实 Sidebar 验证默认/旧发布/自定义标题均进入既有页面 owner，打开菜单时 Agent/Assets/Runs API 调用数为 0；320/768/1440 与退出/卸载迟到响应回归通过。

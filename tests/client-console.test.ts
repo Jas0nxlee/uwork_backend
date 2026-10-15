@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fixture } from "./fixtures.js";
+import { hash } from "../src/core.js";
 import { issueSession } from "../src/identity.js";
 
 async function publish(
@@ -42,6 +43,8 @@ test("client menus authorize only the current published enabled entry and bind i
   assert.equal(initial.json().tenantId, f.tenantId);
   assert.equal(initial.json().allowed, true);
   assert.equal(initial.json().menu.id, "agents");
+  assert.equal(initial.json().menu.name, "自动化");
+  assert.equal(initial.json().menu.nameEn, "Automations");
   assert.equal(initial.json().version, 0);
   const url = `${f.p}/configurations/menus`;
   const current = (await f.app.inject({ url, headers: f.headers })).json();
@@ -76,7 +79,7 @@ test("client menus authorize only the current published enabled entry and bind i
     url: "/api/client/agents",
     headers: f.headers,
   });
-  assert.equal(hidden.statusCode, 403, hidden.body);
+  assert.equal(hidden.statusCode, 200, hidden.body);
 });
 
 test("client agent catalog and run history expose only authorized metadata and the caller's own runs", async (t) => {
@@ -173,7 +176,7 @@ test("client agent catalog and run history expose only authorized metadata and t
     headers,
     payload: { agentId: f.agent, input: "blocked" },
   });
-  assert.equal(blocked.statusCode, 403, blocked.body);
+  assert.equal(blocked.statusCode, 202, blocked.body);
   const cancelled = await f.app.inject({
     method: "POST",
     url: `/api/client/runs/${created.json().id}/cancel`,
@@ -185,4 +188,130 @@ test("client agent catalog and run history expose only authorized metadata and t
     true,
     "existing own work can still be stopped after the entry is disabled",
   );
+});
+
+test("persisted menu publication stays authoritative when existing page mapping changes", async (t) => {
+  const f = await fixture(t, "https://upstream.example.test/v1");
+  const menus = {
+    items: [
+      {
+        id: "chat",
+        name: "对话",
+        nameEn: "Chat",
+        enabled: true,
+        builtin: true,
+        icon: "message",
+      },
+      {
+        id: "agents",
+        name: "智能体",
+        nameEn: "Agents",
+        enabled: true,
+        builtin: true,
+        icon: "bot",
+      },
+      {
+        id: "assets",
+        name: "我的插件",
+        nameEn: "My plugins",
+        enabled: true,
+        builtin: true,
+        icon: "library",
+      },
+    ],
+  };
+  const stored = JSON.stringify(menus);
+  f.app.services.db.run(
+    "INSERT INTO configurations(tenant_id,kind,draft,published,version,revision,updated_at) VALUES(?,'menus',?,?,3,4,?)",
+    f.tenantId,
+    stored,
+    stored,
+    Date.now(),
+  );
+  const config = await f.app.inject({
+    url: "/api/client/configuration",
+    headers: f.headers,
+  });
+  assert.equal(config.statusCode, 200, config.body);
+  assert.deepEqual(
+    config
+      .json()
+      .configuration.menus.items.map(
+        (item: { name: string; nameEn: string }) => [item.name, item.nameEn],
+      ),
+    [
+      ["对话", "Chat"],
+      ["智能体", "Agents"],
+      ["我的插件", "My plugins"],
+    ],
+  );
+  const row = f.app.services.db.get<{
+    published: string;
+    version: number;
+    revision: number;
+  }>(
+    "SELECT published,version,revision FROM configurations WHERE tenant_id=? AND kind='menus'",
+    f.tenantId,
+  )!;
+  assert.deepEqual({ ...row }, { published: stored, version: 3, revision: 4 });
+  const oldEtag = `"${hash(JSON.stringify({ versions: config.json().versions, security: config.json().security }))}"`;
+  const refreshed = await f.app.inject({
+    url: "/api/client/configuration",
+    headers: { ...f.headers, "if-none-match": oldEtag },
+  });
+  assert.equal(
+    refreshed.statusCode,
+    200,
+    "old contract cache must refresh without a publication write",
+  );
+  const cached = await f.app.inject({
+    url: "/api/client/configuration",
+    headers: { ...f.headers, "if-none-match": String(refreshed.headers.etag) },
+  });
+  assert.equal(cached.statusCode, 304);
+  menus.items[1]!.name = "我的自动化";
+  f.app.services.db.run(
+    "UPDATE configurations SET published=? WHERE tenant_id=? AND kind='menus'",
+    JSON.stringify(menus),
+    f.tenantId,
+  );
+  const custom = await f.app.inject({
+    url: "/api/client/configuration",
+    headers: f.headers,
+  });
+  assert.equal(custom.json().configuration.menus.items[1].name, "我的自动化");
+  assert.equal(
+    custom.json().configuration.menus.items[1].nameEn,
+    "Agents",
+    "a bilingual override must remain intact",
+  );
+});
+
+test("existing automation menu uses the local channel while backend Agent APIs keep their separate agents channel", async (t) => {
+  const f = await fixture(t, "https://upstream.example.test/v1");
+  await publish(f, "assistants", { agents: false, local: true });
+  const menu = await f.app.inject({
+    method: "POST",
+    url: "/api/client/menus/agents/authorize",
+    headers: f.headers,
+  });
+  assert.equal(menu.statusCode, 200, menu.body);
+  assert.equal(menu.json().allowed, true);
+  const agents = await f.app.inject({
+    url: "/api/client/agents",
+    headers: f.headers,
+  });
+  assert.equal(agents.statusCode, 403, agents.body);
+  await publish(f, "assistants", { agents: true, local: false });
+  const unavailable = await f.app.inject({
+    method: "POST",
+    url: "/api/client/menus/agents/authorize",
+    headers: f.headers,
+  });
+  assert.equal(unavailable.statusCode, 403, unavailable.body);
+  const available = await f.app.inject({
+    url: "/api/client/agents",
+    headers: f.headers,
+  });
+  assert.equal(available.statusCode, 200, available.body);
 });

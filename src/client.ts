@@ -31,7 +31,11 @@ export function clientRoutes(app: FastifyInstance, db: Db) {
       versions[kind] = c.version;
     }
     const etag = hash(
-      JSON.stringify({ versions, security: effectiveSecurity(db, a) }),
+      JSON.stringify({
+        menuContract: "uwork-existing-pages-v1",
+        versions,
+        security: effectiveSecurity(db, a),
+      }),
     );
     reply.header("etag", `"${etag}"`);
     if (req.headers["if-none-match"] === `"${etag}"`)

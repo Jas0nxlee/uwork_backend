@@ -19,18 +19,14 @@ function menuDecision(db: Db, actor: Actor, menuId: string) {
   const menu = configurationSchemas.menus
     .parse(current.published)
     .items.find((item) => item.id === menuId && item.enabled);
-  if (menu?.id === "chat") assertChannel(db, actor, "local");
-  if (menu?.id === "agents") assertChannel(db, actor, "agents");
+  if (menu?.id === "chat" || menu?.id === "agents")
+    assertChannel(db, actor, "local");
   return {
     allowed: !!menu,
     tenantId: actor.tenantId,
     ...(menu ? { menu } : {}),
     version: current.version,
   };
-}
-function requireAgentsMenu(db: Db, actor: Actor) {
-  if (!menuDecision(db, actor, "agents").allowed)
-    fail(403, "MENU_DISABLED", "企业智能体入口已关闭");
 }
 function ownRun(db: Db, actor: Actor, runId: string) {
   const run = db.get<Run>(
@@ -55,7 +51,7 @@ function runSummary(run: Run) {
   };
 }
 
-/** Client console reuses the Runtime owner; it never exposes another member's run or agent instructions. */
+/** Client APIs reuse Runtime; Agent权限属于独立执行渠道，不由本地自动化导航菜单裁决。 */
 export function clientConsoleRoutes(
   app: FastifyInstance,
   db: Db,
@@ -71,7 +67,7 @@ export function clientConsoleRoutes(
     const a = authenticate(db, req);
     requirePermission(a, "execute");
     activeSubscription(db, a.tenantId);
-    requireAgentsMenu(db, a);
+    assertChannel(db, a, "agents");
     const items = listResources<AgentData>(db, a.tenantId, "agent")
       .filter((item) => {
         try {
@@ -93,7 +89,7 @@ export function clientConsoleRoutes(
     const a = authenticate(db, req);
     requirePermission(a, "execute");
     activeSubscription(db, a.tenantId);
-    requireAgentsMenu(db, a);
+    assertChannel(db, a, "agents");
     const q = pageSchema.parse(req.query);
     const rows = db.all<Run>(
       "SELECT * FROM runs WHERE tenant_id=? AND user_id=? ORDER BY created_at DESC,id LIMIT ? OFFSET ?",
@@ -117,7 +113,7 @@ export function clientConsoleRoutes(
     const a = authenticate(db, req);
     requirePermission(a, "execute");
     activeSubscription(db, a.tenantId);
-    requireAgentsMenu(db, a);
+    assertChannel(db, a, "agents");
     const d = z
       .object({
         agentId: text,
@@ -141,7 +137,7 @@ export function clientConsoleRoutes(
     const a = authenticate(db, req);
     requirePermission(a, "execute");
     activeSubscription(db, a.tenantId);
-    requireAgentsMenu(db, a);
+    assertChannel(db, a, "agents");
     const run = ownRun(db, a, text.parse((req.params as { id: string }).id));
     const decoded = runtime.decode(run);
     return { ...runSummary(run), input: decoded.input, output: decoded.output };

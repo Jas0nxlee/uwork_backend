@@ -12,8 +12,8 @@ Host 执行裁决：`/api/client/authorize` 先检查有效订阅、席位、IP 
 
 分享准入扩展：`action=share` 的响应额外返回同一次裁决读取的已发布 `sharing`（publish/collaborate/files/wechat/wecom）；草稿不进入响应，旧 `allowed` 语义不变。终端公网分享（包括依赖公网服务的“私有链接”）必须使用 `target=internet`，仅 publish=internet 可通过；无组织隔离合同的公网链接不能视为 organization 分享。新 Host 消费者严格校验字段，并在实际写出口前重查，不用投影缓存授权。
 
-## 企业菜单与独立控制台
+## UWork 既有页面菜单
 
-内置 chat 对应既有新任务入口，agents/assets 对应独立企业智能体/企业资产页，不映射为个人自动化或插件商店。Host 通过 `POST /api/client/menus/:id/authorize` 在每次打开前读取当前已发布菜单，校验有效会话/席位/订阅，返回 `{allowed,tenantId,menu?,version}`。禁用/不存在菜单不返回 URL，草稿不生效，chat/agents 同时检查相应助理渠道；自定义页面仅允许既有 HTTPS 标签页，不宣称 iframe 免登或第三方会话隔离。
+按用户选择，内置 chat 对应既有新任务入口；兼容保留菜单 ID agents/assets，分别表示 UWork 现有“自动化 / 插件商店”，不新增独立企业智能体/企业资产页面。名称、排序与启停仍由已发布菜单拥有，实际页面与业务状态继续由既有 UWork 所有者维护。新默认名称使用自动化/插件商店；已有发布标题仍归配置所有者，不根据名称猜测其是旧默认值还是管理员覆盖，读取不改写数据库。Host 通过 `POST /api/client/menus/:id/authorize` 在每次打开前读取当前已发布菜单，校验有效会话/席位/订阅，返回 `{allowed,tenantId,menu?,version}`。禁用/不存在菜单不返回 URL，草稿不生效，chat/agents 对应本地入口，均检查 local 助理渠道；自定义页面仅允许既有 HTTPS 标签页，不宣称 iframe 免登或第三方会话隔离。
 
-`/api/client/agents` 和 `/api/client/runs` 只用于企业智能体页；运行创建/查询/取消先检查 agents 菜单与渠道，成员只可查看和取消本人任务，租户来源仅为会话。列表不暴露模型供应商地址/凭据、Agent 指令或其他成员内容。Runtime 仍为任务状态唯一所有者；客户端接口复用 enqueue/decode/cancel，不创建第二份队列。GET agents 是当前发布/启用/可见清单；POST runs 使用 `{agentId,input,timeoutMs?,sessionId?}`，202 返回任务 DTO；已禁用菜单的访问必须重新启用后才可读取，取消本人已有任务可在菜单关闭后执行，以便停止已接受工作。
+`/api/client/agents` 和 `/api/client/runs` 保留为独立后端能力，不由这两个导航入口调用。它们与本地自动化菜单脱钩，读取/创建检查 agents 执行渠道，成员只可查看和取消本人任务，租户来源仅为会话。列表不暴露模型供应商地址/凭据、Agent 指令或其他成员内容。Runtime 仍为任务状态唯一所有者；客户端接口复用 enqueue/decode/cancel，不创建第二份队列。GET agents 是当前发布/启用/可见清单；POST runs 使用 `{agentId,input,timeoutMs?,sessionId?}`，202 返回任务 DTO；自动化菜单关闭不改变这些独立 API 权限；助理 agents 渠道关闭仍拒绝读取/创建。取消本人已有任务继续允许，以便停止已接受工作。

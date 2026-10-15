@@ -30,7 +30,7 @@
 | 页面 | 控制台路径 | 观察到的表单/列表 | 自有实现（模块与端点） | 管理端 | 验证 | 状态 | 缺口 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 助理设置（`assistants`） | `/admin/client-config/channel` | 纯浏览页（无表单字段观察） | `policy.ts`<br>`client.ts`<br>`client-console.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/client-authorization.test.ts<br>scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权） | 部分实现 | local/agents 已在实际 Gateway、Host 与企业菜单准入执行；云/移动实际渠道资源及完整安装验收仍待 T13d |
-| 客户端定制（`client-custom`） | `/admin/client-config/custom` | 表单字段 2 / 列表列 6 | `policy.ts`<br>`client.ts`<br>`client-console.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/policy-assets.test.ts（草稿不生效、旧修订冲突、发布版本）<br>scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权） | 部分实现 | UWork 本机菜单命名/排序/启停与独立企业页已应用；自定义项使用现有 HTTPS 标签页，iframe 免登/应用绑定与三平台安装未验 |
+| 客户端定制（`client-custom`） | `/admin/client-config/custom` | 表单字段 2 / 列表列 6 | `policy.ts`<br>`client.ts`<br>`client-console.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/policy-assets.test.ts（草稿不生效、旧修订冲突、发布版本）<br>scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权） | 部分实现 | UWork 本机菜单命名/排序/启停与既有自动化/插件商店路由已应用；自定义项使用现有 HTTPS 标签页，iframe 免登/应用绑定与三平台安装未验 |
 | 新建自建菜单（`custom-menu-create`） | `/admin/client-config/custom` | 表单字段 8 / 表单标签 8 / 列表列 6 | `policy.ts`<br>`client-console.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}` | configuration | tests/policy-assets.test.ts<br>scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权） | 部分实现 | 自定义菜单按当前菜单 ID 准入打开既有 HTTPS 标签页；iframe 免登与组织应用绑定未实现 |
 | 编辑菜单（`menu-edit`） | `/admin/client-config/custom` | 表单字段 2 / 表单标签 2 / 列表列 6 | `policy.ts`<br>`client-console.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/policy-assets.test.ts<br>scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权） | 已实现 | — |
 | 移动端 APP 和小程序（`mobile-channels`） | `/admin/client-config/channel` | 纯浏览页（无表单字段观察） | `policy.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}` | configuration | tests/client-authorization.test.ts | 部分实现 | 渠道布尔在快照中发布；移动端应用未接入（无真实移动渠道资源） |
@@ -233,7 +233,7 @@
 
 - `assistants`（部分实现）：local/agents 已在实际 Gateway、Host 与企业菜单准入执行；云/移动实际渠道资源及完整安装验收仍待 T13d
 - `automation-create`（部分实现）：飞书 Bot 与真实通知渠道需要外部服务，未接入；Webhook 投递与重放语义已有测试，单次执行 30 分钟上限由运行时限执行
-- `client-custom`（部分实现）：UWork 本机菜单命名/排序/启停与独立企业页已应用；自定义项使用现有 HTTPS 标签页，iframe 免登/应用绑定与三平台安装未验
+- `client-custom`（部分实现）：UWork 本机菜单命名/排序/启停与既有自动化/插件商店路由已应用；自定义项使用现有 HTTPS 标签页，iframe 免登/应用绑定与三平台安装未验
 - `custom-menu-create`（部分实现）：自定义菜单按当前菜单 ID 准入打开既有 HTTPS 标签页；iframe 免登与组织应用绑定未实现
 - `drive-capacity`（外部依赖）：需要真实网盘服务与订阅凭据；未配置时明确 503，不伪装成已实现的外部存储
 - `drive-logs`（外部依赖）：同上：需真实网盘服务；本地只实现适配网关合同与能力声明

@@ -73,9 +73,9 @@ Header `Idempotency-Key` 最长 128 字符；同键/同人/同内容且当前授
 
 ## 企业客户端控制台
 
-`POST /api/client/menus/{id}/authorize` 返回 `{allowed,tenantId,menu?,version}`；只读取当前已发布且启用的项，关闭/缺失项不返回 URL，chat/agents 另检查 local/agents 助理渠道。菜单只控制入口，助理/资源策略仍裁决实际执行。
+`POST /api/client/menus/{id}/authorize` 返回 `{allowed,tenantId,menu?,version}`；只读取当前已发布且启用的项，关闭/缺失项不返回 URL，chat/agents 均按既有本地入口检查 local 助理渠道；兼容菜单 ID agents/assets 分别映射现有自动化/插件商店。菜单只控制入口，助理/资源策略仍裁决实际执行。
 
-`GET /api/client/agents` 只返回当前成员可见、已发布且启用的 `{id,name,publishedVersion}`，不返回 Agent 指令或供应商配置。`GET /api/client/runs` 按 page/pageSize 分页且仅查询本人；`POST /api/client/runs` 接受 `{agentId,input,timeoutMs?,sessionId?}` 并返回 202 任务 DTO。`GET /api/client/runs/{id}` 返回本人任务的 input/output/status/errorCode，跨成员或跨组织均 404。`POST /api/client/runs/{id}/cancel` 返回 `{ok:true}`，菜单关闭后仍可停止本人已有任务。上述接口检查当前席位、订阅和 IP；创建与读取另检查 agents 菜单与渠道；状态和队列完全复用 Runtime。
+`GET /api/client/agents` 只返回当前成员可见、已发布且启用的 `{id,name,publishedVersion}`，不返回 Agent 指令或供应商配置。`GET /api/client/runs` 按 page/pageSize 分页且仅查询本人；`POST /api/client/runs` 接受 `{agentId,input,timeoutMs?,sessionId?}` 并返回 202 任务 DTO。`GET /api/client/runs/{id}` 返回本人任务的 input/output/status/errorCode，跨成员或跨组织均 404。`POST /api/client/runs/{id}/cancel` 返回 `{ok:true}`，菜单关闭后仍可停止本人已有任务。上述接口检查当前席位、订阅和 IP；创建与读取另检查独立 agents 执行渠道，与本地自动化菜单启停脱钩；状态和队列完全复用 Runtime。
 
 ## Runtime 与观测
 

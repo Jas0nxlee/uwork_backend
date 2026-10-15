@@ -116,16 +116,16 @@ test(
         },
         {
           id: "agents",
-          name: "智能体",
-          nameEn: "Agents",
+          name: "自动化",
+          nameEn: "Automations",
           enabled: true,
           builtin: true,
           icon: "bot",
         },
         {
           id: "assets",
-          name: "资源",
-          nameEn: "Assets",
+          name: "插件商店",
+          nameEn: "Plugin Store",
           enabled: true,
           builtin: true,
           icon: "library",
@@ -208,6 +208,23 @@ test(
       (await consoleService.authorizeMenu("custom")).url,
       "https://portal.example.test/",
     );
+    await assert.rejects(
+      consoleService.authorizeMenu("agents"),
+      /enterprise_console_unavailable/,
+    );
+    assert.equal(
+      (await consoleService.listAgents()).length,
+      1,
+      "automation navigation does not revoke the separate backend Agent API",
+    );
+    assert.equal((await consoleService.readRun(run.id)).status, "succeeded");
+    const assistants = (
+      await f.app.inject({
+        url: `${f.p}/configurations/assistants`,
+        headers: f.headers,
+      })
+    ).json().published;
+    await publish("assistants", { ...assistants, agents: false, local: true });
     await assert.rejects(
       consoleService.listAgents(),
       /enterprise_console_unavailable/,
