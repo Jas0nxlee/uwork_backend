@@ -250,11 +250,28 @@ export function telemetryRoutes(
       department: "department_id",
       application: "application",
     }[q.groupBy];
+    const args: (string | number)[] = [a.tenantId, q.from, q.to];
+    let filter =
+      "tenant_id=? AND created_at>=? AND created_at<? AND status='settled'";
+    if (q.userId) {
+      filter += " AND user_id=?";
+      args.push(q.userId);
+    }
+    if (q.application) {
+      filter += " AND application=?";
+      args.push(q.application);
+    }
+    if (q.q) {
+      filter += " AND model_id LIKE ?";
+      args.push(`%${q.q}%`);
+    }
+    if (q.status) {
+      filter += " AND status=?";
+      args.push(q.status);
+    }
     return db.all(
-      `SELECT ${column} as subject,sum(amount) as credits,sum(input_tokens) as inputTokens,sum(output_tokens) as outputTokens,count(*) as requests FROM ledger WHERE tenant_id=? AND created_at>=? AND created_at<? AND status='settled' GROUP BY ${column} ORDER BY credits DESC LIMIT 10000`,
-      a.tenantId,
-      q.from,
-      q.to,
+      `SELECT ${column} as subject,sum(amount) as credits,sum(input_tokens) as inputTokens,sum(output_tokens) as outputTokens,count(*) as requests FROM ledger WHERE ${filter} GROUP BY ${column} ORDER BY credits DESC LIMIT 10000`,
+      ...args,
     );
   });
   app.get(`${p}/retention`, async (req) => {

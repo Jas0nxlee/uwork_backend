@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Plus,
   Search,
@@ -52,6 +52,9 @@ export function Collection({
     [detail, setDetail] = useState<unknown>(null),
     [pendingDelete, setPendingDelete] = useState<Row | null>(null),
     [filters, setFilters] = useState<Record<string, string>>({});
+  const requestGeneration = useRef(0);
+  const mounted = useRef(true);
+  const currentLoad = useRef<() => Promise<void>>(async () => {});
   const filterQuery = () =>
     (view.filters ?? [])
       .map(
@@ -61,29 +64,44 @@ export function Collection({
           )}`,
       )
       .join("&");
-  async function load() {
+  async function fetchRows() {
+    const generation = ++requestGeneration.current;
     setLoading(true);
     try {
       const extra = filterQuery();
       const data = await api<Row[] | { items: Row[]; total: number }>(
         `${base}${view.path}?page=${page}&pageSize=25&q=${encodeURIComponent(q)}${extra ? `&${extra}` : ""}`,
       );
+      if (generation !== requestGeneration.current) return;
       let items = Array.isArray(data) ? data : data.items;
       if (view.id === "security")
         items = items.filter((r) => r.family === "security");
       if (view.id === "policies")
         items = items.filter((r) => r.family !== "security");
-      if (Array.isArray(data) && q)
+      if (Array.isArray(data) && q && view.id !== "usage-aggregates")
         items = items.filter((r) => display(r.name ?? r.id).includes(q));
       setRows(items);
       setTotal(Array.isArray(data) ? items.length : data.total);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      if (generation === requestGeneration.current)
+        setError(e instanceof Error ? e.message : "加载失败");
     } finally {
-      setLoading(false);
+      if (generation === requestGeneration.current) setLoading(false);
     }
   }
+  // 异步操作返回时页面可能已翻页；始终刷新当前查询，不重新执行旧闭包的分页。
+  currentLoad.current = fetchRows;
+  async function load() {
+    if (mounted.current) await currentLoad.current();
+  }
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      requestGeneration.current++;
+    };
+  }, []);
   useEffect(() => {
     setPage(1);
     setQ("");
@@ -91,14 +109,19 @@ export function Collection({
   }, [view.id]);
   useEffect(() => {
     void load();
+    return () => {
+      requestGeneration.current++;
+    };
   }, [view.id, base, page, filters]);
   const invoke = async (fn: () => Promise<unknown>, message = "操作完成") => {
     try {
       await fn();
+      if (!mounted.current) return;
       notify(message);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "操作失败");
+      if (mounted.current)
+        setError(e instanceof Error ? e.message : "操作失败");
     }
   };
   function create() {
@@ -241,8 +264,8 @@ export function Collection({
           className="search"
           onSubmit={(e) => {
             e.preventDefault();
-            setPage(1);
-            void load();
+            if (page === 1) void load();
+            else setPage(1);
           }}
         >
           <Search size={16} />
@@ -319,7 +342,7 @@ export function Collection({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={String(r.id ?? r.user_id)}>
+              <tr key={String(r.id ?? r.user_id ?? r.subject)}>
                 {view.columns?.map((c) => (
                   <td key={c.key} title={display(nested(r, c.key))}>
                     {c.key === "status" ? (
