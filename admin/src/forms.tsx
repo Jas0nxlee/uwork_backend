@@ -332,7 +332,11 @@ export function ValueEditor({
       value={value === null ? "" : String(value)}
       onChange={(e) =>
         onChange(
-          typeof value === "number" ? Number(e.target.value) : e.target.value,
+          typeof value === "number"
+            ? Number(e.target.value)
+            : name === "mcpHub" && e.target.value === ""
+              ? null
+              : e.target.value,
         )
       }
     />
