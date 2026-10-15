@@ -162,14 +162,20 @@ export class Db {
         this.run(
           "INSERT OR IGNORE INTO schema_version VALUES(5,unixepoch()*1000)",
         );
-        if (
-          !this.all<{ name: string }>(
-            "PRAGMA table_info(connector_sessions)",
-          ).some((column) => column.name === "run_id")
-        )
-          this.connection.exec(
-            "ALTER TABLE connector_sessions ADD COLUMN run_id TEXT REFERENCES runs(id) ON DELETE CASCADE",
-          );
+        for (const [name, declaration] of [
+          ["run_id", "TEXT REFERENCES runs(id) ON DELETE CASCADE"],
+          // 连接器会话记录远端协商版本：代理后续请求必须回放同一版本，
+          // 不能对已协商的连接固定发送另一个版本。
+          ["protocol_version", "TEXT"],
+        ])
+          if (
+            !this.all<{ name: string }>(
+              "PRAGMA table_info(connector_sessions)",
+            ).some((column) => column.name === name)
+          )
+            this.connection.exec(
+              `ALTER TABLE connector_sessions ADD COLUMN ${name} ${declaration}`,
+            );
       });
       if (
         this.all<{ name: string }>("PRAGMA table_info(instance_lease)").some(

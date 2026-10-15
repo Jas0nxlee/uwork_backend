@@ -41,6 +41,15 @@ const responseSchema = z
   .refine(
     (value) => Object.hasOwn(value, "result") !== Object.hasOwn(value, "error"),
   );
+const DEFAULT_PROTOCOL_VERSION = "2025-03-26";
+const protocolVersion = z
+  .string()
+  .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)
+  .max(20);
+const protocolVersionOf = (value: unknown): string | undefined =>
+  typeof value === "string" && protocolVersion.safeParse(value).success
+    ? value
+    : undefined;
 const contentSchema = z
   .object({
     url: z.url(),
@@ -147,11 +156,19 @@ export class ConnectorService {
         fail(403, "TOOL_DENIED", "未授权此工具");
     }
     const sessionId = options.sessionId;
-    let remoteSession: string | undefined;
+    let remoteSession: string | undefined,
+      protocolVersion =
+        protocolVersionOf(
+          (body.params as { protocolVersion?: unknown } | undefined)
+            ?.protocolVersion,
+        ) ?? DEFAULT_PROTOCOL_VERSION;
     if (body.method !== "initialize") {
       if (!sessionId) fail(400, "MCP_SESSION_REQUIRED", "需要先初始化连接器");
-      const session = this.db.get<{ remote_session: string | null }>(
-        "SELECT remote_session FROM connector_sessions WHERE id=? AND tenant_id=? AND user_id=? AND asset_id=? AND asset_version=? AND expires_at>?",
+      const session = this.db.get<{
+        remote_session: string | null;
+        protocol_version: string | null;
+      }>(
+        "SELECT remote_session,protocol_version FROM connector_sessions WHERE id=? AND tenant_id=? AND user_id=? AND asset_id=? AND asset_version=? AND expires_at>?",
         sessionId,
         actor.tenantId,
         actor.userId,
@@ -166,6 +183,9 @@ export class ConnectorService {
             `${actor.tenantId}:${sessionId}:mcp`,
           )
         : undefined;
+      // 逐次请求必须回放该连接已协商的版本；缺失才退回默认值。
+      protocolVersion =
+        protocolVersionOf(session.protocol_version) ?? protocolVersion;
     }
     const credential = target.content.credentialId;
     const token = credential
@@ -181,7 +201,7 @@ export class ConnectorService {
         timeout: options.timeout ?? 30000,
         headers: {
           accept: "application/json, text/event-stream",
-          "mcp-protocol-version": "2025-03-26",
+          "mcp-protocol-version": protocolVersion,
           ...(remoteSession ? { "mcp-session-id": remoteSession } : {}),
         },
         onDispatch: () => {
@@ -276,8 +296,14 @@ export class ConnectorService {
           (typeof remote !== "string" || !/^[\x21-\x7e]{1,1000}$/.test(remote))
         )
           fail(502, "MCP_SESSION_FORMAT", "连接器会话标识无效");
+        // 远端协商结果按连接记录：后续请求必须用同一版本，不能固定另一端。
+        const negotiated =
+          protocolVersionOf(
+            (validated.data.result as { protocolVersion?: unknown } | undefined)
+              ?.protocolVersion,
+          ) ?? protocolVersion;
         this.db.run(
-          "INSERT INTO connector_sessions(id,tenant_id,user_id,asset_id,asset_version,remote_session,expires_at,run_id) VALUES(?,?,?,?,?,?,?,?)",
+          "INSERT INTO connector_sessions(id,tenant_id,user_id,asset_id,asset_version,remote_session,expires_at,run_id,protocol_version) VALUES(?,?,?,?,?,?,?,?,?)",
           sid,
           actor.tenantId,
           actor.userId,
@@ -288,6 +314,7 @@ export class ConnectorService {
             : null,
           now() + 3600000,
           options.runId ?? null,
+          negotiated,
         );
       }
       const returnedSession = response.headers["mcp-session-id"];

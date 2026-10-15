@@ -66,7 +66,9 @@ Header `Idempotency-Key` 最长 128 字符；同键/同人/同内容重放成功
 - `action=asset` 必须携带 target（资产 ID）、assetVersion 与 64 位小写十六进制 assetChecksum；仅当前已审核发布/可见/支持 UWork 且绑定一致时允许，高风险技能还检查 dangerousSkills。它不授予 shell/filesystem/network。资产列表/下载也检查有效订阅、席位和 IP；下载可用 `?version=N` 绑定清单版本，已换版返回 409 ASSET_VERSION_CHANGED，不静默返回另一个版本。非连接器响应增加 kind 并保留内容 checksum；连接器仍只有 masked 内容及代理路径。
 - 内置菜单保留，自建地址 HTTPS；AI 风险前缀固定；历史全局提示词不注入。IP 空列表允许，**单独 127.0.0.1 是产品兼容的禁止全部标志**。
 
-连接器 RPC：POST `/api/client/connectors/{id}/rpc`，仅允许声明方法与 `allowedTools`。initialize 返回本地不透明 MCP-Session-Id；远端 session 加密并绑定成员、资源发布版本和有效期。凭据只由代理注入，响应中的凭据/远端 session 回显脱敏，顶层非 JSON-RPC 协议字段剥离。支持 POST JSON 与单次 SSE 响应；不提供长期服务端推送 GET 流。请求分派前重新检查成员、终端凭据范围/有效期、发布版本、安全出口；DNS 等待也受取消和截止点约束。
+连接器 RPC：POST `/api/client/connectors/{id}/rpc`，仅允许声明方法与 `allowedTools`。initialize 返回本地不透明 MCP-Session-Id；远端 session 加密并绑定成员、资源发布版本和有效期。凭据只由代理注入，响应中的凭据/远端 session 回显脱敏，顶层非 JSON-RPC 协议字段剥离。支持 POST JSON 与单次 SSE 响应；不提供长期服务端推送 GET 流。请求分派前重新检查成员、终端凭据范围/有效期、发布版本、安全出口；DNS 等待也受取消和截止点约束。DELETE 同一路径配合 `mcp-session-id` 显式回收会话（204，只作用于当前凭证持有者的会话），不需要等到自然过期。
+
+连接器协议版本：`initialize` 按客户端 `params.protocolVersion` 选择发往远端的 `mcp-protocol-version`，并把远端协商结果记录在该连接上；后续请求回放该连接的版本，请求体里的版本不能改写已建立的连接。缺少有效版本时回退 `2025-03-26`。
 
 ## Runtime 与观测
 
