@@ -87,6 +87,18 @@ export interface AssetData {
   checksum: string;
   supportedClients: string[];
 }
+const clientSupport: Record<
+  z.infer<typeof assetKind>,
+  readonly ("uwork" | "agent")[]
+> = {
+  skill: ["uwork", "agent"],
+  expert: ["uwork", "agent"],
+  connector: ["uwork", "agent"],
+  // 控制台证据：自定义指令页对 WorkBuddy 标注“暂不支持”，Playbook 页是只读 Cookbook
+  // （无创建/上传请求），因此这两个类型不向 uwork 终端下发；终端所有者接入前保持仅企业智能体。
+  playbook: ["agent"],
+  instruction: ["agent"],
+};
 const assetSchema = z
   .object({
     kind: assetKind,
@@ -98,7 +110,7 @@ const assetSchema = z
     supportedClients: z
       .array(z.enum(["uwork", "agent"]))
       .min(1)
-      .default(["uwork", "agent"]),
+      .optional(),
   })
   .strict();
 function assetData(
@@ -107,6 +119,16 @@ function assetData(
   d: z.infer<typeof assetSchema>,
 ): AssetData {
   const content = contentSchemas[d.kind].parse(d.content);
+  const supportedClients = d.supportedClients ?? [...clientSupport[d.kind]];
+  const unsupported = supportedClients.filter(
+    (client) => !clientSupport[d.kind].includes(client),
+  );
+  if (unsupported.length)
+    fail(
+      400,
+      "CLIENT_UNSUPPORTED",
+      `${d.kind} 不支持下发到 ${unsupported.join("/")} 终端`,
+    );
   if (Buffer.byteLength(JSON.stringify(content)) > 1024 * 1024)
     fail(400, "ASSET_TOO_LARGE", "资产超过 1 MiB");
   if (
@@ -136,7 +158,7 @@ function assetData(
     categoryId: d.categoryId,
     content,
     checksum: hash(JSON.stringify(content)),
-    supportedClients: d.supportedClients,
+    supportedClients,
   };
 }
 export function visibleAssets(

@@ -291,7 +291,7 @@ test(
       /Version 1/,
     );
     assert.equal(
-      (await host.authorizeSkill(first.assets[0], "controlled-first-load"))
+      (await host.authorizeAsset(first.assets[0], "controlled-first-load"))
         .allowed,
       true,
     );
@@ -324,7 +324,7 @@ test(
     assert.equal(second.status, "ready");
     assert.equal(downloads, 2);
     assert.equal(
-      (await host.authorizeSkill(first.assets[0], "controlled-stale-load"))
+      (await host.authorizeAsset(first.assets[0], "controlled-stale-load"))
         .allowed,
       false,
     );
@@ -346,7 +346,7 @@ test(
     });
     assert.equal(revoke.statusCode, 201, revoke.body);
     assert.equal(
-      (await host.authorizeSkill(second.assets[0], "controlled-revoked-load"))
+      (await host.authorizeAsset(second.assets[0], "controlled-revoked-load"))
         .allowed,
       false,
     );
@@ -358,7 +358,7 @@ test(
     );
     assert.equal(
       (
-        await host.authorizeSkill(
+        await host.authorizeAsset(
           second.assets[0],
           "controlled-logged-out-load",
         )
@@ -368,5 +368,207 @@ test(
     await lifecycle.disposeAllAndWait();
     await disposeEnterpriseIdentityService(identity);
     assert.equal(pending.size, 0);
+  },
+);
+
+test(
+  "real HTTP backend distributes an expert asset into the same Host cache and admission",
+  { timeout: 10000 },
+  async (t) => {
+    const root = resolve(
+      process.env.UWORK_CLIENT_PATH ?? "../uwork_backend-client",
+    );
+    const load = (path: string) => import(pathToFileURL(join(root, path)).href);
+    const { createUWorkBackendSession } = await load(
+      "packages/services/src/enterprise-identity/uworkBackendSession.ts",
+    );
+    const { createEnterpriseAssetsHost } = await load(
+      "packages/services/src/enterprise-assets/enterpriseAssetsHost.ts",
+    );
+    const { withEnterpriseSkillAuthorization } = await load(
+      "apps/zcode-cli/packages/adapters/src/skills/enterprise-skills.ts",
+    );
+    const f = await fixture(t, "https://upstream.example.test/v1");
+    const origin = await f.app.listen({ host: "127.0.0.1", port: 0 });
+    const directory = await realpath(
+      await mkdtemp(join(tmpdir(), "uwork-host-expert-http-")),
+    );
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const securityUrl = `${f.p}/configurations/security`,
+      old = (
+        await f.app.inject({ url: securityUrl, headers: f.headers })
+      ).json();
+    const saved = await f.app.inject({
+      method: "PUT",
+      url: securityUrl,
+      headers: f.headers,
+      payload: {
+        revision: old.revision,
+        data: {
+          ...old.published,
+          allowFilesystem: true,
+          dangerousSkills: false,
+        },
+      },
+    });
+    assert.equal(saved.statusCode, 200, saved.body);
+    assert.equal(
+      (
+        await f.app.inject({
+          method: "POST",
+          url: `${securityUrl}/publish`,
+          headers: f.headers,
+          payload: { revision: saved.json().revision },
+        })
+      ).statusCode,
+      200,
+    );
+    const expert = (instructions: string) => ({
+      instructions,
+      profession: "受控专家",
+    });
+    const created = await f.app.inject({
+      method: "POST",
+      url: `${f.p}/assets`,
+      headers: f.headers,
+      payload: {
+        name: "Controlled Expert",
+        kind: "expert",
+        scope: { all: true },
+        content: expert("Controlled expert instructions"),
+      },
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const id: string = created.json().id;
+    for (const operation of ["review", "publish"])
+      assert.equal(
+        (
+          await f.app.inject({
+            method: "POST",
+            url: `${f.p}/assets/${id}/${operation}`,
+            headers: f.headers,
+            payload: {
+              version: 1,
+              ...(operation === "review" ? { approved: true } : {}),
+            },
+          })
+        ).statusCode,
+        200,
+      );
+    const authority = {
+      generation: 1,
+      revision: 1,
+      signal: new AbortController().signal,
+      session: {
+        token: f.headers.authorization.slice("Bearer ".length),
+        issuerOrigin: origin,
+        expiresAt: Date.now() + 60000,
+        profile: {
+          id: f.userId,
+          tenantId: f.tenantId,
+          provider: "wecom",
+          displayName: "Controlled",
+        },
+      },
+    };
+    const backendSession = createUWorkBackendSession({
+      resolveConfig: async () => ({ backend: "uwork", apiBaseUrl: origin }),
+      readAuthority: () => authority,
+      readPersistedSession: async () => ({
+        revision: authority.revision,
+        session: authority.session,
+      }),
+    });
+    const host = createEnterpriseAssetsHost({
+      backendSession,
+      storageDirectory: directory,
+    });
+    t.after(() => host.disposeAllAndWait());
+    const catalog = await host.readCatalog("controlled-expert");
+    if (catalog.status !== "ready")
+      throw new Error(`Expected ready catalog: ${catalog.status}`);
+    assert.deepEqual(
+      catalog.experts.map((entry: { name: string }) => entry.name),
+      ["Controlled Expert"],
+    );
+    assert.equal(
+      (await host.authorizeAsset(catalog.experts[0], "controlled-expert-load"))
+        .allowed,
+      true,
+    );
+    assert.deepEqual(
+      JSON.parse(
+        await readFile(
+          join(catalog.experts[0].directory, "expert.json"),
+          "utf8",
+        ),
+      ),
+      expert("Controlled expert instructions"),
+    );
+    // 技能所有者不能把专家引用当技能加载：同一准入按引用种类拒绝。
+    const skillPort = withEnterpriseSkillAuthorization(
+      {
+        async discoverSkills() {
+          throw new Error(
+            "Skill reads are not expected for an expert reference",
+          );
+        },
+        async loadSkill() {
+          throw new Error(
+            "Skill reads are not expected for an expert reference",
+          );
+        },
+      },
+      {
+        authorization: {
+          async authorize() {
+            return { allowed: true, code: "allowed" };
+          },
+        },
+        catalog: {
+          async readCatalog() {
+            return catalog;
+          },
+        },
+        enterprisePort: {} as never,
+        sessionId: "controlled",
+        workspacePath: directory,
+        traceContext: { traceId: "controlled-expert" } as never,
+      },
+    );
+    await assert.rejects(
+      () =>
+        skillPort.loadSkill({
+          name: `enterprise:${id}`,
+          workingDirectory: directory,
+        }),
+      /enterprise_skill_not_found/,
+      "the skill namespace never resolves an expert binding",
+    );
+    const revoke = await f.app.inject({
+      method: "POST",
+      url: `${f.p}/policies`,
+      headers: f.headers,
+      payload: {
+        name: "Revoke expert",
+        family: "expert",
+        mode: "deny",
+        resourceIds: [id],
+        scope: { all: true },
+      },
+    });
+    assert.equal(revoke.statusCode, 201, revoke.body);
+    assert.equal(
+      (
+        await host.authorizeAsset(
+          catalog.experts[0],
+          "controlled-expert-revoked",
+        )
+      ).allowed,
+      false,
+    );
+    const after = await host.readCatalog("controlled-expert");
+    if (after.status !== "ready") throw new Error("Expected current catalog");
+    assert.deepEqual(after.experts, []);
   },
 );

@@ -121,7 +121,7 @@ export const views: View[] = [
       scope,
       {
         key: "supportedClients",
-        label: "适用客户端",
+        label: "适用客户端（playbook/instruction 仅 agent）",
         type: "json",
         initial: ["uwork", "agent"],
       },

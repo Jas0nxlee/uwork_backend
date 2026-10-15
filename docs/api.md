@@ -56,7 +56,7 @@ Header `Idempotency-Key` 最长 128 字符；同键/同人/同内容重放成功
 
 ## 资产与策略
 
-- `/assets` 支持 skill/expert/connector/playbook/instruction，内容严格按类型校验；技能为包含 SKILL.md 的安全相对路径文本文件包，单包最多 1 MiB。不是任意压缩包解压执行器。
+- `/assets` 支持 skill/expert/connector/playbook/instruction，内容严格按类型校验；技能为包含 SKILL.md 的安全相对路径文本文件包，单包最多 1 MiB。不是任意压缩包解压执行器。`supportedClients` 缺省按类型取值：skill/expert/connector 为 `uwork`+`agent`，playbook/instruction 仅 `agent`（控制台证据：自定义指令页对 WorkBuddy 标注“暂不支持”，Playbook 页只读 Cookbook、无创建/上传请求）；显式声明 `uwork` 返回 400 `CLIENT_UNSUPPORTED`。
 - 每次更新新增不可变版本；`/{id}/review` `{version,approved}`，`/{id}/publish` `{version}`；审核拒绝当前发布版本会撤下。`/categories` 维护分类。
 - `/policies` 支持 allow/deny/distribute，作用域为成员/部门/全员；先默认可见范围，allow 取交集，deny 优先。连接器遵循同样规则。
 - `/policies/security` 采用最大数字优先级的完整规则，不合并多个命中策略。

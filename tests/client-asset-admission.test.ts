@@ -314,7 +314,7 @@ test("asset listing and downloads enforce current subscription and IP admission 
     headers: f.headers,
     payload: {
       name: "Controlled",
-      kind: "instruction",
+      kind: "expert",
       scope: { all: true },
       content: { instructions: "Controlled content" },
     },
@@ -363,4 +363,86 @@ test("asset listing and downloads enforce current subscription and IP admission 
       (await f.app.inject({ url, headers: f.headers })).statusCode,
       403,
     );
+});
+
+test("client support matrix keeps instruction and playbook off the UWork manifest", async (t) => {
+  const f = await fixture(t, "https://upstream.example.test/v1");
+  const create = (payload: Record<string, unknown>) =>
+    f.app.inject({
+      method: "POST",
+      url: `${f.p}/assets`,
+      headers: f.headers,
+      payload: {
+        name: "Controlled",
+        scope: { all: true },
+        ...payload,
+      },
+    });
+  const expert = await create({
+    kind: "expert",
+    content: { instructions: "Controlled expert" },
+  });
+  assert.equal(expert.statusCode, 201, expert.body);
+  const instruction = await create({
+    kind: "instruction",
+    content: { instructions: "Controlled instruction" },
+  });
+  assert.equal(instruction.statusCode, 201, instruction.body);
+  const rejected = await create({
+    kind: "playbook",
+    content: { markdown: "# Controlled" },
+    supportedClients: ["uwork"],
+  });
+  assert.equal(rejected.statusCode, 400, rejected.body);
+  assert.equal(rejected.json().error.code, "CLIENT_UNSUPPORTED");
+  for (const asset of [expert, instruction]) {
+    const id = asset.json().id;
+    for (const operation of ["review", "publish"])
+      assert.equal(
+        (
+          await f.app.inject({
+            method: "POST",
+            url: `${f.p}/assets/${id}/${operation}`,
+            headers: f.headers,
+            payload: {
+              version: 1,
+              ...(operation === "review" ? { approved: true } : {}),
+            },
+          })
+        ).statusCode,
+        200,
+      );
+  }
+  const manifest = (
+    await f.app.inject({ url: "/api/client/assets", headers: f.headers })
+  ).json();
+  assert.deepEqual(
+    manifest.items.map((item: { kind: string }) => item.kind),
+    ["expert"],
+    "only kinds with a current UWork client owner are distributed",
+  );
+  assert.equal(
+    (
+      await f.app.inject({
+        url: `/api/client/assets/${instruction.json().id}/download`,
+        headers: f.headers,
+      })
+    ).statusCode,
+    403,
+  );
+  const updated = await f.app.inject({
+    method: "PUT",
+    url: `${f.p}/assets/${instruction.json().id}`,
+    headers: f.headers,
+    payload: {
+      revision: 1,
+      name: "Controlled",
+      kind: "instruction",
+      scope: { all: true },
+      content: { instructions: "Controlled instruction" },
+      supportedClients: ["uwork"],
+    },
+  });
+  assert.equal(updated.statusCode, 400, updated.body);
+  assert.equal(updated.json().error.code, "CLIENT_UNSUPPORTED");
 });

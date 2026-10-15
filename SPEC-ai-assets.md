@@ -6,6 +6,12 @@
 命令：npm test；npm run build。Zod 合同，API 集成测试。
 边界：技能是数据包，不在服务端任意执行；历史全局提示词不注入。
 
+## 终端适用矩阵
+
+控制台证据（`evidence/workbuddy/`，本轮实测）：专家管理页“适用产品”为 CodeBuddy 暂不支持、WorkBuddy 支持、企业智能体支持，并带 `+ 上传企业专家` 与专家下发策略；连接器管理页同样对 WorkBuddy 支持，带 `新建连接器`；自定义指令页（`/admin/ai-resource/words/panel`）对 WorkBuddy 与企业智能体均标注“暂不支持”；Playbook 页只有帮助文档按钮与静态 Cookbook 卡片，`rbac/me` 之外没有任何内容接口，即不是可上传/发布的企业资产。
+
+因此 `supportedClients` 缺省按类型取值：skill/expert/connector 可下发 `uwork` 与 `agent`；playbook/instruction 缺省仅 `agent`，显式声明 `uwork` 返回 400 `CLIENT_UNSUPPORTED`。该矩阵阻止把没有终端所有者的类型下发给 UWork 客户端；未来接入 CodeBuddy 或为这两个类型建立所有者时再单独扩展。Host 端另有同等拒绝（纵深防御），不能只依赖服务端过滤。
+
 ## Host 版本准入
 
 客户端安装与运行分别检查当前发布授权。下载可携带 `version`；与当前发布版本不符时返回 409 `ASSET_VERSION_CHANGED`，不静默换成新内容。响应携带服务端 kind 与 checksum；Host 必须再验证实际内容字节，不能把目录存在当成仍已授权。

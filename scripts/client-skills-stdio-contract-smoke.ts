@@ -121,6 +121,50 @@ test(
       });
       assert.equal(response.statusCode, 200, response.body);
     }
+    const expertBody = {
+      instructions: "Approved stdio expert instructions",
+      profession: "受控专家",
+    };
+    const expertCreated = await f.app.inject({
+      method: "POST",
+      url: `${f.p}/assets`,
+      headers: f.headers,
+      payload: {
+        name: "Controlled Expert",
+        kind: "expert",
+        scope: { all: true },
+        content: expertBody,
+      },
+    });
+    assert.equal(expertCreated.statusCode, 201, expertCreated.body);
+    const expertId: string = expertCreated.json().id;
+    for (const operation of ["review", "publish"]) {
+      const response = await f.app.inject({
+        method: "POST",
+        url: `${f.p}/assets/${expertId}/${operation}`,
+        headers: f.headers,
+        payload: {
+          version: 1,
+          ...(operation === "review" ? { approved: true } : {}),
+        },
+      });
+      assert.equal(response.statusCode, 200, response.body);
+    }
+    // 自定义指令没有 UWork 终端所有者：服务端矩阵本身就必须拒绝下发给 uwork。
+    const unsupported = await f.app.inject({
+      method: "POST",
+      url: `${f.p}/assets`,
+      headers: f.headers,
+      payload: {
+        name: "Controlled Instruction",
+        kind: "instruction",
+        scope: { all: true },
+        content: { instructions: "Must never reach the client" },
+        supportedClients: ["uwork"],
+      },
+    });
+    assert.equal(unsupported.statusCode, 400, unsupported.body);
+    assert.equal(unsupported.json().error.code, "CLIENT_UNSUPPORTED");
     const owner = new AbortController();
     const authority = {
       generation: 1,
@@ -190,6 +234,11 @@ test(
     });
     let catalogs = 0,
       admissions = 0;
+    const expertAdmissions: {
+      id: string;
+      version: number;
+      checksum: string;
+    }[] = [];
     const bridge = createEnterpriseToolAuthorizationBridge({
       assets,
       resolver: createUWorkToolAuthorizationResolver({ backendSession }),
@@ -221,6 +270,22 @@ test(
           shared.zcodeProtocolMethods.interactionAuthorizeEnterpriseTool
         ) {
           admissions++;
+          const params = request.params as {
+            phase?: string;
+            asset?: {
+              asset?: {
+                id: string;
+                kind: string;
+                version: number;
+                checksum: string;
+              };
+            };
+          };
+          if (
+            params.phase === "asset_load" &&
+            params.asset?.asset?.kind === "expert"
+          )
+            expertAdmissions.push(structuredClone(params.asset.asset));
           void bridge
             .handle(
               client,
@@ -313,6 +378,73 @@ test(
           (item: { name: string }) => item.name === "ControlledForeign",
         ),
         false,
+      );
+      const currentExpert = (
+        await f.app.inject({
+          url: `/api/client/assets/${expertId}/download`,
+          headers: f.headers,
+        })
+      ).json();
+      assert.equal(
+        expertAdmissions.length,
+        0,
+        "the draft catalog never loads expert bodies",
+      );
+      await client.request(
+        shared.zcodeProtocolMethods.sessionCreate,
+        { workspace },
+        shared.zcodeSessionStateSnapshotSchema,
+        {
+          timeoutMs: 30000,
+          lifecycle: "observation",
+          trace: { traceId: "controlled-stdio" },
+        },
+      );
+      assert.ok(
+        expertAdmissions.length >= 2,
+        `the managed runtime must load the expert through the reverse RPC: ${stderr.join("\n")}`,
+      );
+      for (const admission of expertAdmissions)
+        assert.deepEqual(admission, {
+          id: expertId,
+          kind: "expert",
+          version: 1,
+          checksum: currentExpert.checksum,
+        });
+      const revokeExpert = await f.app.inject({
+        method: "POST",
+        url: `${f.p}/policies`,
+        headers: f.headers,
+        payload: {
+          name: "Revoke expert",
+          family: "expert",
+          mode: "deny",
+          resourceIds: [expertId],
+          scope: { all: true },
+        },
+      });
+      assert.equal(revokeExpert.statusCode, 201, revokeExpert.body);
+      const catalogReads = catalogs,
+        admitted = expertAdmissions.length;
+      const after = await client.request(
+        shared.zcodeProtocolMethods.sessionCreate,
+        { workspace },
+        shared.zcodeSessionStateSnapshotSchema,
+        {
+          timeoutMs: 30000,
+          lifecycle: "observation",
+          trace: { traceId: "controlled-stdio" },
+        },
+      );
+      assert.equal(typeof after.session.sessionId, "string");
+      assert.ok(
+        catalogs > catalogReads,
+        "a new managed runtime re-reads the current catalog before applying experts",
+      );
+      assert.equal(
+        expertAdmissions.length,
+        admitted,
+        "a revoked expert is never requested again",
       );
     } catch (error) {
       throw new Error(
