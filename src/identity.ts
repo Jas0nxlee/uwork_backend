@@ -249,6 +249,8 @@ export function identityRoutes(
   });
   app.get("/api/auth/device-tokens", async (req) => {
     const a = authenticate(db, req);
+    if (a.kind !== "session")
+      fail(403, "DEVICE_SCOPE", "仅交互会话可管理终端凭据");
     return db.all(
       "SELECT hash as id,expires_at,created_at FROM sessions WHERE user_id=? AND tenant_id=? AND kind='device'",
       a.userId,
@@ -257,6 +259,8 @@ export function identityRoutes(
   });
   app.delete("/api/auth/device-tokens/:id", async (req, reply) => {
     const a = authenticate(db, req);
+    if (a.kind !== "session")
+      fail(403, "DEVICE_SCOPE", "仅交互会话可管理终端凭据");
     const { id } = req.params as { id: string };
     const removed = db.run(
       "DELETE FROM sessions WHERE hash=? AND user_id=? AND tenant_id=? AND kind='device'",

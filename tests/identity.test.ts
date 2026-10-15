@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createApp } from "../src/app.js";
 import { bootstrap } from "../src/identity.js";
+import { fixture } from "./fixtures.js";
 
 test("login, member access, tenant isolation, session revocation and last owner protection", async () => {
   const app = await createApp({
@@ -158,4 +159,51 @@ test("cookie mutations require same origin and login is rate limited", async () 
     429,
   );
   await app.close();
+});
+
+test("device credentials cannot enumerate or revoke other device credentials", async (t) => {
+  const f = await fixture(t, "https://upstream.example.test/v1");
+  const issue = async () => {
+    const result = await f.app.inject({
+      method: "POST",
+      url: "/api/auth/device-tokens",
+      headers: f.headers,
+      payload: { ttlHours: 1 },
+    });
+    assert.equal(result.statusCode, 201, result.body);
+    return result.json<{ id: string; token: string }>();
+  };
+  const first = await issue();
+  const second = await issue();
+  const headers = { authorization: `Bearer ${first.token}` };
+  const listing = await f.app.inject({
+    url: "/api/auth/device-tokens",
+    headers,
+  });
+  assert.equal(listing.statusCode, 403, listing.body);
+  assert.equal(listing.json().error.code, "DEVICE_SCOPE");
+  const revoked = await f.app.inject({
+    method: "DELETE",
+    url: `/api/auth/device-tokens/${second.id}`,
+    headers,
+  });
+  assert.equal(revoked.statusCode, 403, revoked.body);
+  assert.equal(revoked.json().error.code, "DEVICE_SCOPE");
+  const secondMe = await f.app.inject({
+    url: "/api/auth/me",
+    headers: { authorization: `Bearer ${second.token}` },
+  });
+  assert.equal(secondMe.statusCode, 200, secondMe.body);
+  const sessionListing = await f.app.inject({
+    url: "/api/auth/device-tokens",
+    headers: f.headers,
+  });
+  assert.equal(sessionListing.statusCode, 200, sessionListing.body);
+  assert.equal(sessionListing.json().length, 2);
+  const selfLogout = await f.app.inject({
+    method: "POST",
+    url: "/api/auth/logout",
+    headers,
+  });
+  assert.equal(selfLogout.statusCode, 204, selfLogout.body);
 });

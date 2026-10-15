@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
 import type { Vault } from "./vault.js";
 import type { Entitlements } from "./entitlements.js";
-import { authenticate, requirePermission } from "./access.js";
+import { authenticate, currentActor, requirePermission } from "./access.js";
 import { ApiError, fail, hash, id, now, type Actor } from "./core.js";
 import { getResource } from "./resources.js";
 import { allowedResource, type ModelData } from "./models.js";
@@ -192,8 +192,49 @@ export class Gateway {
     private entitlements: Entitlements,
     private allowPrivate: boolean,
   ) {}
+  private authorize(actor: Actor, modelId: string, application: string) {
+    requirePermission(actor, "execute");
+    const session = actor.sessionHash
+      ? this.db.get<{ kind: string; scopes: string }>(
+          "SELECT kind,scopes FROM sessions WHERE hash=? AND tenant_id=? AND user_id=? AND expires_at>?",
+          actor.sessionHash,
+          actor.tenantId,
+          actor.userId,
+          now(),
+        )
+      : undefined;
+    if (actor.sessionHash && !session)
+      fail(401, "SESSION_EXPIRED", "模型请求凭据已失效");
+    const fresh = {
+      ...currentActor(this.db, actor.tenantId, actor.userId),
+      sessionHash: actor.sessionHash,
+      kind: session?.kind ?? actor.kind,
+      scopes: session ? (JSON.parse(session.scopes) as string[]) : actor.scopes,
+    };
+    requirePermission(fresh, "execute");
+    this.entitlements.subscription(fresh.tenantId);
+    const model = getResource<ModelData>(
+      this.db,
+      fresh.tenantId,
+      "model",
+      modelId,
+    );
+    assertExecution(
+      this.db,
+      fresh,
+      application === "uwork" ? "local" : "agents",
+      model.data.baseUrl,
+    );
+    if (!allowedResource(this.db, fresh, "model", model))
+      fail(403, "MODEL_DENIED", "模型不可用或未授权");
+    return {
+      actor: fresh,
+      model,
+      token: this.vault.read(fresh.tenantId, model.data.credentialId),
+    };
+  }
   async complete(
-    actor: Actor,
+    requestActor: Actor,
     input: CompletionInput,
     key: string,
     application = "uwork",
@@ -201,22 +242,21 @@ export class Gateway {
     onDelta?: (content: string) => void,
     onToolDelta?: (deltas: ToolDelta[]) => void,
   ): Promise<CompletionResult> {
-    requirePermission(actor, "execute");
-    const model = getResource<ModelData>(
-      this.db,
-      actor.tenantId,
-      "model",
+    const { actor, model, token } = this.authorize(
+      requestActor,
       input.model,
+      application,
     );
-    assertExecution(
-      this.db,
-      actor,
-      application === "uwork" ? "local" : "agents",
-      model.data.baseUrl,
-    );
-    if (!allowedResource(this.db, actor, "model", model))
-      fail(403, "MODEL_DENIED", "模型不可用或未授权");
-    const token = this.vault.read(actor.tenantId, model.data.credentialId);
+    const assertCurrent = () => {
+      const current = this.authorize(actor, input.model, application);
+      if (
+        current.model.revision !== model.revision ||
+        current.actor.departmentId !== actor.departmentId
+      )
+        fail(409, "REQUEST_CONTEXT_CHANGED", "模型或成员范围在请求期间已变更");
+      if (current.token !== token)
+        fail(409, "CREDENTIAL_CHANGED", "模型凭据在请求期间已变更");
+    };
     const maxTokens = Math.min(
       input.max_tokens ?? model.data.maxOutputTokens,
       model.data.maxOutputTokens,
@@ -305,6 +345,7 @@ export class Gateway {
     let promptTokens = 0,
       outputTokens = 0;
     let upstreamStatus = 0;
+    let dispatched = false;
     try {
       const response = await safeRequest(
         `${model.data.baseUrl.replace(/\/$/, "")}/chat/completions`,
@@ -330,6 +371,10 @@ export class Gateway {
               : {}),
           },
           signal,
+          onDispatch: () => {
+            assertCurrent();
+            dispatched = true;
+          },
         },
         this.allowPrivate,
       );
@@ -407,7 +452,10 @@ export class Gateway {
                 toolCalls.add(toolDeltas);
               }
               content += delta;
-              if (delta) onDelta?.(delta);
+              if (delta) {
+                assertCurrent();
+                onDelta?.(delta);
+              }
               if (parsed.choices?.[0]?.finish_reason)
                 reason = parsed.choices[0].finish_reason;
               if (parsed.usage) usage = parsed.usage;
@@ -464,6 +512,7 @@ export class Gateway {
         promptTokens,
         outputTokens,
       );
+      assertCurrent();
       this.db.run(
         "UPDATE gateway_calls SET result=? WHERE tenant_id=? AND request_key=?",
         this.vault.seal(JSON.stringify(result), `${actor.tenantId}:${key}`),
@@ -485,11 +534,7 @@ export class Gateway {
       return result;
     } catch (error) {
       const knownNotExecuted =
-        (upstreamStatus >= 400 && upstreamStatus < 500) ||
-        (error instanceof ApiError &&
-          ["HTTPS_REQUIRED", "PRIVATE_UPSTREAM", "INVALID_URL"].includes(
-            error.code,
-          ));
+        !dispatched || (upstreamStatus >= 400 && upstreamStatus < 500);
       if (knownNotExecuted) this.entitlements.release(reservationId);
       else this.entitlements.uncertain(reservationId);
       const code = signal?.aborted

@@ -20,6 +20,7 @@ import {
   type Resource,
 } from "./resources.js";
 import { readJson, safeRequest } from "./network.js";
+import { activeSubscription } from "./entitlements.js";
 
 export const modelSchema = z
   .object({
@@ -160,6 +161,7 @@ export function modelsRoutes(
   app.get("/v1/models", async (req) => {
     const a = authenticate(db, req);
     requirePermission(a, "execute");
+    activeSubscription(db, a.tenantId);
     return {
       object: "list",
       data: listResources<ModelData>(db, a.tenantId, "model")
