@@ -140,3 +140,70 @@ test("execution admission projects published personal skill policy together with
   assert.equal(current.security.allowFilesystem, false);
   assert.equal(JSON.stringify(current).includes("hub.example.test"), false);
 });
+
+test("share admission returns a tenant-bound published policy and never grants organization policy to public links", async (t) => {
+  const f = await fixture(t, "https://upstream.example.test/v1");
+  const admission = async () => {
+    const result = await f.app.inject({
+      method: "POST",
+      url: "/api/client/authorize",
+      headers: f.headers,
+      payload: { action: "share", target: "internet" },
+    });
+    assert.equal(result.statusCode, 200, result.body);
+    assert.equal(result.json().tenantId, f.tenantId);
+    return result.json();
+  };
+  const initial = await admission();
+  assert.equal(initial.allowed, false);
+  assert.deepEqual(initial.sharing, {
+    publish: "organization",
+    collaborate: "organization",
+    files: false,
+    wechat: false,
+    wecom: false,
+  });
+  const url = `${f.p}/configurations/sharing`;
+  const old = (await f.app.inject({ url, headers: f.headers })).json();
+  const saved = await f.app.inject({
+    method: "PUT",
+    url,
+    headers: f.headers,
+    payload: {
+      revision: old.revision,
+      data: { ...old.published, publish: "internet", files: true },
+    },
+  });
+  assert.equal(saved.statusCode, 200, saved.body);
+  assert.deepEqual(
+    await admission(),
+    initial,
+    "draft cannot change the share decision",
+  );
+  assert.equal(
+    (
+      await f.app.inject({
+        method: "POST",
+        url: `${url}/publish`,
+        headers: f.headers,
+        payload: { revision: saved.json().revision },
+      })
+    ).statusCode,
+    200,
+  );
+  const published = await admission();
+  assert.equal(published.allowed, true);
+  assert.equal(published.sharing.publish, "internet");
+  assert.equal(published.sharing.files, true);
+  const execution = await f.app.inject({
+    method: "POST",
+    url: "/api/client/authorize",
+    headers: f.headers,
+    payload: { action: "execution" },
+  });
+  assert.equal(
+    execution.json().sharing,
+    undefined,
+    "share metadata does not broaden another action",
+  );
+});

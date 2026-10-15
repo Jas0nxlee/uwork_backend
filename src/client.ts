@@ -239,10 +239,13 @@ export function clientRoutes(app: FastifyInstance, db: Db) {
         d.stricter?.allowNetwork !== false &&
         (!s.allowedDomains.length || s.allowedDomains.includes(host));
     }
-    if (d.action === "share") {
-      const sharing = configurationSchemas.sharing.parse(
-        configuration(db, a.tenantId, "sharing").published,
-      );
+    const sharing =
+      d.action === "share"
+        ? configurationSchemas.sharing.parse(
+            configuration(db, a.tenantId, "sharing").published,
+          )
+        : undefined;
+    if (sharing) {
       allowed =
         sharing.publish !== "disabled" &&
         (d.target !== "internet" || sharing.publish === "internet");
@@ -257,6 +260,7 @@ export function clientRoutes(app: FastifyInstance, db: Db) {
       allowed,
       security: s,
       tenantId: a.tenantId,
+      ...(sharing ? { sharing } : {}),
       ...(personal
         ? {
             personal: {
