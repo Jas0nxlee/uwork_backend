@@ -84,3 +84,59 @@ test("execution admission exposes the current tenant-bound security without gran
   assert.equal(result.json().security.allowShell, false);
   assert.equal(result.json().security.allowFilesystem, false);
 });
+
+test("execution admission projects published personal skill policy together with security, never a draft or hub address", async (t) => {
+  const f = await fixture(t, "https://upstream.example.test/v1");
+  const admission = async () => {
+    const result = await f.app.inject({
+      method: "POST",
+      url: "/api/client/authorize",
+      headers: f.headers,
+      payload: { action: "execution" },
+    });
+    assert.equal(result.statusCode, 200, result.body);
+    return result.json();
+  };
+  assert.deepEqual((await admission()).personal, {
+    models: false,
+    skills: false,
+    connectors: false,
+  });
+  const url = `${f.p}/configurations/personal`;
+  const old = (await f.app.inject({ url, headers: f.headers })).json();
+  const saved = await f.app.inject({
+    method: "PUT",
+    url,
+    headers: f.headers,
+    payload: {
+      revision: old.revision,
+      data: {
+        ...old.published,
+        skills: true,
+        mcpHub: "https://hub.example.test/private",
+      },
+    },
+  });
+  assert.equal(saved.statusCode, 200, saved.body);
+  assert.equal(
+    (await admission()).personal.skills,
+    false,
+    "an unpublished draft cannot enable personal reads",
+  );
+  const published = await f.app.inject({
+    method: "POST",
+    url: `${url}/publish`,
+    headers: f.headers,
+    payload: { revision: saved.json().revision },
+  });
+  assert.equal(published.statusCode, 200, published.body);
+  const current = await admission();
+  assert.deepEqual(current.personal, {
+    models: false,
+    skills: true,
+    connectors: false,
+  });
+  assert.equal(current.security.dangerousSkills, false);
+  assert.equal(current.security.allowFilesystem, false);
+  assert.equal(JSON.stringify(current).includes("hub.example.test"), false);
+});

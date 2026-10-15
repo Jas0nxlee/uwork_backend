@@ -247,6 +247,25 @@ export function clientRoutes(app: FastifyInstance, db: Db) {
         sharing.publish !== "disabled" &&
         (d.target !== "internet" || sharing.publish === "internet");
     }
-    return { allowed, security: s, tenantId: a.tenantId };
+    const personal =
+      d.action === "execution"
+        ? configurationSchemas.personal.parse(
+            configuration(db, a.tenantId, "personal").published,
+          )
+        : undefined;
+    return {
+      allowed,
+      security: s,
+      tenantId: a.tenantId,
+      ...(personal
+        ? {
+            personal: {
+              models: personal.models,
+              skills: personal.skills,
+              connectors: personal.connectors,
+            },
+          }
+        : {}),
+    };
   });
 }
