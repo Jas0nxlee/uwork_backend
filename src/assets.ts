@@ -392,6 +392,7 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
       ).changes
     )
       fail(404, "NOT_FOUND", "分类不存在");
+    audit(db, a, "asset.category.delete", id);
     reply.code(204);
   });
 }

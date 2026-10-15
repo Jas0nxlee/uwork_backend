@@ -175,6 +175,7 @@ export function evaluationRoutes(
         .changes
     )
       fail(404, "NOT_FOUND", "数据集不存在");
+    audit(db, a, "evaluation.dataset.delete", id);
     reply.code(204);
   });
   app.post(`${p}/evaluations`, async (req, reply) => {
@@ -261,11 +262,12 @@ export function evaluationRoutes(
     if (!row) fail(404, "NOT_FOUND", "评测不存在");
     for (const c of evaluation.report(row).report.cases)
       await runtime.cancel(a, c.runId);
-    db.run(
+    const changed = db.run(
       "UPDATE evaluations SET status='cancelled',finished_at=? WHERE id=? AND status='running'",
       now(),
       row.id,
-    );
+    ).changes;
+    if (changed) audit(db, a, "evaluation.cancel", row.id);
     return { ok: true };
   });
 }

@@ -207,7 +207,9 @@ export function identityRoutes(
       fail(403, "NO_MEMBERSHIP", "未加入此组织");
     const result = db.transaction(() => {
       db.run("DELETE FROM sessions WHERE hash=?", actor.sessionHash);
-      return issueSession(db, actor.userId, tenantId);
+      const issued = issueSession(db, actor.userId, tenantId);
+      audit(db, actor, "identity.switch", tenantId);
+      return issued;
     });
     reply.header("set-cookie", cookie(result.token, 43200));
     return result;
@@ -256,12 +258,13 @@ export function identityRoutes(
   app.delete("/api/auth/device-tokens/:id", async (req, reply) => {
     const a = authenticate(db, req);
     const { id } = req.params as { id: string };
-    db.run(
+    const removed = db.run(
       "DELETE FROM sessions WHERE hash=? AND user_id=? AND tenant_id=? AND kind='device'",
       id,
       a.userId,
       a.tenantId,
-    );
+    ).changes;
+    if (removed) audit(db, a, "identity.device-token.revoke", id);
     reply.code(204);
   });
 }
