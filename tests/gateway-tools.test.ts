@@ -77,7 +77,7 @@ async function enable(
   assert.equal(response.statusCode, 200, response.body);
 }
 
-test("function calls and tool results round-trip through the billed, opt-in JSON gateway", async (t) => {
+test("indexed upstream function calls and tool results round-trip through the billed, opt-in JSON gateway", async (t) => {
   const f = await upstream(t, (body, res) => {
     assert.deepEqual(body.tools, tools);
     const messages = body.messages as {
@@ -90,7 +90,7 @@ test("function calls and tool results round-trip through the billed, opt-in JSON
     const output =
       last.role === "tool"
         ? { content: "42" }
-        : { content: null, tool_calls: [call] };
+        : { content: null, tool_calls: [{ ...call, index: 0 }] };
     if (last.role === "tool") {
       assert.equal(last.tool_call_id, call.id);
       assert.deepEqual(messages.at(-2)!.tool_calls, [call]);
@@ -196,6 +196,84 @@ function toolResponse(
   );
   res.end("data: [DONE]\n\n");
 }
+
+test("upstream tool indices are bounded and never relax client history validation", async (t) => {
+  let upstreamCall: Record<string, unknown> = { ...call, index: 31 };
+  const f = await upstream(t, (_body, res) => {
+    res.setHeader("content-type", "application/json");
+    res.end(
+      JSON.stringify({
+        choices: [
+          {
+            message: { content: null, tool_calls: [upstreamCall] },
+            finish_reason: "tool_calls",
+          },
+        ],
+        usage: { prompt_tokens: 20, completion_tokens: 12 },
+      }),
+    );
+  });
+  await enable(f);
+  const payload = {
+    model: f.model,
+    messages: [{ role: "user", content: "Calculate" }],
+    tools,
+  };
+  const accepted = await f.app.inject({
+    method: "POST",
+    url: "/v1/chat/completions",
+    headers: f.headers,
+    payload,
+  });
+  assert.equal(accepted.statusCode, 200, accepted.body);
+  assert.deepEqual(accepted.json().choices[0].message.tool_calls, [call]);
+  for (const index of [-1, 32, 0.5, "0", null]) {
+    upstreamCall = { ...call, index };
+    const rejected = await f.app.inject({
+      method: "POST",
+      url: "/v1/chat/completions",
+      headers: f.headers,
+      payload,
+    });
+    assert.equal(
+      rejected.statusCode,
+      502,
+      JSON.stringify({ index, response: rejected.json() }),
+    );
+    assert.equal(rejected.json().error.code, "UPSTREAM_FORMAT");
+  }
+  upstreamCall = {
+    ...call,
+    index: 0,
+    unknownTransportField: "must-not-pass-through",
+  };
+  const unknown = await f.app.inject({
+    method: "POST",
+    url: "/v1/chat/completions",
+    headers: f.headers,
+    payload,
+  });
+  assert.equal(unknown.statusCode, 502, unknown.body);
+  const callsBeforeHistory = f.calls();
+  const history = await f.app.inject({
+    method: "POST",
+    url: "/v1/chat/completions",
+    headers: f.headers,
+    payload: {
+      ...payload,
+      messages: [
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [{ ...call, index: 0 }],
+        },
+        { role: "tool", tool_call_id: call.id, content: "42" },
+      ],
+    },
+  });
+  assert.equal(history.statusCode, 400, history.body);
+  assert.equal(f.calls(), callsBeforeHistory);
+});
 
 test("streamed tools are withheld until metering and durable success have been confirmed", async (t) => {
   const f = await upstream(t, (_body, res) =>

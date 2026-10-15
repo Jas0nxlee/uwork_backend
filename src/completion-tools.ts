@@ -60,6 +60,15 @@ export const toolCallSchema = z
   })
   .strict();
 export type ToolCall = z.infer<typeof toolCallSchema>;
+// Some compatible providers annotate JSON calls with the SSE-style index.
+// Keep that transport detail outside the strict client/history contract.
+export const upstreamToolCallSchema = toolCallSchema
+  .extend({ index: z.number().int().min(0).max(31).optional() })
+  .transform(({ id, type, function: definition }) => ({
+    id,
+    type,
+    function: definition,
+  }));
 export const toolDeltaSchema = z.object({
   index: z.number().int().min(0).max(31),
   id: z.string().max(200).optional(),

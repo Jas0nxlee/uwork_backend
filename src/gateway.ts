@@ -13,6 +13,7 @@ import { assertExecution } from "./policy.js";
 import {
   functionToolSchema,
   toolCallSchema,
+  upstreamToolCallSchema,
   toolDeltaSchema,
   toolChoiceSchema,
   ToolCallAccumulator,
@@ -139,7 +140,7 @@ const upstreamCompletion = z.object({
           .object({
             content: z.string().nullable().optional(),
             role: z.string().optional(),
-            tool_calls: z.array(toolCallSchema).max(32).optional(),
+            tool_calls: z.array(upstreamToolCallSchema).max(32).optional(),
           })
           .superRefine((message, ctx) => {
             if (message.content === undefined && !message.tool_calls?.length)

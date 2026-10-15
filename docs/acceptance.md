@@ -7,11 +7,11 @@
 | identity                   | identity.ts / wecom.ts                                              | 登录/退出、组织隔离、企微 state/proof/取消竞态、同步停用旧会话不复活                                                                      | 企微 provider 为受控测试，真实逐组织扫码待验                                                                                 |
 | directory / access-control | directory.ts / access.ts                                            | 成员/部门/角色/席位、最后 owner、越权拒绝                                                                                                 | 本地组织 CRUD 为自有扩展，企微只同步                                                                                         |
 | entitlements               | entitlements.ts                                                     | 并发预留、幂等、订阅月末、断流保留额度和对账                                                                                              | 整数 Credit 非供应商最终账单                                                                                                 |
-| model-gateway              | models.ts / gateway.ts / network.ts                                 | 真实本机 HTTP、JSON/SSE、异常终态、SSRF 拒绝、密钥出口权限                                                                                | OpenAI-compatible；真实付费模型待配置                                                                                        |
+| model-gateway              | models.ts / gateway.ts / network.ts                                 | 真实本机 HTTP、JSON/SSE、异常终态、SSRF 拒绝、密钥出口权限                                                                                | OpenAI-compatible；一个真实文本/代码工具模型已验，供应商发票待核实                                                           |
 | credential-vault           | vault.ts                                                            | 数据库无原文、吊销、列表脱敏                                                                                                              | 环境主密钥，需生产密钥托管/轮换运维                                                                                          |
 | ai-assets                  | assets.ts / connectors.ts                                           | 不可变版本、审核发布、撤权、MCP session 与工具白名单                                                                                      | 技能文本包；不执行任意上传代码                                                                                               |
 | client-policy              | policy.ts / client.ts                                               | 草稿不生效、旧修订冲突、发布版本、安全优先级、CIDR/deny-all                                                                               | 后端执行入口生效；完整终端本地 enforcement 待验                                                                              |
-| agent-runtime              | runtime.ts / agent-\*.ts / automation.ts / evaluation.ts / sandbox/ | SDK 计量端口、真实 Docker/MCP 工具循环、取消/撤权/预算/去重、代码及远端工具 SIGKILL 恢复                                                  | MCP 为受控工具子集；受控 HTTP 模型不等于真实供应商验收                                                                       |
+| agent-runtime              | runtime.ts / agent-\*.ts / automation.ts / evaluation.ts / sandbox/ | SDK 计量端口、真实 Docker/MCP 工具循环、取消/撤权/预算/去重、代码及远端工具 SIGKILL 恢复                                                  | MCP 为受控工具子集；真实模型代码循环已验，其他供应商能力待验                                                                 |
 | telemetry                  | telemetry.ts / client-usage.ts                                      | 审计/Trace/CSV/聚合、成员统计隔离、改状态端点审计不变量（静态+行为测试）、企业留存窗口（7–3650 天 + 每小时仅清理已配置企业 + 管理端面板） | 原始 prompt 不入日志；任务内容加密；日志归档到外部对象存储按企业部署补齐                                                     |
 | external-integrations      | integrations.ts                                                     | 未配置 503、实际 Docker 能力检查                                                                                                          | 网盘适配网关合同；支付 unavailable，自有沙箱非外部云服务                                                                     |
 | admin-web                  | admin/                                                              | 实际登录，部门新增/修改/删除，配置草稿保存/发布；1432/768/320 布局，无横向溢出                                                            | 未逐个实际供应商表单验收；本地截图在 ignored evidence/                                                                       |
@@ -21,7 +21,7 @@
 
 自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run ledger:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts scripts/client-policy-contract-smoke.ts scripts/client-assets-contract-smoke.ts scripts/client-assets-host-contract-smoke.ts scripts/client-assets-rpc-contract-smoke.ts`，共 6 项，另加 `scripts/client-connectors-mcp-contract-smoke.ts` 的连接器闭环，使用真实适配源码和受控企微 provider/本机 HTTP，未调用真实企业凭据。
 
-自动化结果：后端 139 项测试通过，0 失败/跳过（本轮新增企业设置与留存组合的两条真实 HTTP 回归）；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库此前 services 233 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。本轮后端真实 TCP、磁盘库、Docker、浏览器及安全负面场景的独立记录见 `docs/backend-system-test-2026-10-15.md`；本轮没有重复声明客户端平台验收。
+自动化结果：后端 140 项测试通过，0 失败/跳过（含企业设置/留存 HTTP 回归和上游工具 index 兼容回归）；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，依赖审计 0 个已知漏洞。UWork 适配仓库此前 services 233 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。本轮后端真实 TCP、磁盘库、Docker、浏览器及安全负面场景的独立记录见 `docs/backend-system-test-2026-10-15.md`；本轮没有重复声明客户端平台验收。
 
 Host 准入：独立适配副本中的 CLI 使用现有 PermissionService 承载不可由项目/yolo/Hook/用户审批覆盖的企业裁决端口，反向 RPC 绑定当前连接和工作区。Host 每次向真实后端查询当前订阅、渠道和安全策略；私有身份代际、共享会话修订、issuer 与配置指纹阻止退出/撤权/换端点后的迟到允许。已进入受管模式的 Host 遇到配置消失仍拒绝，显式 UCAS 保留旧行为。原生前台/后台进程另行准入；受管 HTTP 强制手工跳转与公网出口，并逐跳裁决目标域名。拒绝会发布工具终止错误。
 
@@ -70,7 +70,7 @@ REA：此前已复用 55 份页面和发布脚本证据并对 automation-fL5mZb_
 ## 尚未完成的项目级验收
 
 - 自有企微每个实际组织的新扫码、真实 callback 和通讯录权限。
-- 真实模型生成/供应商计量对账及长时/负载测试。
+- 供应商账单对账、多模型覆盖及长时/负载测试；一个真实模型的文本生成和 JavaScript 工具循环已完成。
 - 附加远程工作区完整企业准入、云/移动与组织协作渠道，以及 Windows/macOS/Linux 的实际安装回归；本机 Host 菜单（既有自动化/插件商店）、新会话、资产、分享与个人策略已通过源码/真实 HTTP/stdio/组件浏览器验收。
 - 真实外部 MCP 服务对接与服务商侧 session/远端资源回收确认（本机受控调用及不确定性处理已通过）。
 - 生产 TLS、目标主机备份演练、外部网盘、支付、生产沙箱部署和通知渠道验收。
@@ -84,3 +84,9 @@ REA：此前已复用 55 份页面和发布脚本证据并对 automation-fL5mZb_
 菜单后续选择：按用户要求映射 UWork 既有自动化/插件商店，独立企业页面导航撤下；保留兼容 ID 与当前菜单准入。后端 Agent API 作为独立能力保留，权限不再关联本地自动化菜单，具体跟进测试见本轮复核记录。
 
 菜单调整跟进验证：后端 137 项、客户端 services 233 项及十个跨仓合同脚本共 12 项通过；精确 Node 24.14.0 的客户端类型/架构、9 项导航与权限回归、格式及 Lint（114 warnings/0 errors）通过。真实 Sidebar 验证默认/旧发布/自定义标题均进入既有页面 owner，打开菜单时 Agent/Assets/Runs API 调用数为 0；320/768/1440 与退出/卸载迟到响应回归通过。
+
+## 真实模型代码工具跟进（2026-10-15）
+
+使用用户已配置的真实上游与现有智能体，通过实际 HTTP 完成 Docker JavaScript 输出、运行中取消，以及“真实模型生成工具调用 → Docker 执行 → 第二轮模型回答”。上游 JSON 工具调用带可选 `index`，原严格响应校验将其拒为 `UPSTREAM_FORMAT`；新增仅限上游的 0–31 整数元数据兼容并在响应/缓存/后续消息前丢弃，客户端输入合同和工具准入不变。修前回归失败，修后 140 项全通过，类型/Lint/格式/构建通过。
+
+真实复测两轮模型调用均 settled，聚合预留为 0，代码实际输出符合预期，临时 Runtime/容器已清理；已发布现有智能体的隔离代码能力，宿主命令与宿主文件权限仍关闭。首轮失败保留 uncertain 账目，未冒充供应商账单已核实。真实记录、配置快照和本地计量证据只保存在 ignored evidence，不提交凭据、模型服务地址或实际租户/运行标识。
