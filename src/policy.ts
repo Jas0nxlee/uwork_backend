@@ -497,13 +497,18 @@ export function policyRoutes(app: FastifyInstance, db: Db) {
       const c = configuration(db, a.tenantId, kind);
       if (c.revision !== revision)
         fail(409, "REVISION_CONFLICT", "草稿已被修改，请刷新");
-      db.run(
-        "UPDATE configurations SET published=draft,version=version+1,revision=revision+1,updated_at=? WHERE tenant_id=? AND kind=? AND revision=?",
-        now(),
-        a.tenantId,
-        kind,
-        revision,
-      );
+      // A fresh configuration is a virtual default until its first draft save.
+      // Only a persisted draft can produce a publication receipt and history.
+      if (
+        !db.run(
+          "UPDATE configurations SET published=draft,version=version+1,revision=revision+1,updated_at=? WHERE tenant_id=? AND kind=? AND revision=?",
+          now(),
+          a.tenantId,
+          kind,
+          revision,
+        ).changes
+      )
+        fail(409, "DRAFT_NOT_FOUND", "请先保存配置草稿再发布");
       db.run(
         "INSERT INTO configuration_history VALUES(?,?,?,?,?)",
         a.tenantId,
