@@ -28,6 +28,11 @@ async function waitFor(
 async function remote(t: { after: (fn: () => unknown) => void }) {
   const seen: { method: string; session?: string; version?: string }[] = [];
   const server = createServer(async (req, res) => {
+    if (req.method !== "POST") {
+      seen.push({ method: `HTTP:${req.method}` });
+      res.writeHead(405).end();
+      return;
+    }
     let raw = "";
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw) as {
@@ -137,6 +142,7 @@ test(
     const bundle = join(root, "apps/zcode-cli/packages/cli/dist/zcode.cjs");
     await access(bundle);
     const endpoint = await remote(t);
+    const personalEndpoint = await remote(t);
     const f = await fixture(t, "https://upstream.example.test/v1");
     const origin = await f.app.listen({ host: "127.0.0.1", port: 0 });
     const temporary = await realpath(
@@ -284,6 +290,7 @@ test(
       connectorFrames: [] as unknown[],
       connectorReleases: 0,
       admissionsSeen: [] as string[],
+      personalAdmissions: 0,
     };
     client.onRequest(
       (request: {
@@ -313,7 +320,10 @@ test(
           const params = request.params as {
             phase?: string;
             asset?: { asset?: { kind?: string } };
+            capability?: { permission?: string };
           };
+          if (params.capability?.permission === "personal_connector")
+            observed.personalAdmissions++;
           observed.admissionsSeen.push(
             `${params.phase ?? "?"}:${params.asset?.asset?.kind ?? "none"}`,
           );
@@ -383,9 +393,19 @@ test(
     const createSession = () =>
       client.request(
         shared.zcodeProtocolMethods.sessionCreate,
-        // 受控会话不配置用户 MCP：node_repl 不在这个隔离环境里启动，
-        // 连接器连接与逐次准入仍然走同一个受管 MCP 所有者。
-        { workspace, mcpServers: [] },
+        // 同一真实pool lease同时承载受管relay与个人HTTP服务器；personal默认关闭。
+        {
+          workspace,
+          mcpServers: [
+            {
+              name: "controlled-personal",
+              type: "http",
+              url: personalEndpoint.url,
+              headers: [],
+              protocolVersion: "legacy",
+            },
+          ],
+        },
         shared.zcodeSessionStateSnapshotSchema,
         {
           timeoutMs: 30000,
@@ -404,6 +424,15 @@ test(
       `the connector handshake must reach the controlled remote: ${JSON.stringify({ ...observed, connectorFrames: observed.connectorFrames.length })} ${stderr.join("\n")}`,
     );
     assert.ok(observed.catalogs >= 1, stderr.join("\n"));
+    await waitFor(
+      () => observed.personalAdmissions > 0,
+      "actual pooled personal MCP must ask its Host before connecting",
+    );
+    assert.deepEqual(
+      personalEndpoint.seen,
+      [],
+      "disabled personal connectors must never initialize even while enterprise relay succeeds",
+    );
     const methods = endpoint.seen.map((entry) => entry.method);
     assert.deepEqual(methods, [
       "initialize",
