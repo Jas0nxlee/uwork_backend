@@ -4,7 +4,7 @@
 
 根据 WorkBuddy 企业控制台可观察的页面、策略、接口和运行行为，独立实现企业管理后端与管理 Web，再适配 UWork 客户端。
 
-**当前阶段：自有后端与管理 Web 已实现并可本地运行；配套 UWork 身份/模型/用量服务已适配。完整产品及生产验收仍有外部接入和终端管控项，见 [验收台账](docs/acceptance.md)。**
+**当前阶段：自有后端与管理 Web 已实现并可本地运行；配套 UWork 本地 Host 身份/模型/用量、企业资产、菜单/新会话/分享与个人策略已适配并完成源码联调。完整产品及生产验收仍有外部接入和终端管控项，见 [验收台账](docs/acceptance.md)。**
 
 ## 运行
 
@@ -24,6 +24,7 @@ npm start
 - [实施规格与顺序](tasks/plan.md)
 - [自有 API 合同](docs/api.md)，运行时索引 `/api/openapi.json`
 - [部署、备份与恢复](docs/deployment.md)
+- [2026-10-15 代码复核与补齐](docs/review-2026-10-15.md)
 - [验证结果与未完成边界](docs/acceptance.md)
 
 ```sh

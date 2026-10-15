@@ -428,7 +428,7 @@
       ],
       "status": "partial",
       "gaps": [
-        "类型已建模但按控制台证据不下发给 UWork；Playbook 的终端所有者仍是后续项"
+        "按已观察兼容边界明确不下发 UWork；Agent 所有者已支持指令注入，不能把终端不支持误写成待接线"
       ]
     },
     "instructions": {
@@ -440,7 +440,9 @@
         "tests/client-asset-admission.test.ts（CLIENT_UNSUPPORTED）"
       ],
       "status": "partial",
-      "gaps": ["类型已建模但不下发给 UWork；终端所有者仍未接入"]
+      "gaps": [
+        "按已观察兼容边界明确不下发 UWork；Agent 所有者已支持指令注入，终端不支持属于显式边界"
+      ]
     },
     "global-prompt": {
       "capability": "历史全局提示词页：控制台自身提示不再对客户端生效",
@@ -589,11 +591,14 @@
         "/api/tenants/{tenantId}/configurations/{kind}/publish"
       ],
       "admin": ["configuration"],
-      "modules": ["policy.ts", "client.ts"],
-      "verification": ["tests/client-authorization.test.ts"],
+      "modules": ["policy.ts", "client.ts", "client-console.ts"],
+      "verification": [
+        "tests/client-authorization.test.ts",
+        "scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权）"
+      ],
       "status": "partial",
       "gaps": [
-        "发布快照与客户端读取入口已实现；UWork Host/UI 的实际应用属于 T13c，尚未完成"
+        "local/agents 已在实际 Gateway、Host 与企业菜单准入执行；云/移动实际渠道资源及完整安装验收仍待 T13d"
       ]
     },
     "mobile-channels": {
@@ -613,21 +618,29 @@
         "/api/tenants/{tenantId}/configurations/{kind}/publish"
       ],
       "admin": ["configuration"],
-      "modules": ["policy.ts", "client.ts"],
+      "modules": ["policy.ts", "client.ts", "client-console.ts"],
       "verification": [
-        "tests/policy-assets.test.ts（草稿不生效、旧修订冲突、发布版本）"
+        "tests/policy-assets.test.ts（草稿不生效、旧修订冲突、发布版本）",
+        "scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权）"
       ],
       "status": "partial",
-      "gaps": ["服务端草稿/发布与快照已实现；UWork 终端菜单应用属于 T13c"]
+      "gaps": [
+        "UWork 本机菜单命名/排序/启停与独立企业页已应用；自定义项使用现有 HTTPS 标签页，iframe 免登/应用绑定与三平台安装未验"
+      ]
     },
     "custom-menu-create": {
       "capability": "新建自建菜单：中英文名称、HTTPS iframe 地址、排序",
       "surface": ["/api/tenants/{tenantId}/configurations/{kind}"],
       "admin": ["configuration"],
-      "modules": ["policy.ts"],
-      "verification": ["tests/policy-assets.test.ts"],
+      "modules": ["policy.ts", "client-console.ts"],
+      "verification": [
+        "tests/policy-assets.test.ts",
+        "scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权）"
+      ],
       "status": "partial",
-      "gaps": ["同上：终端菜单渲染与 iframe 免登绑定未接入"]
+      "gaps": [
+        "自定义菜单按当前菜单 ID 准入打开既有 HTTPS 标签页；iframe 免登与组织应用绑定未实现"
+      ]
     },
     "menu-edit": {
       "capability": "菜单编辑与整体发布（草稿取消会触发服务端草稿清理）",
@@ -637,10 +650,13 @@
         "/api/tenants/{tenantId}/configurations/{kind}/publish"
       ],
       "admin": ["configuration"],
-      "modules": ["policy.ts"],
-      "verification": ["tests/policy-assets.test.ts"],
-      "status": "partial",
-      "gaps": ["同上：终端菜单应用未接入"]
+      "modules": ["policy.ts", "client-console.ts"],
+      "verification": [
+        "tests/policy-assets.test.ts",
+        "scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权）"
+      ],
+      "status": "implemented",
+      "gaps": []
     },
     "new-chat-config": {
       "capability": "新建对话页：欢迎语与不可关闭的 AI 风险前缀",
@@ -650,11 +666,13 @@
       ],
       "admin": ["configuration"],
       "modules": ["policy.ts", "client.ts"],
-      "verification": ["tests/policy-assets.test.ts"],
-      "status": "partial",
-      "gaps": [
-        "风险前缀在客户端快照中强制返回（riskPrefix）；终端渲染应用属于 T13c"
-      ]
+      "verification": [
+        "tests/policy-assets.test.ts",
+        "scripts/client-console-contract-smoke.ts（真实 HTTP / version=0 / 身份迟到）",
+        "docs/review-2026-10-15.md（UWork 生产展示组件的真实 Chrome / 320、768、1440）"
+      ],
+      "status": "implemented",
+      "gaps": []
     },
     "sharing": {
       "capability": "分享与协作范围：发布范围、协作范围、文件/微信/企微渠道",
@@ -664,10 +682,13 @@
       ],
       "admin": ["configuration"],
       "modules": ["policy.ts", "client.ts"],
-      "verification": ["tests/client-authorization.test.ts"],
+      "verification": [
+        "tests/client-authorization.test.ts",
+        "scripts/client-sharing-contract-smoke.ts（真实 Host 网络适配器与后端当前策略）"
+      ],
       "status": "partial",
       "gaps": [
-        "服务端范围裁决已实现；UWork 分享入口的应用与三平台分享行为待 T13c/T13d"
+        "现有公网分享已执行当前发布/文件/网络/退出裁决；组织协作、微信/企微无对应已实现客户端出口，三平台及真实外部服务待验"
       ]
     },
     "operation-logs": {

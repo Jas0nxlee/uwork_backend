@@ -5,8 +5,8 @@
 | 项目 | 值 |
 | --- | --- |
 | 控制台页面观察 | 55 |
-| 已实现 | 41 |
-| 部分实现 | 12 |
+| 已实现 | 43 |
+| 部分实现 | 10 |
 | 外部依赖 | 2 |
 
 状态含义：已实现＝自有后端/管理端提供该能力并能以行为测试或受控运行验证；部分实现＝服务端事实已具备但终端/管理端应用或真实外部资源未完成（缺口逐条列出）；外部依赖＝需要真实第三方服务，未配置时明确不可用。
@@ -29,13 +29,13 @@
 
 | 页面 | 控制台路径 | 观察到的表单/列表 | 自有实现（模块与端点） | 管理端 | 验证 | 状态 | 缺口 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 助理设置（`assistants`） | `/admin/client-config/channel` | 纯浏览页（无表单字段观察） | `policy.ts`<br>`client.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/client-authorization.test.ts | 部分实现 | 发布快照与客户端读取入口已实现；UWork Host/UI 的实际应用属于 T13c，尚未完成 |
-| 客户端定制（`client-custom`） | `/admin/client-config/custom` | 表单字段 2 / 列表列 6 | `policy.ts`<br>`client.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/policy-assets.test.ts（草稿不生效、旧修订冲突、发布版本） | 部分实现 | 服务端草稿/发布与快照已实现；UWork 终端菜单应用属于 T13c |
-| 新建自建菜单（`custom-menu-create`） | `/admin/client-config/custom` | 表单字段 8 / 表单标签 8 / 列表列 6 | `policy.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}` | configuration | tests/policy-assets.test.ts | 部分实现 | 同上：终端菜单渲染与 iframe 免登绑定未接入 |
-| 编辑菜单（`menu-edit`） | `/admin/client-config/custom` | 表单字段 2 / 表单标签 2 / 列表列 6 | `policy.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/policy-assets.test.ts | 部分实现 | 同上：终端菜单应用未接入 |
+| 助理设置（`assistants`） | `/admin/client-config/channel` | 纯浏览页（无表单字段观察） | `policy.ts`<br>`client.ts`<br>`client-console.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/client-authorization.test.ts<br>scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权） | 部分实现 | local/agents 已在实际 Gateway、Host 与企业菜单准入执行；云/移动实际渠道资源及完整安装验收仍待 T13d |
+| 客户端定制（`client-custom`） | `/admin/client-config/custom` | 表单字段 2 / 列表列 6 | `policy.ts`<br>`client.ts`<br>`client-console.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/policy-assets.test.ts（草稿不生效、旧修订冲突、发布版本）<br>scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权） | 部分实现 | UWork 本机菜单命名/排序/启停与独立企业页已应用；自定义项使用现有 HTTPS 标签页，iframe 免登/应用绑定与三平台安装未验 |
+| 新建自建菜单（`custom-menu-create`） | `/admin/client-config/custom` | 表单字段 8 / 表单标签 8 / 列表列 6 | `policy.ts`<br>`client-console.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}` | configuration | tests/policy-assets.test.ts<br>scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权） | 部分实现 | 自定义菜单按当前菜单 ID 准入打开既有 HTTPS 标签页；iframe 免登与组织应用绑定未实现 |
+| 编辑菜单（`menu-edit`） | `/admin/client-config/custom` | 表单字段 2 / 表单标签 2 / 列表列 6 | `policy.ts`<br>`client-console.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/tenants/{tenantId}/configurations/{kind}/draft`<br>`/api/tenants/{tenantId}/configurations/{kind}/publish` | configuration | tests/policy-assets.test.ts<br>scripts/client-console-contract-smoke.ts（真实 HTTP/当前菜单/受理回执/撤权） | 已实现 | — |
 | 移动端 APP 和小程序（`mobile-channels`） | `/admin/client-config/channel` | 纯浏览页（无表单字段观察） | `policy.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}` | configuration | tests/client-authorization.test.ts | 部分实现 | 渠道布尔在快照中发布；移动端应用未接入（无真实移动渠道资源） |
-| 新建对话页（`new-chat-config`） | `/admin/client-config/custom` | 纯浏览页（无表单字段观察） | `policy.ts`<br>`client.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/client/configuration` | configuration | tests/policy-assets.test.ts | 部分实现 | 风险前缀在客户端快照中强制返回（riskPrefix）；终端渲染应用属于 T13c |
-| 分享与协作（`sharing`） | `/admin/client-config/share-collab` | 表单字段 4 | `policy.ts`<br>`client.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/client/authorize（action=share）` | configuration | tests/client-authorization.test.ts | 部分实现 | 服务端范围裁决已实现；UWork 分享入口的应用与三平台分享行为待 T13c/T13d |
+| 新建对话页（`new-chat-config`） | `/admin/client-config/custom` | 纯浏览页（无表单字段观察） | `policy.ts`<br>`client.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/client/configuration` | configuration | tests/policy-assets.test.ts<br>scripts/client-console-contract-smoke.ts（真实 HTTP / version=0 / 身份迟到）<br>docs/review-2026-10-15.md（UWork 生产展示组件的真实 Chrome / 320、768、1440） | 已实现 | — |
+| 分享与协作（`sharing`） | `/admin/client-config/share-collab` | 表单字段 4 | `policy.ts`<br>`client.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}`<br>`/api/client/authorize（action=share）` | configuration | tests/client-authorization.test.ts<br>scripts/client-sharing-contract-smoke.ts（真实 Host 网络适配器与后端当前策略） | 部分实现 | 现有公网分享已执行当前发布/文件/网络/退出裁决；组织协作、微信/企微无对应已实现客户端出口，三平台及真实外部服务待验 |
 
 ## AI 资源管理
 
@@ -49,12 +49,12 @@
 | 专家下发策略（`expert-distribution`） | `/admin/ai-resource/expert/list` | 表单字段 6 / 表单标签 3 | `assets.ts`<br>`/api/tenants/{tenantId}/policies` | policies | tests/policy-assets.test.ts | 已实现 | — |
 | 专家管理（`experts`） | `/admin/ai-resource/expert/list` | 表单字段 5 | `assets.ts`<br>`/api/tenants/{tenantId}/assets`<br>`/api/tenants/{tenantId}/assets/{id}`<br>`/api/tenants/{tenantId}/assets/{id}/review`<br>`/api/tenants/{tenantId}/assets/{id}/publish` | assets | tests/policy-assets.test.ts<br>scripts/client-assets-host-contract-smoke.ts | 已实现 | — |
 | 全局提示词（`global-prompt`） | `/admin/ai-resource/words/panel/prompt` | 表单字段 1 | `assets.ts` | — | SPEC-ai-assets.md（明确不注入旧全局提示词） | 部分实现 | 按控制台证据不实现旧全局提示词注入；仅保留历史说明，不静默启用 |
-| 自定义指令（`instructions`） | `/admin/ai-resource/words/panel` | 纯浏览页（无表单字段观察） | `assets.ts`<br>`/api/tenants/{tenantId}/assets` | assets | tests/client-asset-admission.test.ts（CLIENT_UNSUPPORTED） | 部分实现 | 类型已建模但不下发给 UWork；终端所有者仍未接入 |
+| 自定义指令（`instructions`） | `/admin/ai-resource/words/panel` | 纯浏览页（无表单字段观察） | `assets.ts`<br>`/api/tenants/{tenantId}/assets` | assets | tests/client-asset-admission.test.ts（CLIENT_UNSUPPORTED） | 部分实现 | 按已观察兼容边界明确不下发 UWork；Agent 所有者已支持指令注入，终端不支持属于显式边界 |
 | 新增自定义模型（`model-create`） | `/admin/ai-resource/model/add` | 表单字段 15 / 表单标签 30 | `models.ts`<br>`vault.ts`<br>`network.ts`<br>`/api/tenants/{tenantId}/models`<br>`/api/tenants/{tenantId}/models/{id}`<br>`/api/tenants/{tenantId}/models/{id}/probe` | models | tests/model-capabilities.test.ts<br>tests/network.test.ts（SSRF 与私网拒绝） | 已实现 | — |
 | 成员自定义模型（`model-personal`） | `/admin/ai-resource/model/` | 纯浏览页（无表单字段观察） | `policy.ts`<br>`client.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}` | configuration | tests/client-authorization.test.ts | 已实现 | — |
 | 模型策略（`model-policies`） | `/admin/ai-resource/model/` | 表单字段 7 / 表单标签 5 | `assets.ts`<br>`models.ts`<br>`/api/tenants/{tenantId}/policies` | policies | tests/policy-assets.test.ts | 已实现 | — |
 | 模型管理（`models`） | `/admin/ai-resource/model/` | 表单字段 5 | `models.ts`<br>`/api/tenants/{tenantId}/models`<br>`/api/tenants/{tenantId}/models/{id}` | models | tests/gateway.test.ts<br>tests/model-capabilities.test.ts | 已实现 | — |
-| Playbook（`playbooks`） | `/admin/ai-resource/playbook/list` | 表单字段 3 | `assets.ts`<br>`/api/tenants/{tenantId}/assets` | assets | tests/policy-assets.test.ts<br>tests/client-asset-admission.test.ts（显式声明 uwork 返回 400 CLIENT_UNSUPPORTED） | 部分实现 | 类型已建模但按控制台证据不下发给 UWork；Playbook 的终端所有者仍是后续项 |
+| Playbook（`playbooks`） | `/admin/ai-resource/playbook/list` | 表单字段 3 | `assets.ts`<br>`/api/tenants/{tenantId}/assets` | assets | tests/policy-assets.test.ts<br>tests/client-asset-admission.test.ts（显式声明 uwork 返回 400 CLIENT_UNSUPPORTED） | 部分实现 | 按已观察兼容边界明确不下发 UWork；Agent 所有者已支持指令注入，不能把终端不支持误写成待接线 |
 | 分类管理（`skill-categories`） | `/admin/ai-resource/skill/list` | 表单字段 8 | `assets.ts`<br>`resources.ts`<br>`/api/tenants/{tenantId}/categories`<br>`/api/tenants/{tenantId}/categories/{id}` | categories | tests/policy-assets.test.ts | 已实现 | — |
 | 技能下发策略（`skill-distribution`） | `/admin/ai-resource/skill/list` | 表单字段 6 / 表单标签 3 | `assets.ts`<br>`policy.ts`<br>`/api/tenants/{tenantId}/policies`<br>`/api/tenants/{tenantId}/configurations/{kind}` | policies<br>configuration | tests/policy-assets.test.ts | 已实现 | 个人上传策略只按控制台可见的布尔开关实现，未复现原站逐技能白名单 |
 | 成员自定义技能（`skill-personal`） | `/admin/ai-resource/skill/list` | 纯浏览页（无表单字段观察） | `policy.ts`<br>`/api/tenants/{tenantId}/configurations/{kind}` | configuration | tests/client-authorization.test.ts | 已实现 | — |
@@ -231,17 +231,15 @@
 
 ## 已知缺口汇总
 
-- `assistants`（部分实现）：发布快照与客户端读取入口已实现；UWork Host/UI 的实际应用属于 T13c，尚未完成
+- `assistants`（部分实现）：local/agents 已在实际 Gateway、Host 与企业菜单准入执行；云/移动实际渠道资源及完整安装验收仍待 T13d
 - `automation-create`（部分实现）：飞书 Bot 与真实通知渠道需要外部服务，未接入；Webhook 投递与重放语义已有测试，单次执行 30 分钟上限由运行时限执行
-- `client-custom`（部分实现）：服务端草稿/发布与快照已实现；UWork 终端菜单应用属于 T13c
-- `custom-menu-create`（部分实现）：同上：终端菜单渲染与 iframe 免登绑定未接入
+- `client-custom`（部分实现）：UWork 本机菜单命名/排序/启停与独立企业页已应用；自定义项使用现有 HTTPS 标签页，iframe 免登/应用绑定与三平台安装未验
+- `custom-menu-create`（部分实现）：自定义菜单按当前菜单 ID 准入打开既有 HTTPS 标签页；iframe 免登与组织应用绑定未实现
 - `drive-capacity`（外部依赖）：需要真实网盘服务与订阅凭据；未配置时明确 503，不伪装成已实现的外部存储
 - `drive-logs`（外部依赖）：同上：需真实网盘服务；本地只实现适配网关合同与能力声明
 - `global-prompt`（部分实现）：按控制台证据不实现旧全局提示词注入；仅保留历史说明，不静默启用
-- `instructions`（部分实现）：类型已建模但不下发给 UWork；终端所有者仍未接入
-- `menu-edit`（部分实现）：同上：终端菜单应用未接入
+- `instructions`（部分实现）：按已观察兼容边界明确不下发 UWork；Agent 所有者已支持指令注入，终端不支持属于显式边界
 - `mobile-channels`（部分实现）：渠道布尔在快照中发布；移动端应用未接入（无真实移动渠道资源）
-- `new-chat-config`（部分实现）：风险前缀在客户端快照中强制返回（riskPrefix）；终端渲染应用属于 T13c
-- `playbooks`（部分实现）：类型已建模但按控制台证据不下发给 UWork；Playbook 的终端所有者仍是后续项
-- `sharing`（部分实现）：服务端范围裁决已实现；UWork 分享入口的应用与三平台分享行为待 T13c/T13d
+- `playbooks`（部分实现）：按已观察兼容边界明确不下发 UWork；Agent 所有者已支持指令注入，不能把终端不支持误写成待接线
+- `sharing`（部分实现）：现有公网分享已执行当前发布/文件/网络/退出裁决；组织协作、微信/企微无对应已实现客户端出口，三平台及真实外部服务待验
 - `subscriptions`（部分实现）：购买/续费/变配/加量包需要真实支付与供应商，未接入；订阅为本地账期事实，不称为供应商账单
