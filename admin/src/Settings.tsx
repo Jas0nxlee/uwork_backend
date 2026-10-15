@@ -25,7 +25,9 @@ export function Settings({
   async function load() {
     try {
       if (view === "enterprise") {
-        setData(await api<Row>(base));
+        const enterprise = await api<Row>(base);
+        const settings = JSON.parse(String(enterprise.settings ?? "{}")) as Row;
+        setData({ ...enterprise, contact: settings.contact ?? "" });
         setRetention(await api<Row>(`${base}/retention`));
       } else if (view === "integrations")
         setData(await api<Row>(`${base}/integrations`));
@@ -91,9 +93,14 @@ export function Settings({
                         initial: data?.name,
                         required: true,
                       },
-                      { key: "contact", label: "联系人" },
+                      {
+                        key: "contact",
+                        label: "联系人",
+                        initial: data?.contact,
+                      },
                     ],
                     base,
+                    "PATCH",
                   )
                 }
               >

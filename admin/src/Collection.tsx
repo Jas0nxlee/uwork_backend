@@ -580,7 +580,10 @@ export function Collection({
                           className="icon danger"
                           title="停用或删除"
                           aria-label="停用或删除"
-                          onClick={() => setPendingDelete(r)}
+                          onClick={() => {
+                            setError("");
+                            setPendingDelete(r);
+                          }}
                         >
                           <Trash2 size={15} />
                         </button>
@@ -645,6 +648,11 @@ export function Collection({
               : "删除"}
             「{display(pendingDelete.name ?? pendingDelete.id)}」？
           </p>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
           <footer>
             <button onClick={() => setPendingDelete(null)}>取消</button>
             <button
