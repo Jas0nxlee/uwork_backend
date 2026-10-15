@@ -86,6 +86,8 @@ Header `Idempotency-Key` 最长 128 字符；同键/同人/同内容重放成功
 - 一次 Runtime 同时只执行一个任务，工作器并发 4；输出总计上限 128 KiB。取消、超时、输出超限停止整个容器；崩溃恢复会实际停止中断代码进程并记录 failed/PROCESS_RESTARTED。TTL watchdog 与代码执行 UID 分离，最多 30 分钟。临时工作目录只能在该容器存活期间复用，不是持久网盘。
 - `/audit`、`/traces`、`/usage`、`/client-events` 支持 page/pageSize/q/from/to/userId；trace/usage 另支持 application/status。`format=csv` 上限 10000 条，CSV 防公式注入，使用时间范围分段导出。
 - `/metrics`、`/usage/aggregates?groupBy=member|department|application` 聚合自有账本。成员 `/api/client/usage` 仅看自己的统计，Credit 单位明确。
+- 路由不变量（`tests/route-invariants.test.ts` 静态检查）：业务路由必须认证并判定权限（公开入口只在测试里显式登记）；带 `:tenantId` 的路由只能用登录态的组织，参数里的 tenantId 必须经 `tenantAccess` 校验；客户端/网关入口必须绑定当前组织的 tenant 并做执行权限判定。
+- 审计不变量（`tests/audit-coverage.test.ts`）：所有改状态的管理端端点都写入审计事实；审计写在被调用服务内部的端点（`runs` 入队/取消、企微通讯录同步）显式登记，客户端入口按终端事件与账本记录、不写管理审计。
 - GET/PUT `/retention`：读取/设置企业留存天数（7–3650 天，仅管理角色；未配置时返回默认 90 与 `configured:false`）。POST `/retention/purge` 未显式给出 `days` 时按企业配置执行，显式天数仍可覆盖本次清理；后台每小时只清理显式配置过留存的企业。清理诊断记录、临时缓存和可删除终态任务；业务账本、评测、自动化历史按业务保留，需按企业要求补充归档策略。
 
 ## 外部适配
