@@ -15,6 +15,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
+      - run: npm run ledger:check
       - run: npm test
       - run: node --import tsx scripts/agent-mcp-crash-smoke.ts
       - run: npm run build

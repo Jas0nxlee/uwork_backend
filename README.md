@@ -40,6 +40,7 @@ npm audit --audit-level=high
 - [能力地图与实现顺序](CAPABILITY-MAP.md)：稳定模块 ID、状态所有者、依赖和验收边界；模块规格现已展开，项目级未验收项保留在台账。
 - [逆向调查报告](docs/reverse-engineering/workbuddy-report.md)：已观察的功能、规则、证据与缺口。
 - [页面与表单台账](docs/reverse-engineering/runtime-inventory.json)：不含真实用户/业务字段值。
+- [逐页面/表单能力台账](docs/reverse-engineering/page-capability-ledger.md)：每个控制台页面/表单的观察证据、实现位置、验证与缺口，`npm run ledger:check` 校验不漂移。
 - [HTTP 观测台账](docs/reverse-engineering/observed-http.json)：URL 模板、方法、状态及值脱敏后的结构。
 - [发布脚本静态台账](docs/reverse-engineering/static-inventory.json)：路由/调用候选、文件摘要和源位置。候选不是已验证的服务端契约。
 
