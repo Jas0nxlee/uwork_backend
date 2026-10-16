@@ -138,7 +138,7 @@ export class UWorkBackendClient {
       await this.send("/api/client/configuration", "GET", undefined, signal),
     );
   }
-  download(assetId: string, version?: number) {
+  download(assetId: string, version?: number, signal?: AbortSignal) {
     if (
       version !== undefined &&
       (!Number.isSafeInteger(version) || version < 1)
@@ -146,6 +146,9 @@ export class UWorkBackendClient {
       throw new Error("Asset version must be a positive safe integer");
     return this.send(
       `/api/client/assets/${encodeURIComponent(assetId)}/download${version === undefined ? "" : `?version=${version}`}`,
+      "GET",
+      undefined,
+      signal,
     );
   }
   async authorizeAsset(
@@ -194,26 +197,64 @@ export class UWorkBackendClient {
       | "execution.denied"
       | "client.error",
     data: { resourceId?: string; version?: number; code?: string },
+    signal?: AbortSignal,
   ) {
-    return this.send("/api/client/events", "POST", { eventKey, type, data });
+    return this.send(
+      "/api/client/events",
+      "POST",
+      { eventKey, type, data },
+      signal,
+    );
   }
   async synchronize(ports: HostConfigurationPorts, signal?: AbortSignal) {
-    const snapshot = await this.configuration(signal);
-    const models = await this.models(signal);
-    const assets = await this.assets(signal);
     signal?.throwIfAborted();
+    const token = await this.readToken();
+    const assertCurrent = async () => {
+      signal?.throwIfAborted();
+      if ((await this.readToken()) !== token)
+        throw new BackendClientError(409, "IDENTITY_CHANGED");
+      signal?.throwIfAborted();
+    };
+    const bound = new UWorkBackendClient(
+      this.base.href,
+      async () => {
+        await assertCurrent();
+        return token;
+      },
+      this.fetchImpl,
+    );
+    const snapshot = await bound.configuration(signal);
+    const models = await bound.models(signal);
+    const assets = await bound.assets(signal);
+    const versions = new Map(assets.map((asset) => [asset.id, asset.version]));
+    await assertCurrent();
     await ports.applyPolicy(snapshot);
+    await assertCurrent();
     await ports.applyModels({
       baseUrl: new URL("/v1", this.base).href,
-      deviceToken: await this.readToken(),
+      deviceToken: token,
       models,
     });
-    await ports.applyAssets({ assets, download: (id) => this.download(id) });
-    await this.event(
+    await assertCurrent();
+    await ports.applyAssets({
+      assets,
+      download: async (id) => {
+        const version = versions.get(id);
+        if (version === undefined)
+          throw new BackendClientError(404, "ASSET_NOT_SELECTED");
+        const result = await bound.download(id, version, signal);
+        await assertCurrent();
+        return result;
+      },
+    });
+    await assertCurrent();
+    await bound.event(
       `configuration:${JSON.stringify(snapshot.versions)}`.slice(0, 128),
       "configuration.applied",
       {},
+      signal,
     );
+    await assertCurrent();
     return {
       modelCount: models.length,
       assetCount: assets.length,

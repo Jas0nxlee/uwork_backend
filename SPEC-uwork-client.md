@@ -4,6 +4,7 @@
 实现：src/client.ts 和适配仓库受控模块；使用既有 enterprise-identity/Host/服务/hooks，不新增 Renderer 身份所有者。
 验收：模型/资产/配置同步、真实网关对话、吊销阻断；适配仓库 typecheck/lint/architecture；真实三平台安装独立验收。
 Host 后端地址仅接受无用户信息、查询、片段及路径的 HTTPS origin；开发环境仅额外允许 loopback HTTP。loopback 主机也不得使用 FTP、WebSocket 或自定义协议，初始化时即拒绝。
+Host 适配器的一次 synchronize 绑定开始时的终端凭据；目录请求及各应用回调前后重查该身份与取消状态，发生变化后不继续应用或上报成功。交给资产端口的下载回调只接受该次清单中的 ID，绑定清单版本和原身份/取消上下文，换版冲突要求重新同步；下载及最终上报响应返回后再次检查，拒绝迟到内容与成功结果。已完成的 Host 回调或已派发事件不声明可回滚；各实际写入口仍由 Host 自己执行当前权限及身份代次检查，不替代原生客户端验收。
 命令：npm test；npm run build；适配仓库 pnpm typecheck、pnpm lint、pnpm architecture:check --changed。
 
 Host 资产验证：真实本机 HTTP 后端连接已有私有身份会话端口与受管缓存。既有身份事件触发技能预热；新读取得到当前版本，撤权拒绝逐次加载，退出事件清理已接触的所有自有缓存。控制身份适配器仅模拟企微回调，不代表真实企业 callback 验收。Runtime SkillPort 逐次加载、专家和受控 MCP 已接线，并由真实 stdio/HTTP 合同测试覆盖；三平台安装仍单独跟踪。
