@@ -11,6 +11,8 @@ npm start
 
 需要 Node 24.13+（本轮 24.19.0），npm 11.12.1，依赖锁定在 package-lock.json。安装不执行依赖脚本；esbuild/rollup 使用平台可选包。首次 init 创建 32 字节主密钥和随机初始密码，不打印秘密；凭据在 `data/bootstrap-credentials.txt`（0600），数据目录 0700。重复 init 不覆盖现有用户。可在环境中提供 BOOTSTRAP_EMAIL/PASSWORD/ORGANIZATION，不写到命令行。
 
+首次初始化先独占创建并持久化受保护登录凭据，再提交初始账户；已有凭据文件或无效输出目录会在创建账户前拒绝。账户提交前失败只清理本次新建凭据文件；账户提交后若 Tenant ID 注记写入失败，保留已持久化的 URL/Email/Password，避免丢失随机密码。已初始化数据库不会重置用户或凭据。
+
 默认 PUBLIC_URL 为 http://localhost:3000，HOST 为 127.0.0.1。管理端与 API 同源；前端开发 `npm run admin:dev` 代理至 3000，写入 Origin 需与 PUBLIC_URL 一致，所以完整操作验证使用构建后的同源入口。
 
 ## 生产与容器
@@ -55,7 +57,7 @@ docker --context colima-uwork-backend build -f Dockerfile.sandbox -t uwork-sandb
 
 真实验证命令（均使用独立受控数据，自动清理自身容器）：以 `node --import tsx` 运行 `scripts/docker-smoke.ts`、`scripts/sandbox-driver-smoke.ts`、`scripts/sandbox-api-smoke.ts`、`scripts/sandbox-crash-smoke.ts`、`scripts/lease-namespace-smoke.ts`。Agent 闭环另运行 `scripts/agent-sandbox-smoke.ts`、`scripts/agent-container-smoke.ts`、`scripts/agent-crash-smoke.ts`；最后一个再设置 `UWORK_AGENT_CRASH_MODE=ready` 验证工具已完成、等待下一轮模型时的 SIGKILL。Docker context 默认 `colima-uwork-backend`，可通过 `UWORK_DOCKER_CONTEXT` 显式改到专用验证 engine；驱动脚本 socket 使用 `UWORK_SANDBOX_SOCKET`。打包镜像闭环的 engine 内 socket 默认 `/var/run/docker.sock`，可通过 `UWORK_ENGINE_SOCKET` 指定；自动确认 backend socket GID，并验证 engine ID 一致。
 
-Agent 隔离代码默认关闭，需发布 Agent 的 sandbox 开关并同时满足模型/企业策略许可。SDK 仅使用自有 GatewayAgentModel，不使用 OpenAI 默认客户端或外部会话状态，每轮调用单独入账；SDK tracing/exporter 禁用，自动模型重试为 0。SDK 版本与锁文件固定。真实浏览器端到端验证使用独立 `uwork-verification.localhost:3002` 实例和受控 HTTP 模型，不覆盖主实例 Cookie、凭据或组织数据；验证后进程、标签页及容器均已清理。MCP 工具和真实供应商生成验收仍未完成。
+Agent 隔离代码默认关闭，需发布 Agent 的 sandbox 开关并同时满足模型/企业策略许可。SDK 仅使用自有 GatewayAgentModel，不使用 OpenAI 默认客户端或外部会话状态，每轮调用单独入账；SDK tracing/exporter 禁用，自动模型重试为 0。SDK 版本与锁文件固定。真实浏览器端到端验证使用独立 `uwork-verification.localhost:3002` 实例和受控 HTTP 模型，不覆盖主实例 Cookie、凭据或组织数据；验证后进程、标签页及容器均已清理。受控 MCP 工具及已配置供应商的文本、工具调用、视觉消息和思考参数已实际验证；外部 MCP、其他供应商与供应商账单对账仍待验收。
 
 ## 外部接入
 
