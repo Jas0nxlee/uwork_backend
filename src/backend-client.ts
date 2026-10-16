@@ -63,7 +63,10 @@ export class UWorkBackendClient {
       this.base.hash ||
       this.base.pathname !== "/" ||
       (this.base.protocol !== "https:" &&
-        !["localhost", "127.0.0.1", "[::1]"].includes(this.base.hostname))
+        !(
+          this.base.protocol === "http:" &&
+          ["localhost", "127.0.0.1", "[::1]"].includes(this.base.hostname)
+        ))
     )
       throw new Error(
         "Backend requires an HTTPS origin (loopback HTTP is allowed for development)",
