@@ -113,6 +113,22 @@ const assetSchema = z
       .optional(),
   })
   .strict();
+function validateCategory(
+  db: Db,
+  tenantId: string,
+  data: Pick<AssetData, "kind" | "categoryId">,
+) {
+  if (
+    data.categoryId &&
+    !db.get(
+      "SELECT id FROM categories WHERE tenant_id=? AND id=? AND kind=?",
+      tenantId,
+      data.categoryId,
+      data.kind,
+    )
+  )
+    fail(400, "INVALID_CATEGORY", "分类不存在");
+}
 function assetData(
   db: Db,
   tenantId: string,
@@ -131,16 +147,7 @@ function assetData(
     );
   if (Buffer.byteLength(JSON.stringify(content)) > 1024 * 1024)
     fail(400, "ASSET_TOO_LARGE", "资产超过 1 MiB");
-  if (
-    d.categoryId &&
-    !db.get(
-      "SELECT id FROM categories WHERE tenant_id=? AND id=? AND kind=?",
-      tenantId,
-      d.categoryId,
-      d.kind,
-    )
-  )
-    fail(400, "INVALID_CATEGORY", "分类不存在");
+  validateCategory(db, tenantId, d);
   if (d.kind === "connector") {
     const c = content as z.infer<typeof contentSchemas.connector>;
     if (
@@ -241,6 +248,8 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
       fail(400, "KIND_IMMUTABLE", "资产类型不能修改");
     const data = assetData(db, a.tenantId, d);
     return db.transaction(() => {
+      if (d.enabled && old.published_version !== null)
+        validateCategory(db, a.tenantId, publishedAsset(db, old));
       updateResource(db, old, d.name, data, d.scope, d.enabled, revision);
       const version = db.get<{ n: number }>(
         "SELECT max(version)+1 n FROM resource_versions WHERE resource_id=?",
@@ -308,22 +317,23 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
       .object({ version: z.number().int().positive() })
       .strict()
       .parse(req.body);
-    if (
-      !db.get(
-        "SELECT version FROM resource_versions WHERE resource_id=? AND version=? AND approved=1",
+    return db.transaction(() => {
+      const selected = db.get<{ data: string }>(
+        "SELECT data FROM resource_versions WHERE resource_id=? AND version=? AND approved=1",
         id,
         version,
-      )
-    )
-      fail(409, "REVIEW_REQUIRED", "版本必须审核通过");
-    db.run(
-      "UPDATE resources SET status='published',published_version=?,revision=revision+1,updated_at=? WHERE id=?",
-      version,
-      now(),
-      id,
-    );
-    audit(db, a, "asset.publish", id, { version });
-    return { ok: true };
+      );
+      if (!selected) fail(409, "REVIEW_REQUIRED", "版本必须审核通过");
+      validateCategory(db, a.tenantId, JSON.parse(selected.data) as AssetData);
+      db.run(
+        "UPDATE resources SET status='published',published_version=?,revision=revision+1,updated_at=? WHERE id=?",
+        version,
+        now(),
+        id,
+      );
+      audit(db, a, "asset.publish", id, { version });
+      return { ok: true };
+    });
   });
   app.delete(`${path}/:id`, async (req, reply) => {
     const a = authenticate(db, req);
@@ -378,21 +388,26 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
     const a = authenticate(db, req);
     requirePermission(a, "write");
     const { id } = req.params as { id: string };
-    if (
-      listResources<AssetData>(db, a.tenantId, "asset").some(
-        (r) => r.data.categoryId === id,
+    db.transaction(() => {
+      if (
+        db.get(
+          "SELECT r.id FROM resources r LEFT JOIN resource_versions v ON v.resource_id=r.id AND v.version=r.published_version WHERE r.tenant_id=? AND r.kind='asset' AND (json_extract(r.data,'$.categoryId')=? OR json_extract(v.data,'$.categoryId')=?) LIMIT 1",
+          a.tenantId,
+          id,
+          id,
+        )
       )
-    )
-      fail(409, "CATEGORY_IN_USE", "分类仍有资产");
-    if (
-      !db.run(
-        "DELETE FROM categories WHERE tenant_id=? AND id=?",
-        a.tenantId,
-        id,
-      ).changes
-    )
-      fail(404, "NOT_FOUND", "分类不存在");
-    audit(db, a, "asset.category.delete", id);
+        fail(409, "CATEGORY_IN_USE", "分类仍有资产");
+      if (
+        !db.run(
+          "DELETE FROM categories WHERE tenant_id=? AND id=?",
+          a.tenantId,
+          id,
+        ).changes
+      )
+        fail(404, "NOT_FOUND", "分类不存在");
+      audit(db, a, "asset.category.delete", id);
+    });
     reply.code(204);
   });
 }
