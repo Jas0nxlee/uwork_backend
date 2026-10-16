@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, open, rm } from "node:fs/promises";
 import { Db } from "./db.js";
 import { bootstrap } from "./identity.js";
 import { environment } from "./config.js";
@@ -28,17 +28,32 @@ try {
     const password =
       process.env.BOOTSTRAP_PASSWORD ?? randomBytes(24).toString("base64url");
     const email = process.env.BOOTSTRAP_EMAIL ?? "admin@uwork.local";
-    const result = await bootstrap(db, {
-      name: process.env.BOOTSTRAP_ORGANIZATION ?? "UWork 本地企业",
-      email,
-      password,
-    });
     await mkdir("data", { recursive: true, mode: 0o700 });
-    await writeFile(
-      "data/bootstrap-credentials.txt",
-      `URL: ${config.publicUrl}\nEmail: ${email}\nPassword: ${password}\nTenant ID: ${result.tenantId}\n`,
-      { mode: 0o600, flag: "wx" },
-    );
+    const credentialPath = "data/bootstrap-credentials.txt";
+    const credentials = await open(credentialPath, "wx", 0o600);
+    let created = false;
+    try {
+      // Persist the login material before committing the random-password account.
+      // If a later annotation fails, these credentials still allow recovery.
+      await credentials.writeFile(
+        `URL: ${config.publicUrl}\nEmail: ${email}\nPassword: ${password}\n`,
+      );
+      await credentials.sync();
+      const result = await bootstrap(db, {
+        name: process.env.BOOTSTRAP_ORGANIZATION ?? "UWork 本地企业",
+        email,
+        password,
+      });
+      created = true;
+      await credentials.appendFile(`Tenant ID: ${result.tenantId}\n`);
+      await credentials.sync();
+    } finally {
+      try {
+        await credentials.close();
+      } finally {
+        if (!created) await rm(credentialPath, { force: true });
+      }
+    }
     console.log(
       "Initialized. Credentials: data/bootstrap-credentials.txt (mode 0600).",
     );
