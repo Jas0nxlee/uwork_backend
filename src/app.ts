@@ -23,6 +23,7 @@ import { connectorRoutes } from "./connectors.js";
 import { staticRoutes } from "./static.js";
 import { openApi } from "./openapi.js";
 import { clientUsageRoutes } from "./client-usage.js";
+import { privateModelOriginsSchema } from "./config.js";
 import { SandboxService } from "./sandbox/service.js";
 import { sandboxRoutes } from "./sandbox/routes.js";
 import { DockerSandboxDriver } from "./sandbox/docker.js";
@@ -35,6 +36,7 @@ export interface AppOptions {
   masterKey: Buffer;
   publicUrl: string;
   allowPrivateUpstreams?: boolean;
+  privateModelOrigins?: string[];
   logger?: boolean;
   worker?: boolean;
   wecomProvider?: WecomProvider;
@@ -45,6 +47,9 @@ export interface AppOptions {
 export async function createApp(options: AppOptions) {
   if (options.masterKey.length !== 32)
     throw new Error("MASTER_KEY must contain 32 bytes");
+  const privateModelOrigins = privateModelOriginsSchema.parse(
+    options.privateModelOrigins ?? [],
+  );
   const app = Fastify({
     logger: options.logger
       ? {
@@ -75,6 +80,7 @@ export async function createApp(options: AppOptions) {
     vault,
     entitlements,
     options.allowPrivateUpstreams ?? false,
+    privateModelOrigins,
   );
   const sandboxDriver =
     options.sandboxDriver ??
@@ -245,7 +251,13 @@ export async function createApp(options: AppOptions) {
   directoryRoutes(app, db);
   vaultRoutes(app, db, vault);
   entitlementRoutes(app, db);
-  modelsRoutes(app, db, vault, options.allowPrivateUpstreams ?? false);
+  modelsRoutes(
+    app,
+    db,
+    vault,
+    options.allowPrivateUpstreams ?? false,
+    privateModelOrigins,
+  );
   gatewayRoutes(app, db, gateway);
   assetRoutes(app, db);
   policyRoutes(app, db);

@@ -1,4 +1,24 @@
 import { z } from "zod";
+export const privateModelOriginsSchema = z
+  .array(
+    z
+      .url()
+      .max(2048)
+      .refine((value) => {
+        const url = new URL(value);
+        return (
+          url.protocol === "https:" &&
+          !url.username &&
+          !url.password &&
+          !url.search &&
+          !url.hash &&
+          url.pathname === "/"
+        );
+      }, "Private model entries must be credential-free HTTPS origins")
+      .transform((value) => new URL(value).origin),
+  )
+  .max(20)
+  .transform((origins) => [...new Set(origins)]);
 export function environment() {
   const env = z
     .object({
@@ -21,6 +41,14 @@ export function environment() {
       HOST: z.string().default("127.0.0.1"),
       PORT: z.coerce.number().int().min(1).max(65535).default(3000),
       ALLOW_PRIVATE_UPSTREAMS: z.enum(["true", "false"]).default("false"),
+      PRIVATE_MODEL_ORIGINS: z
+        .string()
+        .max(8192)
+        .default("")
+        .transform((value) =>
+          value.trim() ? value.split(",").map((entry) => entry.trim()) : [],
+        )
+        .pipe(privateModelOriginsSchema),
       SANDBOX_DOCKER_SOCKET: z.string().max(512).optional(),
       SANDBOX_IMAGE: z.string().max(256).default("uwork-sandbox:local"),
     })
@@ -39,6 +67,7 @@ export function environment() {
     host: env.HOST,
     port: env.PORT,
     allowPrivateUpstreams: env.ALLOW_PRIVATE_UPSTREAMS === "true",
+    privateModelOrigins: env.PRIVATE_MODEL_ORIGINS,
     sandboxSocket: env.SANDBOX_DOCKER_SOCKET,
     sandboxImage: env.SANDBOX_IMAGE,
   };

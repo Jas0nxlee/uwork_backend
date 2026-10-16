@@ -192,6 +192,7 @@ export class Gateway {
     private vault: Vault,
     private entitlements: Entitlements,
     private allowPrivate: boolean,
+    private privateModelOrigins: readonly string[] = [],
   ) {}
   private authorize(actor: Actor, modelId: string, application: string) {
     requirePermission(actor, "execute");
@@ -353,6 +354,7 @@ export class Gateway {
         {
           method: "POST",
           token,
+          privateOrigins: this.privateModelOrigins,
           body: {
             model: model.data.upstreamModel,
             messages: input.messages,

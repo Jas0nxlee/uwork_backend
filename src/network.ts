@@ -8,6 +8,18 @@ export function publicAddress(address: string) {
   const parsed = ipaddr.process(address);
   return parsed.range() === "unicast";
 }
+export function upstreamAddressAllowed(
+  address: string,
+  target: URL,
+  privateOrigins: readonly string[] = [],
+) {
+  if (publicAddress(address)) return true;
+  return (
+    target.protocol === "https:" &&
+    privateOrigins.includes(target.origin) &&
+    ["private", "uniqueLocal"].includes(ipaddr.process(address).range())
+  );
+}
 export async function resolveAddresses(
   host: string,
   signal: AbortSignal,
@@ -42,6 +54,7 @@ export async function safeRequest(
     timeout?: number;
     headers?: Record<string, string>;
     onDispatch?: () => void;
+    privateOrigins?: readonly string[];
   },
   allowPrivate = false,
 ) {
@@ -61,7 +74,11 @@ export async function safeRequest(
   const addresses = await resolveAddresses(host, signal);
   if (
     !addresses.length ||
-    (!allowPrivate && addresses.some((a) => !publicAddress(a.address)))
+    (!allowPrivate &&
+      addresses.some(
+        (a) =>
+          !upstreamAddressAllowed(a.address, target, options.privateOrigins),
+      ))
   )
     fail(400, "PRIVATE_UPSTREAM", "不能访问私有或保留地址");
   const first = addresses[0]!;

@@ -69,6 +69,7 @@ export function modelsRoutes(
   db: Db,
   vault: Vault,
   allowPrivate: boolean,
+  privateModelOrigins: readonly string[] = [],
 ) {
   const path = "/api/tenants/:tenantId/models";
   app.get(path, async (req) => {
@@ -145,7 +146,12 @@ export function modelsRoutes(
     const result = await readJson(
       await safeRequest(
         `${m.data.baseUrl.replace(/\/$/, "")}/models`,
-        { method: "GET", token, timeout: 15000 },
+        {
+          method: "GET",
+          token,
+          timeout: 15000,
+          privateOrigins: privateModelOrigins,
+        },
         allowPrivate,
       ),
     );
