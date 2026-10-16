@@ -328,21 +328,24 @@ export class Gateway {
     const cost = (i: number, o: number) =>
       Math.ceil((i * model.data.inputRate) / 1000) +
       Math.ceil((o * model.data.outputRate) / 1000);
-    const reservationId = this.entitlements.reserve(
-      actor,
-      key,
-      model.id,
-      application,
-      cost(inputBound, maxTokens),
-    );
-    this.db.run(
-      "INSERT INTO gateway_calls VALUES(?,?,?,?,NULL,?)",
-      actor.tenantId,
-      key,
-      actor.userId,
-      fingerprint,
-      now(),
-    );
+    const reservationId = this.db.transaction(() => {
+      const reservation = this.entitlements.reserve(
+        actor,
+        key,
+        model.id,
+        application,
+        cost(inputBound, maxTokens),
+      );
+      this.db.run(
+        "INSERT INTO gateway_calls VALUES(?,?,?,?,NULL,?)",
+        actor.tenantId,
+        key,
+        actor.userId,
+        fingerprint,
+        now(),
+      );
+      return reservation;
+    });
     const started = now();
     let promptTokens = 0,
       outputTokens = 0;
@@ -404,6 +407,7 @@ export class Gateway {
             size = 0,
             done = false;
           const frameSchema = z.object({
+            error: z.unknown().optional(),
             choices: z
               .array(
                 z.object({
@@ -423,7 +427,7 @@ export class Gateway {
               .nullable()
               .optional(),
           });
-          for await (const chunk of response.body) {
+          readFrames: for await (const chunk of response.body) {
             size += chunk.length;
             if (size > 2 * 1024 * 1024)
               fail(502, "UPSTREAM_TOO_LARGE", "上游响应超出限制");
@@ -433,15 +437,21 @@ export class Gateway {
             while ((end = buffer.indexOf("\n\n")) >= 0) {
               const frame = buffer.slice(0, end);
               buffer = buffer.slice(end + 2);
-              const data = frame
-                .split("\n")
+              const lines = frame.split("\n");
+              const event = lines
+                .findLast((line) => line.startsWith("event:"))
+                ?.slice(6)
+                .trim();
+              if (event === "error")
+                fail(502, "UPSTREAM_REJECTED", "上游流式请求失败");
+              const data = lines
                 .filter((l) => l.startsWith("data:"))
                 .map((l) => l.slice(5).trimStart())
                 .join("\n");
               if (!data) continue;
               if (data === "[DONE]") {
                 done = true;
-                continue;
+                break readFrames;
               }
               let parsed: z.infer<typeof frameSchema>;
               try {
@@ -449,6 +459,8 @@ export class Gateway {
               } catch {
                 fail(502, "UPSTREAM_FORMAT", "流式响应格式不正确");
               }
+              if (parsed.error != null)
+                fail(502, "UPSTREAM_REJECTED", "上游流式请求失败");
               const delta = parsed.choices?.[0]?.delta.content ?? "";
               const toolDeltas = parsed.choices?.[0]?.delta.tool_calls;
               if (toolDeltas?.length) {
