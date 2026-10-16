@@ -215,6 +215,14 @@ export function telemetryRoutes(
       filter += " AND user_id=?";
       args.push(q.userId);
     }
+    if (q.q) {
+      filter += " AND model_id LIKE ?";
+      args.push(`%${q.q}%`);
+    }
+    if (q.status) {
+      filter += " AND status=?";
+      args.push(q.status);
+    }
     return {
       summary: db.get(
         `SELECT count(*) as requests,count(DISTINCT user_id) as activeUsers,coalesce(sum(input_tokens),0) as inputTokens,coalesce(sum(output_tokens),0) as outputTokens,coalesce(avg(duration_ms),0) as averageLatencyMs,coalesce(sum(CASE WHEN status='failed' THEN 1 ELSE 0 END),0) as failures FROM traces WHERE ${filter}`,

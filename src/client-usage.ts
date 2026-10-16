@@ -85,9 +85,29 @@ export function clientUsageRoutes(app: FastifyInstance, db: Db) {
       requestCount: number;
       cost: number;
     }>(
-      "SELECT model_id model,count(*) requestCount,sum(amount) cost FROM ledger WHERE tenant_id=? AND user_id=? AND created_at>=? AND created_at<? GROUP BY model_id ORDER BY requestCount DESC LIMIT 400",
+      `WITH facts AS (
+        SELECT model_id model,1 requestCount,0 cost FROM traces
+        WHERE tenant_id=? AND user_id=? AND created_at>=? AND created_at<?
+        UNION ALL
+        SELECT model_id model,0 requestCount,amount cost FROM ledger
+        WHERE tenant_id=? AND user_id=? AND created_at>=? AND created_at<?
+      )
+      SELECT model,sum(requestCount) requestCount,sum(cost) cost FROM facts
+      GROUP BY model ORDER BY requestCount DESC,model LIMIT 400`,
+      ...args,
       ...args,
     );
+    const trend = new Map(daily.map((day) => [day.date, { ...day, cost: 0 }]));
+    for (const day of costs) {
+      const row = trend.get(day.date) ?? {
+        date: day.date,
+        requestCount: 0,
+        tokens: 0,
+        cost: 0,
+      };
+      row.cost = day.cost;
+      trend.set(day.date, row);
+    }
     return {
       ...q,
       from: new Date(from).toISOString(),
@@ -104,10 +124,7 @@ export function clientUsageRoutes(app: FastifyInstance, db: Db) {
         cacheReadTokens: 0,
         cacheCreationTokens: 0,
       },
-      trend: daily.map((d) => ({
-        ...d,
-        cost: costs.find((c) => c.date === d.date)?.cost ?? 0,
-      })),
+      trend: [...trend.values()].sort((a, b) => a.date.localeCompare(b.date)),
       models: models.map((m) => ({
         ...m,
         share: summary.requestCount ? m.requestCount / summary.requestCount : 0,
