@@ -168,10 +168,24 @@ export function modelsRoutes(
     const a = authenticate(db, req);
     requirePermission(a, "execute");
     activeSubscription(db, a.tenantId);
+    const credentialIds = new Set(
+      db
+        .all<{
+          id: string;
+        }>(
+          "SELECT id FROM credentials WHERE tenant_id=? AND revoked=0",
+          a.tenantId,
+        )
+        .map((credential) => credential.id),
+    );
     return {
       object: "list",
       data: listResources<ModelData>(db, a.tenantId, "model")
-        .filter((m) => allowedResource(db, a, "model", m))
+        .filter(
+          (m) =>
+            credentialIds.has(m.data.credentialId) &&
+            allowedResource(db, a, "model", m),
+        )
         .map((m) => ({
           id: m.id,
           object: "model",
