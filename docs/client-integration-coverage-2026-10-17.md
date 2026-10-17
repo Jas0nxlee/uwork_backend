@@ -164,3 +164,11 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 [独占原生实测](client-native-offpeak-disabled-test-2026-10-18.md) 已验证真实 action 导航后只显示定时任务入口，正常返回时原 composer 和工作区标识保持一致；从标准自动化入口打开已发布的定时模板并取消，也未创建任务。三次 SQLite 只读当前 WAL 快照的闲时任务、未结算 outbox、自动化及运行记录均为0；初始2次本机受控模型请求、2笔settled/44保持不变。原输入为空白，未声称保留非空文本。
 
 本项只验收当前固定 `enabled=false` 下的公开可见结果，没有独立 eligibility RPC/loading 完成或 Native 配置正文版本收据，不替代 enabled=true 创建或存量 ticket/status/settle。113工件封存，124项准备/依赖/源/正式产物及541项旧证据保持原SHA。11个自有PID、4端口和BH已闭；新R因8个外部写FD保留0700，自有fixture精准非优雅停止如实记录。公开商店实际排序继续由独立Native切片推进，整体U02/U03/U04/U05不关闭。
+
+## G04d 真实公开目录、CA修复及 Native 排序增量
+
+[实际公开商店](client-native-public-store-test-2026-10-18.md) 已验证46个真实条目、两mode的默认→草稿不生效→发布生效→恢复null，分类、两对稳定ID和未配置项顺序均有直接DOM证据。ghost没有生成条目，搜索46项及公司/个人空对照单列。Root独立复放八组全部46项，公开排序不再仅有Source或空目录证据；公司/个人、Featured、已安装排序仍没有正向库存验收。
+
+前置同时发现[自定义CA替换默认根缺陷](client-catalog-custom-ca-test-2026-10-18.md)，旧正式CLI真实证书失败，修复单一loader并正式构建/stage新09a版本后，单证书无手工bundle的真实目录复测取得46/0安装/0诊断。Source4项严格TLS、全client typecheck/lint、CLI标准27类型与14Lint任务、正式构建均通过。新101源/6产物与旧候选区分，四Desktop产物未重建。
+
+本轮完整复制实际12,972文件并逐字节核验旧6,662及新增6,310编号副本，没有使用过滤快捷清单。公司SkillHub按测试计划被拒，403横幅保留；Renderer外部图片blocked138单列，不称全局出口零。模型/账本仍2次本机初始化、2笔settled/44，Native增量0。13自有PID/5端口/BH已闭，新R保留0700及fixture精准非优雅停止如实记录。未捕获Native插件版本正文收据，未验证身份迟到/分享/远端/手机或跨平台发行；整体目标继续推进。
