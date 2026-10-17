@@ -249,6 +249,7 @@ function App() {
               base={base}
               notify={setToast}
               canWrite={["owner", "admin", "operator"].includes(me.role)}
+              canManageIdentity={["owner", "admin"].includes(me.role)}
             />
           )}
         </main>

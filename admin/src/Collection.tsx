@@ -14,6 +14,7 @@ import {
   Check,
   Download,
   Power,
+  Link2,
 } from "lucide-react";
 import { api, display, date, type Row } from "./api";
 import { FormDialog, Modal, type Field } from "./forms";
@@ -31,11 +32,13 @@ export function Collection({
   base,
   notify,
   canWrite,
+  canManageIdentity = false,
 }: {
   view: View;
   base: string;
   notify: (s: string) => void;
   canWrite: boolean;
+  canManageIdentity?: boolean;
 }) {
   const [rows, setRows] = useState<Row[]>([]),
     [total, setTotal] = useState(0),
@@ -384,6 +387,37 @@ export function Collection({
                   >
                     <Eye size={16} />
                   </button>
+                  {view.id === "members" && canManageIdentity && (
+                    <button
+                      className="icon"
+                      title="绑定企微身份"
+                      aria-label={`绑定 ${display(r.name)} 的企微身份`}
+                      onClick={() =>
+                        setForm({
+                          title: `绑定企微身份 · ${display(r.name)}`,
+                          fields: [
+                            {
+                              key: "externalId",
+                              label: "企微 UserId",
+                              required: true,
+                            },
+                          ],
+                          initial: { externalId: r.external_id ?? "" },
+                          submit: async (d) => {
+                            await api(
+                              `${base}/members/${encodeURIComponent(String(r.id))}/wecom`,
+                              "PUT",
+                              { externalId: d.externalId },
+                            );
+                            await load();
+                            notify("企微身份已绑定");
+                          },
+                        })
+                      }
+                    >
+                      <Link2 size={16} />
+                    </button>
+                  )}
                   {canWrite && !view.readonly && (
                     <>
                       {[

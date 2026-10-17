@@ -467,6 +467,7 @@ export const views: View[] = [
       { key: "status", label: "状态" },
       { key: "seat", label: "席位" },
       { key: "source", label: "来源" },
+      { key: "external_id", label: "企微 UserId" },
     ],
   },
   {
