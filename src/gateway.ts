@@ -11,6 +11,10 @@ import { allowedResource, type ModelData } from "./models.js";
 import { readJson, safeRequest } from "./network.js";
 import { assertExecution } from "./policy.js";
 import {
+  assertNoPrivateOutput,
+  PrivateTextHoldback,
+} from "./private-output.js";
+import {
   functionToolSchema,
   toolCallSchema,
   upstreamToolCallSchema,
@@ -315,6 +319,7 @@ export class Gateway {
       const result = JSON.parse(
         this.vault.open(cached.result, `${actor.tenantId}:${key}`),
       ) as CompletionResult;
+      assertNoPrivateOutput(result, token);
       if (onDelta) onDelta(result.choices[0]!.message.content);
       if (onToolDelta && result.choices[0]!.message.tool_calls)
         onToolDelta(
@@ -351,6 +356,7 @@ export class Gateway {
       outputTokens = 0;
     let upstreamStatus = 0;
     let dispatched = false;
+    const textHoldback = new PrivateTextHoldback(token);
     try {
       const response = await safeRequest(
         `${model.data.baseUrl.replace(/\/$/, "")}/chat/completions`,
@@ -390,7 +396,9 @@ export class Gateway {
         usage: { prompt_tokens: number; completion_tokens: number } | undefined;
       let calls: ToolCall[] = [];
       if (!input.stream) {
-        const data = upstreamCompletion.safeParse(await readJson(response));
+        const raw = await readJson(response);
+        assertNoPrivateOutput(raw, token);
+        const data = upstreamCompletion.safeParse(raw);
         if (!data.success)
           fail(502, "UPSTREAM_FORMAT", "上游对话响应格式不正确");
         content = data.data.choices[0]!.message.content ?? "";
@@ -454,22 +462,28 @@ export class Gateway {
                 break readFrames;
               }
               let parsed: z.infer<typeof frameSchema>;
+              let raw: unknown;
               try {
-                parsed = frameSchema.parse(JSON.parse(data));
-              } catch {
+                raw = JSON.parse(data);
+                parsed = frameSchema.parse(raw);
+              } catch (error) {
+                if (error instanceof ApiError) throw error;
                 fail(502, "UPSTREAM_FORMAT", "流式响应格式不正确");
               }
               if (parsed.error != null)
                 fail(502, "UPSTREAM_REJECTED", "上游流式请求失败");
+              assertNoPrivateOutput(raw, token);
               const delta = parsed.choices?.[0]?.delta.content ?? "";
               const toolDeltas = parsed.choices?.[0]?.delta.tool_calls;
               if (toolDeltas?.length) {
                 toolCalls.add(toolDeltas);
               }
               content += delta;
-              if (delta) {
+              const safeDelta = textHoldback.push(delta);
+              if (safeDelta) {
+                signal?.throwIfAborted();
                 assertCurrent();
-                onDelta?.(delta);
+                onDelta?.(safeDelta);
               }
               if (parsed.choices?.[0]?.finish_reason)
                 reason = parsed.choices[0].finish_reason;
@@ -521,6 +535,7 @@ export class Gateway {
           total_tokens: promptTokens + outputTokens,
         },
       };
+      assertNoPrivateOutput(result, token);
       this.entitlements.settle(
         reservationId,
         cost(promptTokens, outputTokens),
@@ -528,6 +543,11 @@ export class Gateway {
         outputTokens,
       );
       assertCurrent();
+      if (input.stream) {
+        signal?.throwIfAborted();
+        const tail = textHoldback.finish();
+        if (tail) onDelta?.(tail);
+      }
       this.db.run(
         "UPDATE gateway_calls SET result=? WHERE tenant_id=? AND request_key=?",
         this.vault.seal(JSON.stringify(result), `${actor.tenantId}:${key}`),
