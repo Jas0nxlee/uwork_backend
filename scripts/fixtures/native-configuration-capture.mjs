@@ -50,10 +50,8 @@ function projectConfiguration(body) {
     !trace.enabledGroups.every((group) => groups.has(group)) ||
     new Set(trace.enabledGroups).size !== trace.enabledGroups.length ||
     !integer(body?.versions?.desktop, 0, Number.MAX_SAFE_INTEGER) ||
-    typeof body?.fetchedAt !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(body.fetchedAt) ||
-    !Number.isFinite(Date.parse(body.fetchedAt)) ||
-    new Date(body.fetchedAt).toISOString() !== body.fetchedAt
+    !Object.hasOwn(body, "fetchedAt") ||
+    !integer(body.fetchedAt, 0, Number.MAX_SAFE_INTEGER)
   )
     return undefined;
   return {

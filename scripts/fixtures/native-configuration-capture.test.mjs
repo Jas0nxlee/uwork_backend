@@ -30,7 +30,7 @@ function configuration() {
       model: { token: secret },
     },
     security: { secret },
-    fetchedAt: "2026-10-18T01:02:03.456Z",
+    fetchedAt: 1792285323456,
   };
 }
 function receipt(overrides = {}) {
@@ -110,7 +110,7 @@ test("complete response projects only safe configuration fields", () => {
     traceEnabled: false,
     traceSampleRatio: 0.2,
     traceEnabledGroups: ["settings", "core"],
-    fetchedAt: "2026-10-18T01:02:03.456Z",
+    fetchedAt: 1792285323456,
   });
   noSecret(projected);
   const body = configuration();
@@ -224,6 +224,37 @@ test("desktop subtree, versions, ratio, groups and dates are strict and bounded"
       body.fetchedAt = "2026-02-30T00:00:00.000Z";
     },
     (body) => {
+      body.fetchedAt = "2026-10-18T01:02:03.456Z";
+    },
+    (body) => {
+      body.fetchedAt = "1792285323456";
+    },
+    (body) => {
+      body.fetchedAt = NaN;
+    },
+    (body) => {
+      body.fetchedAt = Infinity;
+    },
+    (body) => {
+      body.fetchedAt = -1;
+    },
+    (body) => {
+      body.fetchedAt = 0.5;
+    },
+    (body) => {
+      body.fetchedAt = Number.MAX_SAFE_INTEGER + 1;
+    },
+    (body) => {
+      delete body.fetchedAt;
+    },
+    (body) => {
+      body.fetchedAt = {
+        valueOf() {
+          throw Error(secret);
+        },
+      };
+    },
+    (body) => {
       body.fetchedAt = secret.repeat(1000);
     },
   ];
@@ -235,6 +266,49 @@ test("desktop subtree, versions, ratio, groups and dates are strict and bounded"
     assert.equal(Object.hasOwn(projected, "desktopVersion"), false);
     noSecret(projected);
   }
+});
+
+test("fetchedAt uses own numeric milliseconds and ignores sensitive prototype keys", () => {
+  for (const fetchedAt of [0, Number.MAX_SAFE_INTEGER]) {
+    const body = configuration();
+    body.fetchedAt = fetchedAt;
+    assert.equal(
+      projectNativeConfigurationReceipt(1, receipt({ body })).fetchedAt,
+      fetchedAt,
+    );
+  }
+  const body = configuration();
+  Object.defineProperty(body, "__proto__", {
+    enumerable: true,
+    value: { token: secret },
+  });
+  body.constructor = { token: secret };
+  body.prototype = { token: secret };
+  const safe = projectNativeConfigurationReceipt(1, receipt({ body }));
+  assert.equal(safe.status, "sent");
+  assert.equal(Object.hasOwn(safe, "__proto__"), false);
+  assert.equal(Object.hasOwn(safe, "constructor"), false);
+  noSecret(safe);
+  const inherited = configuration();
+  delete inherited.fetchedAt;
+  Object.setPrototypeOf(inherited, { fetchedAt: 1792285323456, token: secret });
+  const rejected = projectNativeConfigurationReceipt(
+    1,
+    receipt({ body: inherited }),
+  );
+  assert.equal(rejected.status, "invalid_configuration");
+  noSecret(rejected);
+  const nested = configuration();
+  Object.defineProperty(nested.configuration.desktop, "__proto__", {
+    enumerable: true,
+    value: { token: secret },
+  });
+  const rejectedNested = projectNativeConfigurationReceipt(
+    1,
+    receipt({ body: nested }),
+  );
+  assert.equal(rejectedNested.status, "invalid_configuration");
+  noSecret(rejectedNested);
 });
 
 test("invalid receipt metadata cannot leak unknown values or fabricate completion", () => {
