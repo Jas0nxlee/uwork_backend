@@ -47,6 +47,26 @@ Each catalog read freshly authorizes assets, prunes verified obsolete keys, down
 
 The cache owns a derived selection revision, not an authorization snapshot. A reconciliation reads that revision before any manifest/policy HTTP and conditionally selects/prunes under the existing mutation lock. Selection advances the revision before deletion; final pruning compares the revision again. Every unconditional cleanup also advances it. A stale job may leave an unselected immutable object, but must never delete a newer successful selection. Concurrent windows use the same on-disk revision, not a Host-local mutex. The bounded private selection record is atomically published from an owned stage; an abandoned stage is handled by the existing crash recovery. Network requests never hold the filesystem lock.
 
+Within one existing `EnterpriseAssetsHost`, catalog transactions for the same `storeFor(scope)` execute in FIFO order. Native identity maintenance and a CLI's first expert catalog read otherwise race the same disk selection revision: one successful prewarm makes the runtime's catalog fail, and bootstrap deliberately keeps the resulting empty expert profile snapshot. The Host queue contains pending work only, never a catalog, accepted value or allow decision. Each caller captures its original private scope before waiting and revalidates that same scope and cancellation before dequeue can touch cache or HTTP. Every transaction still performs the full manifest/policy/admission checks and both on-disk CAS operations. Another Host remains independent and its stale selection is rejected as before; the local FIFO never bypasses the cross-Host lock/revision guard.
+
+Cancelling or replacing an owner while queued returns a bounded denial without waiting for the prior caller's network response. The cancelled slot remains ordered behind its predecessor and becomes a no-op when dequeued, so releasing it cannot allow later work to overtake an active transaction. A failed/cancelled transaction releases subsequent current work. Disposal synchronously closes admission, aborts active/queued work, and waits for both caller operations and internal FIFO tails before releasing stores. No unbounded retry, success-empty fallback, timeout-based authorization or second accepted cache is introduced.
+
+```mermaid
+sequenceDiagram
+    participant Life as Existing identity maintenance
+    participant FIFO as Existing Host / same store
+    participant CLI as Runtime first expert catalog
+    participant Disk as Existing cross-Host CAS
+    Life->>FIFO: original private scope A
+    FIFO->>Disk: revision / current HTTP / select / verify / final CAS
+    CLI->>FIFO: capture original scope B and wait
+    Note over CLI,FIFO: cancellation denies promptly; queued slot cannot overtake A
+    Disk-->>FIFO: A finishes
+    FIFO->>FIFO: validate B signal and original owner
+    FIFO->>Disk: fresh revision and complete current transaction B
+    Disk-->>CLI: ready catalog or genuine current denial
+```
+
 ```mermaid
 sequenceDiagram
     participant A as Older Host Read

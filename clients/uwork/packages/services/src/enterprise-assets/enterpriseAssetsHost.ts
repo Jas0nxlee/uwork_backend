@@ -53,6 +53,7 @@ export function createEnterpriseAssetsHost(options: {
   onCacheEvent?: (event: EnterpriseAssetStoreEvent) => void;
 }): EnterpriseAssetsHost {
   const stores = new Map<string, EnterpriseAssetStore>();
+  const catalogTails = new Map<EnterpriseAssetStore, Promise<void>>();
   const controllers = new Set<AbortController>(),
     pending = new Set<Promise<unknown>>();
   let disposed = false;
@@ -89,87 +90,138 @@ export function createEnterpriseAssetsHost(options: {
       pending.delete(task);
     });
   };
+  const catalogTransaction = <T>(
+    store: EnterpriseAssetStore,
+    scope: UWorkBackendScope,
+    parent: AbortSignal,
+    operation: () => Promise<T>,
+  ): Promise<T> => {
+    if (disposed || scope.signal.aborted)
+      return Promise.reject(new UWorkBackendSessionError("enterprise_authorization_cancelled"));
+    const previous = catalogTails.get(store) ?? Promise.resolve();
+    const task = previous.then(async () => {
+      // 原 scope 必须在出队前仍有效；不能用排队后的新身份执行旧请求。
+      scope.signal.throwIfAborted();
+      await scope.assertCurrent();
+      scope.signal.throwIfAborted();
+      return operation();
+    });
+    const tail = task.then(
+      () => {},
+      () => {},
+    );
+    catalogTails.set(store, tail);
+    void tail.then(() => {
+      if (catalogTails.get(store) === tail) catalogTails.delete(store);
+    });
+    // 调用方取消有界返回，但内部 slot 仍等前驱结束，不能让后继越过正在执行的事务。
+    return new Promise<T>((resolve, reject) => {
+      const abort = () => {
+        scope.signal.removeEventListener("abort", abort);
+        reject(
+          new UWorkBackendSessionError(
+            parent.aborted ? "enterprise_authorization_cancelled" : "enterprise_identity_changed",
+          ),
+        );
+      };
+      scope.signal.addEventListener("abort", abort, { once: true });
+      if (scope.signal.aborted) abort();
+      void task.then(
+        (value) => {
+          scope.signal.removeEventListener("abort", abort);
+          resolve(value);
+        },
+        (error: unknown) => {
+          scope.signal.removeEventListener("abort", abort);
+          reject(error);
+        },
+      );
+    });
+  };
   return {
     async readCatalog(traceId, signal): Promise<EnterpriseSkillsCatalog> {
       try {
         return await owned(signal, async (parent) => {
           const result = await options.backendSession.run(
             async (scope) => {
-              const store = storeFor(scope),
-                operation = { traceId, signal: scope.signal, isCurrent: scope.isCurrent };
-              const revision = await store.readSelectionRevision(operation);
-              const policy = await readHostSkillPolicy(scope),
-                manifest = await readHostAssetManifest(scope);
-              const authorized = [];
-              for (const item of manifest.assets)
-                if (await authorizeHostAsset(scope, item)) authorized.push(item);
-              const connectors = [];
-              for (const item of manifest.connectors)
-                if (await authorizeHostAsset(scope, item))
-                  connectors.push({
-                    asset: {
-                      id: item.id,
-                      kind: "connector" as const,
-                      version: item.version,
-                      checksum: item.checksum,
-                    },
-                    name: item.name,
-                    distributed: item.distributed,
-                  });
-              const selected = await store.select(revision, authorized.map(assetKey), operation);
-              const assets = [],
-                experts = [];
-              for (const item of authorized) {
-                const key = assetKey(item);
-                let reference;
-                try {
-                  reference = await store.verify(key, operation);
-                } catch (error) {
-                  if (
-                    !(error instanceof EnterpriseAssetStoreError) ||
-                    error.code !== "enterprise_asset_not_cached"
-                  )
-                    throw error;
-                  const downloaded = parseAssetPackage(await downloadHostAsset(scope, item));
-                  if (assetKey(downloaded) !== key)
+              const store = storeFor(scope);
+              // Native 后台预热与首次 runtime 不能互相退休 selection；跨 Host 的磁盘 CAS 原样保留。
+              return catalogTransaction(store, scope, parent, async () => {
+                const operation = { traceId, signal: scope.signal, isCurrent: scope.isCurrent };
+                const revision = await store.readSelectionRevision(operation);
+                const policy = await readHostSkillPolicy(scope),
+                  manifest = await readHostAssetManifest(scope);
+                const authorized = [];
+                for (const item of manifest.assets)
+                  if (await authorizeHostAsset(scope, item)) authorized.push(item);
+                const connectors = [];
+                for (const item of manifest.connectors)
+                  if (await authorizeHostAsset(scope, item))
+                    connectors.push({
+                      asset: {
+                        id: item.id,
+                        kind: "connector" as const,
+                        version: item.version,
+                        checksum: item.checksum,
+                      },
+                      name: item.name,
+                      distributed: item.distributed,
+                    });
+                const selected = await store.select(revision, authorized.map(assetKey), operation);
+                const assets = [],
+                  experts = [];
+                for (const item of authorized) {
+                  const key = assetKey(item);
+                  let reference;
+                  try {
+                    reference = await store.verify(key, operation);
+                  } catch (error) {
+                    if (
+                      !(error instanceof EnterpriseAssetStoreError) ||
+                      error.code !== "enterprise_asset_not_cached"
+                    )
+                      throw error;
+                    const downloaded = parseAssetPackage(await downloadHostAsset(scope, item));
+                    if (assetKey(downloaded) !== key)
+                      throw new EnterpriseAssetStoreError("enterprise_assets_changed");
+                    reference = await store.materialize(downloaded, operation);
+                  }
+                  await scope.assertCurrent();
+                  if (!(await authorizeHostAsset(scope, item)))
                     throw new EnterpriseAssetStoreError("enterprise_assets_changed");
-                  reference = await store.materialize(downloaded, operation);
+                  if (item.kind === "skill")
+                    assets.push({
+                      ...reference,
+                      asset: { ...reference.asset, kind: "skill" as const },
+                      name: item.name,
+                      distributed: item.distributed,
+                    });
+                  else
+                    experts.push({
+                      ...reference,
+                      asset: { ...reference.asset, kind: "expert" as const },
+                      name: item.name,
+                      distributed: item.distributed,
+                    });
                 }
-                await scope.assertCurrent();
-                if (!(await authorizeHostAsset(scope, item)))
+                if (
+                  JSON.stringify(await readHostAssetManifest(scope)) !== JSON.stringify(manifest) ||
+                  JSON.stringify(await readHostSkillPolicy(scope)) !== JSON.stringify(policy)
+                )
                   throw new EnterpriseAssetStoreError("enterprise_assets_changed");
-                if (item.kind === "skill")
-                  assets.push({
-                    ...reference,
-                    asset: { ...reference.asset, kind: "skill" as const },
-                    name: item.name,
-                    distributed: item.distributed,
-                  });
-                else
-                  experts.push({
-                    ...reference,
-                    asset: { ...reference.asset, kind: "expert" as const },
-                    name: item.name,
-                    distributed: item.distributed,
-                  });
-              }
-              if (
-                JSON.stringify(await readHostAssetManifest(scope)) !== JSON.stringify(manifest) ||
-                JSON.stringify(await readHostSkillPolicy(scope)) !== JSON.stringify(policy)
-              )
-                throw new EnterpriseAssetStoreError("enterprise_assets_changed");
-              await store.select(
-                selected,
-                [...assets, ...experts].map((item) => item.key),
-                operation,
-              );
-              return enterpriseSkillsCatalogSchema.parse({
-                status: "ready",
-                ownerKey: scope.ownerKey,
-                ...policy,
-                assets,
-                experts,
-                connectors,
+                await store.select(
+                  selected,
+                  [...assets, ...experts].map((item) => item.key),
+                  operation,
+                );
+                return enterpriseSkillsCatalogSchema.parse({
+                  status: "ready",
+                  ownerKey: scope.ownerKey,
+                  ...policy,
+                  assets,
+                  experts,
+                  connectors,
+                });
               });
             },
             { signal: parent, traceId },
@@ -259,7 +311,8 @@ export function createEnterpriseAssetsHost(options: {
     async disposeAllAndWait() {
       disposed = true;
       for (const controller of controllers) controller.abort("disposed");
-      await Promise.allSettled(pending);
+      await Promise.allSettled([...pending, ...catalogTails.values()]);
+      catalogTails.clear();
       stores.clear();
     },
   };

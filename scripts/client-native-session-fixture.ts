@@ -48,6 +48,14 @@ export interface ControlledSessionHooks {
     storageDirectory: string;
   }) => Promise<void>;
   onPermissionRequest?: (params: Row) => Promise<unknown>;
+  /** Test-only production maintenance alongside the same packaged runtime asset owner. */
+  assetMaintenance?: boolean;
+  observeAssetCatalog?: (catalog: {
+    status: string;
+    code?: string;
+    experts?: { name: string }[];
+  }) => void;
+  beforeAssetManifestResponse?: (traceId: string) => Promise<void>;
 }
 export async function liveFixture(
   t: TestContext,
@@ -273,6 +281,14 @@ export async function liveFixture(
       status: reply.statusCode,
     });
   });
+  if (hooks.beforeAssetManifestResponse)
+    app.addHook("onSend", async (req, _reply, payload) => {
+      if (req.routeOptions.url === "/api/client/assets")
+        await hooks.beforeAssetManifestResponse!(
+          String(req.headers["x-zcode-trace-id"] ?? ""),
+        );
+      return payload;
+    });
   const backendOrigin = await app.listen({ host: "127.0.0.1", port: 0 });
   const certificate = join(directory, "local-cert.pem"),
     privateKey = join(directory, "local-key.pem");
@@ -759,6 +775,24 @@ export async function liveFixture(
         backendSession: backend,
         storageDirectory: join(directory, "cli-assets"),
       });
+      if (hooks.observeAssetCatalog) {
+        const readCatalog = assets.readCatalog.bind(assets);
+        assets.readCatalog = async (traceId: string, signal?: AbortSignal) => {
+          const catalog = await readCatalog(traceId, signal);
+          hooks.observeAssetCatalog!(catalog);
+          return catalog;
+        };
+      }
+      const assetMaintenance = hooks.assetMaintenance
+        ? (
+            await source("enterprise-assets/enterpriseAssetsLifecycle.ts")
+          ).attachEnterpriseAssetsLifecycle({
+            identity,
+            assets,
+            readAuthority: () =>
+              lifecycle.readEnterpriseIdentityAuthority(identity),
+          })
+        : undefined;
       const bridge = createEnterpriseToolAuthorizationBridge({
         assets,
         models: hostRelay,
@@ -908,7 +942,8 @@ export async function liveFixture(
             assertionError = error;
           }
           await client.disposeAndWait();
-          await assets.disposeAllAndWait();
+          if (assetMaintenance) await assetMaintenance.disposeAllAndWait();
+          else await assets.disposeAllAndWait();
           if (child.exitCode === null && child.signalCode === null)
             await new Promise<void>((done, reject) => {
               const timeout = setTimeout(
