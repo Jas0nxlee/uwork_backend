@@ -39,6 +39,7 @@ export const IUcasGatewayService = createServiceDescriptor<IUcasGatewayService>(
 /** 自有后端授权目录的公开事实；只由Host私有Gateway写入对应精确模型规则。 */
 export interface UWorkGatewayModelDescriptor {
   readonly id: string;
+  readonly name?: string;
   readonly contextWindow: number;
   readonly maxOutputTokens: number;
   readonly supportsVision: boolean;

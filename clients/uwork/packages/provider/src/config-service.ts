@@ -17,6 +17,7 @@ import {
   ProviderConfig as ProviderConfigValue,
   ProviderTemplateMap,
   resolveProviderTemplateName,
+  parseProviderConfig,
 } from "./config/index.js";
 import { resolveOwnedOrder } from "./owned-order.js";
 import {
@@ -73,6 +74,7 @@ export interface UcasGatewayConfigInput {
   readonly authMode?: "enterprise-session";
   /** 私有Gateway当前目录的派生候选；不是授权，缺省在企业模式中fail closed。 */
   readonly enterpriseModelIds?: readonly string[];
+  readonly enterpriseModelNames?: Readonly<Record<string, string>>;
   /** Host私有准入回调，不持久化/不接受公共JSON自报。 */
   readonly isCurrent?: () => boolean;
   readonly apiKey?: string;
@@ -201,6 +203,8 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
     metadata?: Pick<ProviderConfigRule, "providerName" | "templateId" | "enabled">,
   ): Promise<ProviderConfigLayerSnapshot> {
     assertNonEmptyId("providerId", providerId);
+    if (config.enterpriseModelNames !== undefined)
+      throw new Error("enterprise_session_private_only");
     const zcodeBuiltin = await this.#zcodeBuiltinSource.read();
     const ucasBaseUrl = await this.#resolveUcasBaseUrl();
     return this.#updatePersonal((current) => {
@@ -331,6 +335,18 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
     if (enterpriseSession && (input.apiKey !== undefined || input.replaceApiKey))
       throw new Error("企业会话配置不接受 API Key");
     if (input.apiKey !== undefined && !apiKey) throw new Error("UCAS API Key 不能为空");
+    const enterpriseModelIds = enterpriseSession
+      ? [...new Set((input.enterpriseModelIds ?? []).map((id) => normalizeId("modelId", id)))]
+      : undefined;
+    const enterpriseModelNames = enterpriseSession
+      ? parseProviderConfig({ enterpriseModelNames: input.enterpriseModelNames ?? {} })
+          .enterpriseModelNames
+      : undefined;
+    if (
+      enterpriseModelNames &&
+      Object.keys(enterpriseModelNames).some((id) => !enterpriseModelIds?.includes(id))
+    )
+      throw new Error("Invalid managed Gateway model names");
     let apiKeyApplied = false;
     return this.#updatePersonal((current) => {
       // 锁内才是实际写入准入点，旧拒绝结果不能迟到清空新身份的目录。
@@ -364,11 +380,9 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
           api,
           ...(enterpriseSession
             ? {
-                enterpriseModelIds: [
-                  ...new Set(
-                    (input.enterpriseModelIds ?? []).map((id) => normalizeId("modelId", id)),
-                  ),
-                ],
+                enterpriseModelIds,
+                // 名称与成员在同一锁内整体替换；缺名/清空不能继承旧owner的label。
+                enterpriseModelNames,
               }
             : {}),
         }),
@@ -484,6 +498,7 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
         }),
         personalModelIds,
         enterpriseModelIds: currentConfig?.enterpriseModelIds,
+        enterpriseModelNames: currentConfig?.enterpriseModelNames,
         modelOrder,
         visibility: "visible",
       });
@@ -564,6 +579,8 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
   async createPersonalProvider(
     input: CreatePersonalProviderInput = {},
   ): Promise<PersonalProviderCreation> {
+    if (input.initialConfig?.enterpriseModelNames !== undefined)
+      throw new Error("enterprise_session_private_only");
     const zcodeBuiltin = await this.#zcodeBuiltinSource.read();
     const templateId = input.templateId?.trim();
     const template = templateId ? zcodeBuiltin.providerTemplates?.get(templateId) : undefined;

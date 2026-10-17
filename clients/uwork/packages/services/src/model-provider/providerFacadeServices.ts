@@ -229,7 +229,8 @@ export function createProviderSettingsService(
       personal(() => {
         if (
           input?.initialConfig?.access?.type === "enterprise-session" ||
-          input?.initialConfig?.enterpriseModelIds !== undefined
+          input?.initialConfig?.enterpriseModelIds !== undefined ||
+          (input?.initialConfig && Object.hasOwn(input.initialConfig, "enterpriseModelNames"))
         )
           throw new Error("enterprise_session_private_only");
         return facade.createPersonalProvider(input);
@@ -245,12 +246,21 @@ export function createProviderSettingsService(
     savePersonalProviderOverlay: (providerId, config, metadata) =>
       personal(() => {
         // 公开RPC只能编辑个人配置；无凭据受管模式必须由当前Gateway的私有Symbol入口建立。
-        if (config.access?.type === "enterprise-session" || config.enterpriseModelIds !== undefined)
+        if (
+          config.access?.type === "enterprise-session" ||
+          config.enterpriseModelIds !== undefined ||
+          Object.hasOwn(config, "enterpriseModelNames")
+        )
           throw new Error("enterprise_session_private_only");
         return facade.savePersonalProviderOverlay(providerId, config, metadata);
       }),
     setUcasApiKeyIfMissing: (apiKey) => personal(() => facade.setUcasApiKeyIfMissing(apiKey)),
-    applyUcasGatewayProvisioning: (input) => personal(() => applyGatewayProvisioning(input)),
+    applyUcasGatewayProvisioning: (input) =>
+      personal(() => {
+        if (Object.hasOwn(input, "enterpriseModelNames"))
+          throw new Error("enterprise_session_private_only");
+        return applyGatewayProvisioning(input);
+      }),
     // 只有私有Gateway路径透传后台描述；JS伪造公开入参不能改变受管模型事实。
     [providerSettingsTrustedGatewayProvisioning]: (input) =>
       applyGatewayProvisioning(

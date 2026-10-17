@@ -71,6 +71,9 @@ export function serializeRegistryProviderConfig(
     ...(config.enterpriseModelIds == null
       ? {}
       : { enterpriseModelIds: [...config.enterpriseModelIds] }),
+    ...(config.enterpriseModelNames == null
+      ? {}
+      : { enterpriseModelNames: { ...config.enterpriseModelNames } }),
     ...(config.modelOrder == null ? {} : { modelOrder: [...config.modelOrder] }),
     ...(config.visibility === undefined ? {} : { visibility: config.visibility }),
   };

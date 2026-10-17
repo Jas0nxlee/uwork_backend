@@ -62,6 +62,11 @@ export function createGatewayProviderProvisioning(
           baseUrl: input.baseUrl,
           authMode: "enterprise-session",
           enterpriseModelIds: ids,
+          enterpriseModelNames: Object.fromEntries(
+            (managedModels ?? [])
+              .filter((model) => model.name !== undefined)
+              .map((model) => [model.id, model.name!.trim()]),
+          ),
           ...(isCurrent ? { isCurrent } : {}),
         })
       ).view;

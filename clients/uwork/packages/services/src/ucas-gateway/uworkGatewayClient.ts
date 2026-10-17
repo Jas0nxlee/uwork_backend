@@ -103,6 +103,7 @@ export function createUWorkGatewayClient(options: UcasGatewayClientOptions): Uca
           data: z.array(
             z.object({
               id: z.string().min(1).max(80),
+              name: z.string().trim().min(1).max(200).optional(),
               context_window: z.number().int().min(128).max(2000000),
               max_output_tokens: z.number().int().min(1).max(131072),
               supports_vision: z.boolean(),
@@ -116,6 +117,7 @@ export function createUWorkGatewayClient(options: UcasGatewayClientOptions): Uca
         models: raw.data.map((m) => m.id),
         descriptors: raw.data.map((m) => ({
           id: m.id,
+          ...(m.name === undefined ? {} : { name: m.name }),
           contextWindow: m.context_window,
           maxOutputTokens: m.max_output_tokens,
           supportsVision: m.supports_vision,

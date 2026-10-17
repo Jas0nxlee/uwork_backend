@@ -150,7 +150,7 @@ sequenceDiagram
 
 真实 Native SDK 的 JSON/SSE RED 已证明：把后台不透明model ID仅作为字符串追加，会继承UCAS默认Vision=true/context=1M/low|high|max；通用OpenAI规则还输出max_completion_tokens/thinking/enable_thinking/reasoning等本后端未声明字段，真实请求400且供应商0次。不得改fixture flags或放宽所有供应商协议来掩盖。
 
-- 后端 `/v1/models` 继续兼容旧字段并返回context_window/max_output_tokens/supports_vision/supports_reasoning/supports_tools。UWork adapter严格校验并归一化为descriptors `{id,contextWindow,maxOutputTokens,supportsVision,supportsReasoning,supportsTools}`；旧UCAS readPlanModels的models字符串列表与原语义不变。
+- 后端 `/v1/models` 继续兼容旧字段并返回context_window/max_output_tokens/supports_vision/supports_reasoning/supports_tools。UWork adapter严格校验并归一化为descriptors `{id,name?,contextWindow,maxOutputTokens,supportsVision,supportsReasoning,supportsTools}`；`name` 只用于当前显示，完整替换、私有写者、远端分发拒绝和同版 CLI 迁移边界见 `enterprise-model-catalog-projection.md`。旧UCAS readPlanModels的models字符串列表与原语义不变。
 - Gateway为唯一目录投影owner，沿现有Node私有provisioning target透传 `managedModels`；ProviderRuntime的Symbol入口是消费该描述的唯一可信写口。公开ProviderSettings.applyUcasGatewayProvisioning不消费managedModels，即使JS调用者伪造多余字段也不能走该元数据豁免。
 - 复用ProviderSettingsFacade和同一ModelConfig Repository writer，对descriptor ID在ucas provider下写精确规则，保留既有enabled/排序；本后端托管model的能力/上限/maps按当前server事实覆盖，已落盘的旧错参数也被修正。其他个人model IDs、默认六个UCAS模型及legacy UCAS模板不变，不新增第二份配置文件或模型owner。
 - contextWindow精确采用后台值；图片和工具能力采用后台bool，音频/视频/PDF/native搜索/JSON-schema输出等未声明能力显式关闭。maxOutputTokens.max取后台上限，map仅 `{"max_tokens": maxOutputTokens}`。

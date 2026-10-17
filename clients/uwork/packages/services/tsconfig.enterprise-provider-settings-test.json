@@ -10,7 +10,11 @@
     "declarationMap": false,
     "disableSourceOfProjectReferenceRedirect": true
   },
-  "include": ["test/uworkProviderSettingsPolicy.test.ts", "src/model-provider/**/*.ts"],
+  "include": [
+    "test/uworkProviderSettingsPolicy.test.ts",
+    "test/enterpriseModelNames.test.ts",
+    "src/model-provider/**/*.ts"
+  ],
   "references": [
     { "path": "../shared" },
     { "path": "../rpc" },

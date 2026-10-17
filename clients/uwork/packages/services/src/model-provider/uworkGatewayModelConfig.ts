@@ -10,6 +10,7 @@ import type { UWorkGatewayModelDescriptor } from "../ucas-gateway/contract.js";
 const descriptorSchema = z
   .object({
     id: z.string().min(1).max(80),
+    name: z.string().trim().min(1).max(200).optional(),
     contextWindow: z.number().int().min(128).max(2000000),
     maxOutputTokens: z.number().int().min(1).max(131072),
     supportsVision: z.boolean(),
