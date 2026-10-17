@@ -1,4 +1,4 @@
-import { randomBytes, createHash } from "node:crypto";
+import { randomBytes, createHash, X509Certificate } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import {
   copyFile,
@@ -19,6 +19,7 @@ import { createInterface } from "node:readline";
 import { createApp } from "../../src/app.ts";
 import { bootstrap } from "../../src/identity.ts";
 import { copyNativeOutSnapshot } from "./native-out-snapshot.mjs";
+import { copyNativeAdminSnapshot } from "./native-admin-snapshot.mjs";
 const fixtureName =
   process.env.UWORK_NATIVE_FIXTURE_NAME ?? "client-native-enterprise-20261017";
 if (!/^client-native-[a-z0-9-]+$/.test(fixtureName))
@@ -28,6 +29,9 @@ if (dynamicWorkflowMode !== undefined && dynamicWorkflowMode !== "alwaysOn")
   throw Error(
     "Only the existing alwaysOn workflow mode is supported by this fixture",
   );
+const experienceMode = process.env.UWORK_NATIVE_CLIENT_EXPERIENCE;
+if (experienceMode !== undefined && experienceMode !== "enabled")
+  throw Error("Invalid Native client experience fixture mode");
 const exec = promisify(execFile),
   evidence = "evidence/" + fixtureName;
 await mkdir(evidence, { recursive: true, mode: 0o700 });
@@ -99,6 +103,26 @@ await exec("openssl", [
   "-addext",
   "subjectAltName=IP:127.0.0.1,DNS:localhost",
 ]);
+const certSpkiSha256 = createHash("sha256")
+  .update(
+    new X509Certificate(await readFile(cert)).publicKey.export({
+      type: "spki",
+      format: "der",
+    }),
+  )
+  .digest("base64");
+const adminSnapshot = experienceMode
+  ? await copyNativeAdminSnapshot({
+      repository: process.cwd(),
+      ownedRoot: root,
+    })
+  : undefined;
+if (adminSnapshot)
+  await writeFile(
+    join(evidence, "admin-static-snapshot.json"),
+    JSON.stringify(adminSnapshot.manifest, null, 2),
+    { mode: 0o600 },
+  );
 let backendOrigin = "",
   modelCalls = 0,
   electron;
@@ -281,6 +305,7 @@ const configurationReplies = new Set();
 const proxy = httpsServer(
   { key: await readFile(key), cert: await readFile(cert) },
   (req, res) => {
+    if (adminSnapshot?.serve(req, res)) return;
     const target = httpRequest(
       backendOrigin + (req.url ?? "/"),
       { method: req.method, headers: req.headers },
@@ -330,6 +355,12 @@ app.addHook("onResponse", async (req, reply) => {
   });
 });
 const password = randomBytes(24).toString("hex");
+if (experienceMode)
+  await writeFile(
+    join(root, "browser-login.json"),
+    JSON.stringify({ email: "desktop-owner@example.test", password }),
+    { mode: 0o600, flag: "wx" },
+  );
 const owner = await bootstrap(app.services.db, {
   name: "客户端联动测试",
   email: "desktop-owner@example.test",
@@ -398,8 +429,10 @@ await api(p + "/members/" + member.id + "/wecom", "PUT", {
   externalId: "synthetic-wecom-user-a",
 });
 const initialLimitAmounts = {
-  department: dynamicWorkflowMode === "alwaysOn" ? 3000000 : 200000,
-  member: dynamicWorkflowMode === "alwaysOn" ? 3000000 : 150000,
+  department:
+    dynamicWorkflowMode === "alwaysOn" || experienceMode ? 3000000 : 200000,
+  member:
+    dynamicWorkflowMode === "alwaysOn" || experienceMode ? 3000000 : 150000,
 };
 const departmentLimitAcknowledgement = await api(p + "/limits", "PUT", {
   subjectType: "department",
@@ -602,6 +635,9 @@ const meta = {
   appRoot,
   helpLocalConfig,
   cert,
+  certSpkiSha256,
+  clientExperienceMode: experienceMode ?? null,
+  ...(adminSnapshot ? { adminStaticSnapshot: adminSnapshot.manifest } : {}),
   home,
   modelId: model.id,
   mainEntrySha256,
@@ -836,6 +872,34 @@ async function saveWorkflowProof(name) {
     { mode: 0o600 },
   );
 }
+async function saveExperienceProof(name) {
+  if (!/^[a-z0-9-]+$/.test(name)) throw Error("Invalid experience proof name");
+  const configurations = {};
+  for (const kind of ["scenes", "help", "desktop", "plugin-store"])
+    configurations[kind] = await api(p + "/configurations/" + kind);
+  const usage = await api(p + "/usage");
+  await writeFile(
+    join(evidence, name + "-experience-proof.json"),
+    JSON.stringify(
+      {
+        modelCalls,
+        configurations,
+        traffic,
+        modelRequests,
+        ledger: usage.items.map((row) => ({
+          id: row.id,
+          status: row.status,
+          amount: row.amount,
+          inputTokens: row.inputTokens,
+          outputTokens: row.outputTokens,
+        })),
+      },
+      null,
+      2,
+    ),
+    { mode: 0o600 },
+  );
+}
 let closing = false;
 async function close() {
   if (closing) return;
@@ -851,6 +915,7 @@ async function close() {
   await attempt(stopNative);
   if (dynamicWorkflowMode === "alwaysOn")
     await attempt(() => saveWorkflowProof("final"));
+  if (experienceMode) await attempt(() => saveExperienceProof("final"));
   await attempt(() => app.close());
   for (const server of [upstream, proxy])
     await attempt(async () => {
@@ -899,7 +964,10 @@ rl.on("line", async (line) => {
   try {
     const c = JSON.parse(line);
     if (c.op === "launch") await launch();
-    else if (c.op === "stopNative" && dynamicWorkflowMode === "alwaysOn")
+    else if (
+      c.op === "stopNative" &&
+      (dynamicWorkflowMode === "alwaysOn" || experienceMode)
+    )
       await stopNative();
     else if (
       c.op === "workflowPauseSecond" &&
@@ -917,6 +985,8 @@ rl.on("line", async (line) => {
       dynamicWorkflowMode === "alwaysOn"
     )
       await saveWorkflowProof(c.name);
+    else if (c.op === "experienceSnapshot" && experienceMode)
+      await saveExperienceProof(c.name);
     else if (c.op === "pauseConfiguration") configurationPaused = true;
     else if (c.op === "resumeConfiguration") {
       configurationPaused = false;
