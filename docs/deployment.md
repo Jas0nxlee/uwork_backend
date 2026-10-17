@@ -68,3 +68,5 @@ Agent 隔离代码默认关闭，需发布 Agent 的 sandbox 开关并同时满�
 UWork：本仓库 `clients/uwork/` 工作区公开配置显式增加 `backend: "uwork"`，apiBaseUrl 设为部署 HTTPS origin，组织 orgId 对应后端 tenant id，回调为同源 `/api/auth/wecom/callback`。Secret/Token 不能进入公开配置。
 
 当前托管模型使用 `enterprise-session`：Gateway 同步公开目录，CLI 经 Host 私有会话转发 JSON/SSE，后台从会话派生用户并鉴权/计量；登录 Token 和供应商 Key 不进入 CLI/Renderer/Provider 配置。旧终端 Key 在迁移成功后吊销，device API 保留兼容。该链路已通过真实 HTTPS、SDK、打包 CLI 和独立原生 Electron 联动；菜单、资产与本地安全继续复用既有 Host 所有者。后台成员页支持企微 UserId 展示和行内绑定，角色/部门/席位/状态、模型范围、限量和用量沿用原管理页。正式企微仍需自有 HTTPS 域名、应用配置与逐企业扫码验收；本机合成登录初始化不替代它。已安装发行包、远程/手机与三平台仍单独验收。详见 `docs/client-live-test-2026-10-17.md`；2026-10-15 后端整体实测保留于原报告。
+
+2026-10-17 补充：`/api/auth/me` 增加当前租户成员映射，`/api/client/entitlement` 增加综合限制下的 `effectiveAllowance`，旧个人额度字段保留。客户端从私有 Gateway writer 更新非秘密 `enterpriseModelIds` 候选快照，实际调用权限始终由后台重新判定；公开 Provider 写入不能伪造该字段。有效额度刷新、撤权清投影和首次自动选模已完成 Native 联动复测，见 `docs/client-user-journey-test-2026-10-17.md`。当前主后端已更新，补充镜像为 `uwork-backend:user-journey-20261017`；未替换用户已安装的客户端发行包。
