@@ -61,7 +61,18 @@
 - [x] G02b Native Skill v1→v2→撤权，模型 IO 实证正文/无正文；不替代专家/resume。
 - [x] G04a Native 已发布菜单名字/顺序/路由、草稿不生效、欢迎/risk 发布与退出清除；延迟真实配置响应后旧可见菜单点击也被当前准入拒绝。
 - [x] G05a Native 自动化创建/立即运行、local 渠道拒绝、实际重启后持久化再运行；不替代绑定任务 resume。
-- [x] G03a 缓存正文篡改/缺文件/symlink：3 项、315 次 HTTP、9 CLI；冷启动不静默修复，显式隔离后恢复；双 Host/安装 SIGKILL 实际组合保留。
-- [x] G06a Native 个人模型创建/配置/发现/实际运行与同会话撤权，拒绝不改配置或派发；两条误导/内部码提示修复并重建复测。个人技能/本机 MCP 仍待补。
+- [x] G03a 缓存正文篡改/缺文件/symlink：3 项、315 次 HTTP、9 CLI；冷启动不静默修复，显式隔离后恢复；双 Host/安装 SIGKILL 实际组合已由 G03b 补完。
+- [x] G06a Native 个人模型创建/配置/发现/实际运行与同会话撤权，拒绝不改配置或派发；两条误导/内部码提示修复并重建复测。个人技能/本机 MCP 的实际 CLI 出口已由 G06b 补完，Native 设置界面另列。
 - [x] G07a 正式 builtin Read/Write/Bash 真实副作用与批准/Hook/yolo 后撤权：5 项及原 7 项回归；WebFetch 实证域名和 SSRF 拒绝，不冒领公网成功。
 - [x] G08a 实际 Host 分享/生产文件源/自动 manifest/hash/上传确认/网络席位组织撤权：5 项、299 次 HTTP、26 既有回归；正式外部服务/Native 分享 UI另列。
+
+- [x] G02c 实际企业专家 v1/v2、同 session 冷恢复、撤权后禁止同名个人回退和个人 canonical 选择再撤权：4 项，当前正式 CLI 及相关15项回归通过；修复前实际子模型泄漏个人正文，修复后复测通过。
+- [x] G02d Native 指定企业专家真实正文；后台撤权、实际 Electron 重启、侧边栏打开原任务后旧名不可用且0个人子模型；8供应商/8settled含另一成员初始化2。
+- [x] G03b 双独立 Host/CLI 共享身份/磁盘的旧选择迟到，以及实际部分 stage SIGKILL→新Host冷恢复当前完整版本：2项131HTTP/4CLI；本机macOS，其他平台保留。
+- [x] G06b 正式 CLI 用户/项目 Skill、个人本机MCP、真实identity owner注销：3项352HTTP；正向正文/marker、开关即时撤权、零新增派发且配置字节保留；包含在新产物19项回归中。
+- [x] W01 正式 standalone Web/Server 的HTTP/Cookie/静态JS/真实WS与文件重连、Host票据首用/重放/真实30s过期：2项；企业身份实际未配置，不能勾为managed remote。
+
+- [x] G05b 实际CronCreate绑定原task、正式Host runAutomationNow三阶段：允许/关闭local零新增/恢复并重启原task；不替代Main定时scheduler或Native按钮。
+- [x] G07b 公共HTTPS WebFetch真实正文与后继模型结果、同runtime精确域名撤权；不改变DNS/TLS/SSRF，不冒领公共站点日志。
+
+- [x] G05c 合法默认createTask无flag首发/实际权限模式元数据/strict历史消息合同三项真实RED窄修；4项单测及默认首发→严格读取→绑定三阶段→重启原消息ID的真实Host复测通过。最终0d958候选相关23项加Host1项共24/24，Native同产物另通过；不据此关闭完整U02/U03/U04/U05。
