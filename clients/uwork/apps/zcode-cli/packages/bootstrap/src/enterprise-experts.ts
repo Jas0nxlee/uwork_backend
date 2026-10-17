@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { PERSONAL_AGENT_PROFILE_PREFIX, normalizeAgentTypeForMatch, type AgentProfile } from "@zcode/core";
+import {
+  PERSONAL_AGENT_PROFILE_PREFIX,
+  normalizeAgentTypeForMatch,
+  type AgentProfile,
+} from "@zcode/core";
 import type {
   EnterpriseSkillsCatalogPort,
   EnterpriseToolAuthorizationPort,
@@ -43,8 +47,16 @@ export interface EnterpriseExpertProfileOutcome {
   profiles: AgentProfile[];
 }
 
-const unavailableOutcome = (): EnterpriseExpertProfileOutcome => ({ managed: true, personalProfilesAllowed: false, profiles: [] });
-const unmanagedOutcome = (): EnterpriseExpertProfileOutcome => ({ managed: false, personalProfilesAllowed: true, profiles: [] });
+const unavailableOutcome = (): EnterpriseExpertProfileOutcome => ({
+  managed: true,
+  personalProfilesAllowed: false,
+  profiles: [],
+});
+const unmanagedOutcome = (): EnterpriseExpertProfileOutcome => ({
+  managed: false,
+  personalProfilesAllowed: true,
+  profiles: [],
+});
 
 /**
  * Enterprise experts into the existing subagent owner: 专家资产映射为该进程内的
@@ -56,11 +68,15 @@ export async function loadEnterpriseExpertProfiles(
   return (await loadEnterpriseExpertProfileOutcome(input)).profiles;
 }
 
-export async function loadEnterpriseExpertProfileOutcome(input: EnterpriseExpertProfileInput): Promise<EnterpriseExpertProfileOutcome> {
+export async function loadEnterpriseExpertProfileOutcome(
+  input: EnterpriseExpertProfileInput,
+): Promise<EnterpriseExpertProfileOutcome> {
   const { authorization, catalog } = input;
   // 未受管（无企业端口）时保持原有独立行为，不发起任何反向 RPC。
   if (!authorization || !catalog)
-    return !input.required && !authorization && !catalog ? unmanagedOutcome() : unavailableOutcome();
+    return !input.required && !authorization && !catalog
+      ? unmanagedOutcome()
+      : unavailableOutcome();
   const signal = AbortSignal.any([
     AbortSignal.timeout(OPERATION_TIMEOUT_MS),
     ...(input.signal ? [input.signal] : []),
@@ -90,12 +106,12 @@ export async function loadEnterpriseExpertProfileOutcome(input: EnterpriseExpert
     for (const expert of value.experts) {
       const name = expert.name.trim();
       // 内置名与重复展示名不能被企业资产占用或静默二选一。
-      const reserved = RESERVED_PROFILE_NAMES.has(name) || normalizeAgentTypeForMatch(name)?.startsWith(PERSONAL_AGENT_PROFILE_PREFIX) === true;
+      const reserved =
+        RESERVED_PROFILE_NAMES.has(name) ||
+        normalizeAgentTypeForMatch(name)?.startsWith(PERSONAL_AGENT_PROFILE_PREFIX) === true;
       if (!name || reserved || claimed.has(name)) {
         input.logger?.warn("Enterprise expert name rejected", {
-          code: reserved
-            ? "enterprise_expert_name_reserved"
-            : "enterprise_expert_name_unusable",
+          code: reserved ? "enterprise_expert_name_reserved" : "enterprise_expert_name_unusable",
           module: "bootstrap.enterprise-experts",
         });
         continue;
@@ -112,7 +128,12 @@ export async function loadEnterpriseExpertProfileOutcome(input: EnterpriseExpert
       });
     }
     signal.throwIfAborted();
-    return { managed: true, personalProfilesAllowed: value.allowFilesystem && value.personalSkills && value.dangerousSkills, profiles };
+    return {
+      managed: true,
+      personalProfilesAllowed:
+        value.allowFilesystem && value.personalSkills && value.dangerousSkills,
+      profiles,
+    };
   } catch (error) {
     // 端口不可用、超时或取消都不能升级为“企业专家已加载”，也不能阻断启动。
     input.logger?.warn("Enterprise expert catalog unavailable", {

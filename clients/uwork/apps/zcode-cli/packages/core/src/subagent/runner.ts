@@ -768,7 +768,9 @@ function resolveAgentProfileByType(
   if (!requestedNormalized) return { availableAgentTypes, kind: "not_found" };
 
   const normalizedMatches = profiles.filter(
-    (candidate) => candidate.exactSelection !== true && normalizeAgentTypeForMatch(candidate.name) === requestedNormalized,
+    (candidate) =>
+      candidate.exactSelection !== true &&
+      normalizeAgentTypeForMatch(candidate.name) === requestedNormalized,
   );
   if (normalizedMatches.length === 1) {
     return { kind: "matched", profile: normalizedMatches[0] };

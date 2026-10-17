@@ -9,9 +9,13 @@ export function composeEnterpriseSubagentProfiles(input: {
   injected: readonly AgentProfile[];
 }): AgentProfile[] {
   const { outcome } = input;
-  if (!outcome?.managed) return [...input.injected, ...input.local, ...input.plugins, ...(outcome?.profiles ?? [])];
+  if (!outcome?.managed)
+    return [...input.injected, ...input.local, ...input.plugins, ...(outcome?.profiles ?? [])];
   if (!outcome.personalProfilesAllowed) return [...outcome.profiles];
-  const qualify = (profile: AgentProfile, origin: "user" | "project" | "plugin" | "runtime"): AgentProfile => ({
+  const qualify = (
+    profile: AgentProfile,
+    origin: "user" | "project" | "plugin" | "runtime",
+  ): AgentProfile => ({
     ...profile,
     name: `${PERSONAL_AGENT_PROFILE_PREFIX}${origin}:${profile.name}`,
     // runtime/插件自报 enterprise 或 built-in 不能制造准入豁免。
@@ -19,9 +23,11 @@ export function composeEnterpriseSubagentProfiles(input: {
     exactSelection: true,
   });
   return [
-    ...input.injected.map(profile => qualify(profile, "runtime")),
-    ...input.local.map(profile => qualify(profile, profile.source === "project" ? "project" : "user")),
-    ...input.plugins.map(profile => qualify(profile, "plugin")),
+    ...input.injected.map((profile) => qualify(profile, "runtime")),
+    ...input.local.map((profile) =>
+      qualify(profile, profile.source === "project" ? "project" : "user"),
+    ),
+    ...input.plugins.map((profile) => qualify(profile, "plugin")),
     ...outcome.profiles,
   ];
 }

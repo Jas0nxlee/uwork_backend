@@ -47,7 +47,11 @@ export const PERSONAL_AGENT_PROFILE_PREFIX = "personal:";
 
 /** 名称校验与实际解析共用一套规范化，保留前缀不能被 Unicode/分隔符变体绕过。 */
 export function normalizeAgentTypeForMatch(agentType: string): string | undefined {
-  const normalized = agentType.trim().normalize("NFKC").toLowerCase().replace(/[\p{White_Space}\p{Pd}_]+/gu, "");
+  const normalized = agentType
+    .trim()
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\p{White_Space}\p{Pd}_]+/gu, "");
   return normalized.length > 0 ? normalized : undefined;
 }
 

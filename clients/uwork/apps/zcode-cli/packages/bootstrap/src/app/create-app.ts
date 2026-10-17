@@ -220,7 +220,11 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
     const zcodeSubagentProfiles = zcodeSubagentProfileOutcome.profiles;
     // 企业专家只在受管模式加载：正文读取带前后准入，失败/拒绝不阻断启动，也不回退到本地同名。
     const enterpriseExpertOutcome = await loadEnterpriseExpertProfileOutcome({
-      required: Boolean(options.enterpriseToolAuthorization || options.enterpriseSkillsCatalog || options.enterpriseModelRelay),
+      required: Boolean(
+        options.enterpriseToolAuthorization ||
+        options.enterpriseSkillsCatalog ||
+        options.enterpriseModelRelay,
+      ),
       authorization: options.enterpriseToolAuthorization,
       catalog: options.enterpriseSkillsCatalog,
       logger,
