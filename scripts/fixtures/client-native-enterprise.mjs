@@ -583,7 +583,7 @@ await writeFile(
 );
 await writeFile(
   join(appRoot, "entry.cjs"),
-  `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,appPath:app.getAppPath(),helpFallbackPath:require('node:path').join(app.getAppPath(),'../../config/default.json'),dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
+  `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,appPath:app.getAppPath(),helpFallbackPath:require('node:path').join(app.getAppPath(),'../../config/default.json'),dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null,defaultProtocolRegistrationSuppressed:true,recentDocumentsClearSuppressed:true}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;app.clearRecentDocuments=()=>{};import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
 );
 // 未打包的 Main 会搜索开发环境文件；拷贝正式产物到隔离根，不能借源目录启动。
 const outSnapshot = await copyNativeOutSnapshot({
@@ -653,7 +653,7 @@ const meta = {
   identityInitialization:
     "email HTTP session encrypted with production credential/shared-store; no WeCom request",
   nativeBoundary:
-    "default URL protocol registration suppressed in owned launcher only; no deep-link acceptance claimed",
+    "default URL protocol registration and recent-document clearing suppressed in owned launcher only; no OS registration/recent-document acceptance claimed",
 };
 await writeFile(
   evidence + "/desktop-state.json",

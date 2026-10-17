@@ -18,6 +18,8 @@
 
 Native 沿用公开配置和全部 out 的独占不可变快照、真实 appPath/isPackaged、加密身份存储及原受控模型服务。登录初始化使用本地测试账号和真实 HTTP session，不声称企业微信 OAuth 验收。管理页登录资料仅在临时根以 0600 保存，供真实 DOM 登录使用；不写入 evidence 或 stdout，结束删除。
 
+独占 launcher 在导入正式 Main 前屏蔽默认 URL 协议注册及系统最近文档清理，避免测试改写现有桌面状态；记录两个屏蔽事实，不伪造 appPath/isPackaged。OS 注册、最近文档和正式安装包启动不包含于本轮 Native 功能验收。
+
 夹具选项 `UWORK_NATIVE_CLIENT_EXPERIENCE=enabled` 仅启用上述测试静态快照、临时浏览器登录资料及状态取证命令；不传给产品，不新增产品配置来源。此模式仍使用原创建配置、草稿、发布、限额与账务接口。只增加测试预算，避免夹具限额先耗尽掩盖功能结果。
 
 ## 验收顺序
