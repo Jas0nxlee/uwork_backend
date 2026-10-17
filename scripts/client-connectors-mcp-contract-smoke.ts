@@ -114,7 +114,7 @@ test(
   { timeout: 60000 },
   async (t) => {
     const root = resolve(
-      process.env.UWORK_CLIENT_PATH ?? "../uwork_backend-client",
+      process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
     );
     const load = (path: string) => import(pathToFileURL(join(root, path)).href);
     const { createUWorkBackendSession } = await load(

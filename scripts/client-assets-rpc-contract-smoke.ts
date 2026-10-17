@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 
 test("actual CLI catalog protocol preserves trusted workspace, trace and strict cancellation/response bounds", async () => {
   const root = resolve(
-    process.env.UWORK_CLIENT_PATH ?? "../uwork_backend-client",
+    process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
   );
   const load = (path: string) => import(pathToFileURL(join(root, path)).href);
   const { createProtocolEnterpriseSkillsCatalog } = await load(
