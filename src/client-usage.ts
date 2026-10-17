@@ -2,9 +2,13 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
 import { authenticate, requirePermission } from "./access.js";
-import { billingPeriod } from "./entitlements.js";
+import { billingPeriod, type Entitlements } from "./entitlements.js";
 import { now } from "./core.js";
-export function clientUsageRoutes(app: FastifyInstance, db: Db) {
+export function clientUsageRoutes(
+  app: FastifyInstance,
+  db: Db,
+  entitlements: Entitlements,
+) {
   app.get("/api/client/entitlement", async (req) => {
     const a = authenticate(db, req);
     requirePermission(a, "execute");
@@ -34,6 +38,7 @@ export function clientUsageRoutes(app: FastifyInstance, db: Db) {
       nextResetTime: null,
       status: s.starts_at <= now() && now() < s.ends_at ? "active" : "inactive",
       unit: "credits",
+      effectiveAllowance: entitlements.effectiveAllowance(a, "uwork"),
     };
   });
   app.get("/api/client/usage", async (req) => {

@@ -155,8 +155,26 @@ export function identityRoutes(
   });
   app.get("/api/auth/me", async (req) => {
     const actor = authenticate(db, req);
+    const member = db.get<{ source: string; external_id: string | null }>(
+      "SELECT source,external_id FROM members WHERE tenant_id=? AND user_id=?",
+      actor.tenantId,
+      actor.userId,
+    )!;
+    // 当前组织的本人资料才是投影事实，同名部门或客户端自报 ID 不能跨租户关联。
+    const department = actor.departmentId
+      ? (db.get<{ id: string; name: string }>(
+          "SELECT id,name FROM departments WHERE tenant_id=? AND id=?",
+          actor.tenantId,
+          actor.departmentId,
+        ) ?? null)
+      : null;
     return {
       user: db.get("SELECT id,email,name FROM users WHERE id=?", actor.userId),
+      membership: {
+        source: member.source,
+        externalId: member.external_id,
+        department,
+      },
       tenant: db.get(
         "SELECT id,name,source FROM tenants WHERE id=?",
         actor.tenantId,

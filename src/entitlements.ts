@@ -63,6 +63,102 @@ export class Entitlements {
   subscription(tenantId: string, time = now()) {
     return activeSubscription(this.db, tenantId, time);
   }
+  private quotaUsage(
+    actor: Actor,
+    application: string,
+    subscription: Subscription,
+    period: string,
+  ) {
+    const limits = [
+      {
+        subject_type: "tenant",
+        subject_id: actor.tenantId,
+        amount: subscription.credits,
+      },
+      ...this.db.all<{
+        subject_type: string;
+        subject_id: string;
+        amount: number;
+      }>("SELECT * FROM limits WHERE tenant_id=?", actor.tenantId),
+    ];
+    const ancestors = departmentsOf(
+      this.db,
+      actor.tenantId,
+      actor.departmentId,
+    );
+    const usage: { amount: number; used: number }[] = [];
+    for (const limit of limits) {
+      let condition = "",
+        args: string[] = [];
+      if (limit.subject_type === "member") {
+        if (limit.subject_id !== actor.userId) continue;
+        condition = " AND user_id=?";
+        args = [actor.userId];
+      } else if (limit.subject_type === "application") {
+        if (limit.subject_id !== application) continue;
+        condition = " AND application=?";
+        args = [application];
+      } else if (limit.subject_type === "department") {
+        if (!ancestors.includes(limit.subject_id)) continue;
+        const descendants = this.db
+          .all<{ id: string }>(
+            "SELECT id FROM departments WHERE tenant_id=?",
+            actor.tenantId,
+          )
+          .filter((department) =>
+            departmentsOf(this.db, actor.tenantId, department.id).includes(
+              limit.subject_id,
+            ),
+          )
+          .map((department) => department.id);
+        condition = ` AND department_id IN (${descendants.map(() => "?").join(",")})`;
+        args = descendants;
+      }
+      const used = this.db.get<{ used: number }>(
+        `SELECT coalesce(sum(CASE WHEN status='reserved' THEN reserved ELSE amount END),0) as used FROM ledger WHERE tenant_id=? AND period=? AND status IN ('reserved','settled','uncertain')${condition}`,
+        actor.tenantId,
+        period,
+        ...args,
+      )!.used;
+      usage.push({ amount: limit.amount, used });
+    }
+    return usage;
+  }
+  effectiveAllowance(actor: Actor, application: string, time = now()) {
+    const subscription = this.db.get<Subscription>(
+      "SELECT * FROM subscriptions WHERE tenant_id=?",
+      actor.tenantId,
+    );
+    if (!subscription) fail(402, "SUBSCRIPTION_INACTIVE", "订阅未生效或已过期");
+    const period = billingPeriod(
+      time,
+      subscription.starts_at,
+      subscription.metering,
+    );
+    const active =
+      subscription.starts_at <= time && time < subscription.ends_at;
+    const amountRemaining = active
+      ? Math.max(
+          0,
+          this.quotaUsage(actor, application, subscription, period).reduce(
+            (remaining, limit) =>
+              Math.min(remaining, limit.amount - limit.used),
+            subscription.credits,
+          ),
+        )
+      : 0;
+    return {
+      application,
+      period,
+      amountRemaining,
+      blocked: amountRemaining === 0,
+      reason: !active
+        ? ("subscription_inactive" as const)
+        : amountRemaining === 0
+          ? ("quota_exhausted" as const)
+          : null,
+    };
+  }
   reserve(
     actor: Actor,
     key: string,
@@ -87,57 +183,8 @@ export class Entitlements {
       )
         fail(409, "REQUEST_EXISTS", "请求已经处理或正在处理");
       const period = billingPeriod(now(), s.starts_at, s.metering);
-      const limits = [
-        {
-          subject_type: "tenant",
-          subject_id: actor.tenantId,
-          amount: s.credits,
-        },
-        ...this.db.all<{
-          subject_type: string;
-          subject_id: string;
-          amount: number;
-        }>("SELECT * FROM limits WHERE tenant_id=?", actor.tenantId),
-      ];
-      const ancestors = departmentsOf(
-        this.db,
-        actor.tenantId,
-        actor.departmentId,
-      );
-      for (const limit of limits) {
-        let condition = "",
-          args: string[] = [];
-        if (limit.subject_type === "member") {
-          if (limit.subject_id !== actor.userId) continue;
-          condition = " AND user_id=?";
-          args = [actor.userId];
-        } else if (limit.subject_type === "application") {
-          if (limit.subject_id !== application) continue;
-          condition = " AND application=?";
-          args = [application];
-        } else if (limit.subject_type === "department") {
-          if (!ancestors.includes(limit.subject_id)) continue;
-          const all = this.db
-            .all<{ id: string }>(
-              "SELECT id FROM departments WHERE tenant_id=?",
-              actor.tenantId,
-            )
-            .filter((d) =>
-              departmentsOf(this.db, actor.tenantId, d.id).includes(
-                limit.subject_id,
-              ),
-            )
-            .map((d) => d.id);
-          condition = ` AND department_id IN (${all.map(() => "?").join(",")})`;
-          args = all;
-        }
-        const used = this.db.get<{ used: number }>(
-          `SELECT coalesce(sum(CASE WHEN status='reserved' THEN reserved ELSE amount END),0) as used FROM ledger WHERE tenant_id=? AND period=? AND status IN ('reserved','settled','uncertain')${condition}`,
-          actor.tenantId,
-          period,
-          ...args,
-        )!.used;
-        if (used + amount > limit.amount)
+      for (const limit of this.quotaUsage(actor, application, s, period)) {
+        if (limit.used + amount > limit.amount)
           fail(402, "QUOTA_EXCEEDED", "可用额度不足");
       }
       const reservationId = id();

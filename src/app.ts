@@ -263,7 +263,7 @@ export async function createApp(options: AppOptions) {
   policyRoutes(app, db);
   clientRoutes(app, db);
   clientConsoleRoutes(app, db, runtime);
-  clientUsageRoutes(app, db);
+  clientUsageRoutes(app, db, entitlements);
   sandboxRoutes(app, db, sandbox);
   runtimeRoutes(
     app,

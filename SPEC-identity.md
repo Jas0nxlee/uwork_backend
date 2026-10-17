@@ -7,3 +7,5 @@
 边界：不创建生产企微应用，不沿用 WorkBuddy cookie。
 
 Cookie 写入的 Origin 校验与认证来源一致：只有 Bearer 认证可不携带 Origin；Basic/未知 Authorization 仍回退 Cookie，因此缺 Origin 时拒绝且不写入。无效 Bearer 不回退 Cookie，有 Origin 时仍必须匹配 PUBLIC_URL。
+
+`GET /api/auth/me` 保留原字段，增加只读 `membership: { source, externalId, department: { id, name } | null }`。成员与部门均由认证会话的当前 tenant/user 联合定位，不接受查询参数指定身份；相同部门 ID 在其他租户的记录不能参与关联。组织切换、部门调整在下一次读取立即反映，移除部门返回 null；未配置的职位等资料不凭空生成。只返回本人当前成员资料，不增加管理权限或泄露私有凭据。
