@@ -23,6 +23,8 @@ export type AgentProfileSource = "built-in" | "project" | "user" | "enterprise";
 export type AgentMemoryScope = "user" | "project" | "local";
 
 export interface AgentProfile {
+  /** 受管来源限定选择名不参与模糊别名匹配，避免旧企业名字变成个人选择。 */
+  exactSelection?: boolean;
   background?: boolean;
   color?: "red" | "blue" | "green" | "yellow" | "purple" | "orange" | "pink" | "cyan";
   description: string;
@@ -39,6 +41,14 @@ export interface AgentProfile {
   source: AgentProfileSource;
   systemPrompt: string;
   tools?: readonly string[];
+}
+
+export const PERSONAL_AGENT_PROFILE_PREFIX = "personal:";
+
+/** 名称校验与实际解析共用一套规范化，保留前缀不能被 Unicode/分隔符变体绕过。 */
+export function normalizeAgentTypeForMatch(agentType: string): string | undefined {
+  const normalized = agentType.trim().normalize("NFKC").toLowerCase().replace(/[\p{White_Space}\p{Pd}_]+/gu, "");
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 export interface AgentProfileParseDiagnostic {

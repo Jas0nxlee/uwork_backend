@@ -14,6 +14,8 @@ import { omitMcpServers, resolveTrustedOfficialCuaServerNames } from "../mcp-con
 import { resolveDefaultEmbeddedSearchBackend } from "./embedded-search-backend.js";
 import { getProjectMemoryRoot } from "./paths.js";
 import type { ZCodeAppOptions } from "./types.js";
+import { composeEnterpriseSubagentProfiles } from "../enterprise-subagent-profiles.js";
+import type { EnterpriseExpertProfileOutcome } from "../enterprise-experts.js";
 import {
   resolveRegistryOwnedModelSelection,
   resolveRegistryModelSelection,
@@ -42,6 +44,8 @@ export function resolveAppRuntimeConfig(input: {
   pluginRuntimeFeatures?: AgentRuntimeConfig["runtimeFeatures"];
   subagentOutputRootDir: string;
   subagentProfiles?: readonly AgentProfile[];
+  pluginSubagentProfiles?: readonly AgentProfile[];
+  enterpriseExpertOutcome?: EnterpriseExpertProfileOutcome;
   storageRoot?: string;
   workingDirectory: string;
   workspaceIdentity?: string;
@@ -171,7 +175,12 @@ export function resolveAppRuntimeConfig(input: {
         ...(input.builtInSubagentModelSelectionOverrides ?? {}),
         ...runtimeBuiltInModelSelectionOverrides,
       },
-      profiles: [...(options.runtimeConfig?.subagents?.profiles ?? []), ...subagentProfiles],
+      profiles: composeEnterpriseSubagentProfiles({
+        outcome: input.enterpriseExpertOutcome,
+        local: subagentProfiles,
+        plugins: input.pluginSubagentProfiles ?? [],
+        injected: options.runtimeConfig?.subagents?.profiles ?? [],
+      }),
     },
     memory: {
       cliStorageRoot,

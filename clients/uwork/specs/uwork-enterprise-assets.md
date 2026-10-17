@@ -135,6 +135,33 @@ sequenceDiagram
 
 Playbook, instruction kinds stay off the UWork client until an existing owner applies them; a manifest that still contains them is rejected by the Host before caching.
 
+### Expert Selection And Personal Profile Admission
+
+The expert loader returns a single-read outcome containing approved enterprise profiles, managed mode and the current personal prompt-file allowance. Managed personal user/project/plugin profiles require all three existing catalog facts: `personalSkills`, `dangerousSkills` and `allowFilesystem`. Missing required ports, denial, cancellation and failed catalog loading forbid personal fallback; an explicitly unmanaged catalog preserves standalone behavior. This applies the existing personal-skill restriction to unreviewed local subagent instruction files, without introducing a new backend permission or identity owner.
+
+The existing runtime-config composition remains the only profile merge point, including runtime-injected profiles. In managed mode, allowed personal choices use stable qualified names `personal:user:<name>`, `personal:project:<name>`, `personal:plugin:<name>` or `personal:runtime:<name>`. They cannot retain a forged enterprise/built-in source. Approved enterprise names remain unchanged and reserve the entire `personal:` namespace, using the same normalized comparison as the Core name resolver. Personal qualified IDs require exact selection; fuzzy lookup cannot turn a historical enterprise spelling into a personal choice. Built-in profiles remain owned by the existing Core registry.
+
+This is a conservative managed-mode migration: old plain personal aliases and old personal child IDs are not silently rebound. Unmanaged CLI names stay unchanged. Existing personal files and memory directories are preserved; the new qualified identity does not claim to migrate old memory paths. No historical messages are erased, no allow decision or owner key is persisted, and no permanent name blacklist is created. An enterprise expert revoked from the current catalog cannot be replaced by a same-name personal profile, including when personal profiles are explicitly permitted.
+
+The existing Core child-runtime entry rechecks the resolved personal profile through the same private authorization port before content/memory access. Every bound/inherited/override child model request rechecks `personal_agent` at its model entry, including child resume and later turns; the Host reads current execution policy and the three flags and rejects missing policy. Only the current identity binding may be retained within one operation, never an allow cache. Already admitted/dispatched requests are not retroactively rolled back. Enterprise running-runtime profile snapshots retain their existing version semantics; new runtimes reload current approved versions.
+
+```mermaid
+sequenceDiagram
+  participant C as Bootstrap single catalog read
+  participant R as Existing runtime-config/registry
+  participant A as Existing child runtime
+  participant H as Private Host policy owner
+  C-->>R: Approved experts and personal allowance
+  R->>R: Qualify personal names and reject forged source
+  R->>A: Resolve an exact personal or approved enterprise choice
+  A->>H: Current personal_agent admission before personal content
+  A->>H: Recheck on every child model request
+  H-->>A: Current identity and published policy decision
+  A->>A: Denial stops before model dispatch; no fallback
+```
+
+Acceptance includes final composition, reserved-name normalization variants, missing/denied/unmanaged outcomes, local/project/plugin/runtime provenance, explicit personal selection and active-runtime revocation. Actual packaged-CLI regression must reproduce revoked enterprise → same-name personal fallback as RED, then prove no such child dispatch after repair, with personal disabled and explicitly allowed; current v1/v2 accepted history remains intact.
+
 ### Connector Owner
 
 Console evidence (`evidence/workbuddy/`, this round): the connector page declares WorkBuddy support with a 新建连接器 affordance, an allow-list of tools and a server-side credential reference; the remote address and credential never appear in a client payload. The backend therefore keeps the remote MCP session: `POST /api/client/connectors/:id/rpc` re-authorizes on every dispatch, injects the vault credential, keeps the remote session encrypted and returns a masked descriptor (`transport`, `description`, gateway path) only.

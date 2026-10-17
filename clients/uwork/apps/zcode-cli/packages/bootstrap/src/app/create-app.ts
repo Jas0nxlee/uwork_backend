@@ -21,7 +21,7 @@ import { createPopplerPdfDocumentAdapter } from "@zcode/adapters/pdf";
 import { createNodeSessionMailboxAdapter } from "@zcode/adapters/mailbox";
 import { createNodeContextSourceAdapter } from "@zcode/adapters/context";
 import { createConfiguredSkillPort } from "../skill-runtime.js";
-import { loadEnterpriseExpertProfiles } from "../enterprise-experts.js";
+import { loadEnterpriseExpertProfileOutcome } from "../enterprise-experts.js";
 import { createRuntimeAssetGuards } from "./enterprise-runtime-assets.js";
 import { createMcpAdapter, withEnterpriseConnectorServers } from "@zcode/adapters/mcp";
 import {
@@ -219,7 +219,8 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
     });
     const zcodeSubagentProfiles = zcodeSubagentProfileOutcome.profiles;
     // 企业专家只在受管模式加载：正文读取带前后准入，失败/拒绝不阻断启动，也不回退到本地同名。
-    const enterpriseExpertProfiles = await loadEnterpriseExpertProfiles({
+    const enterpriseExpertOutcome = await loadEnterpriseExpertProfileOutcome({
+      required: Boolean(options.enterpriseToolAuthorization || options.enterpriseSkillsCatalog || options.enterpriseModelRelay),
       authorization: options.enterpriseToolAuthorization,
       catalog: options.enterpriseSkillsCatalog,
       logger,
@@ -240,7 +241,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
     const pluginSubagentProfiles = loadPluginAgentProfiles({
       logger,
       plugins: pluginOutcome.plugins,
-      reservedProfileNames: [...zcodeSubagentProfiles, ...enterpriseExpertProfiles].map(
+      reservedProfileNames: [...zcodeSubagentProfiles, ...enterpriseExpertOutcome.profiles].map(
         (profile) => profile.name,
       ),
       modelSelectionOverrides: zcodeSubagentProfileOutcome.pluginAgentModelSelectionOverrides,
@@ -251,12 +252,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       workingDirectory,
     });
     // 用户目录已在 loader 前完成原地迁移；不能给项目/插件旧身份加内存兼容旁路。
-    // 企业 profile 放最后：同名时企业绑定优先，本地/项目文件不能覆盖企业专家。
-    const subagentProfiles = [
-      ...zcodeSubagentProfiles,
-      ...pluginSubagentProfiles,
-      ...enterpriseExpertProfiles,
-    ];
+    // 最终合并统一在 runtime-config 完成，包含注入项，不能给个人别名留旁路。
     const ownsSessionStore = options.sessionStore === undefined;
     const sessionStore =
       options.sessionStore ?? (await openStartupSessionStore(configResult, startupTimer));
@@ -278,7 +274,9 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         builtInSubagentModelSelectionOverrides:
           zcodeSubagentProfileOutcome.builtInModelSelectionOverrides,
         subagentOutputRootDir: join(cliStorageRoot, "agents"),
-        subagentProfiles,
+        subagentProfiles: zcodeSubagentProfiles,
+        pluginSubagentProfiles,
+        enterpriseExpertOutcome,
         storageRoot,
         workingDirectory,
         workspaceIdentity: options.runtimeConfig?.memory?.workspaceIdentity,
