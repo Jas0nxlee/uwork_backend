@@ -357,16 +357,51 @@ await api(p + "/wecom", "PUT", {
 await api(p + "/members/" + member.id + "/wecom", "PUT", {
   externalId: "synthetic-wecom-user-a",
 });
-await api(p + "/limits", "PUT", {
+const initialLimitAmounts = {
+  department: dynamicWorkflowMode === "alwaysOn" ? 3000000 : 200000,
+  member: dynamicWorkflowMode === "alwaysOn" ? 3000000 : 150000,
+};
+const departmentLimitAcknowledgement = await api(p + "/limits", "PUT", {
   subjectType: "department",
   subjectId: dA.id,
-  amount: 200000,
+  amount: initialLimitAmounts.department,
 });
-await api(p + "/limits", "PUT", {
+const memberLimitAcknowledgement = await api(p + "/limits", "PUT", {
   subjectType: "member",
   subjectId: member.id,
-  amount: 150000,
+  amount: initialLimitAmounts.member,
 });
+let workflowTestLimits;
+if (dynamicWorkflowMode === "alwaysOn") {
+  const limits = await api(p + "/limits");
+  const department = limits.find(
+    (row) => row.subject_type === "department" && row.subject_id === dA.id,
+  );
+  const memberLimit = limits.find(
+    (row) => row.subject_type === "member" && row.subject_id === member.id,
+  );
+  if (
+    departmentLimitAcknowledgement.ok !== true ||
+    memberLimitAcknowledgement.ok !== true ||
+    department?.amount !== initialLimitAmounts.department ||
+    memberLimit?.amount !== initialLimitAmounts.member
+  )
+    throw Error("Native workflow test limits did not match the limits API");
+  workflowTestLimits = {
+    at: new Date().toISOString(),
+    fixtureName,
+    mode: dynamicWorkflowMode,
+    configuredVia: "tenant limits PUT and GET APIs",
+    verifiedByGet: true,
+    department: { subjectId: dA.id, amount: department.amount },
+    member: { subjectId: member.id, amount: memberLimit.amount },
+  };
+  await writeFile(
+    join(evidence, "initial-test-limits.json"),
+    JSON.stringify(workflowTestLimits, null, 2),
+    { mode: 0o600 },
+  );
+}
 const bobPassword = randomBytes(24).toString("hex");
 await api(p + "/members", "POST", {
   email: "journey-b@example.test",
@@ -529,6 +564,7 @@ const meta = {
   modelId: model.id,
   mainEntrySha256,
   dynamicWorkflowMode: dynamicWorkflowMode ?? null,
+  ...(workflowTestLimits ? { workflowTestLimits } : {}),
   copiedProductionMain: true,
   supplierOrigin: `http://127.0.0.1:${upstream.address().port}`,
   tenantId: owner.tenantId,
@@ -909,7 +945,20 @@ rl.on("line", async (line) => {
       await api(p + "/members/" + member.id, "PATCH", { role: c.value });
     else if (c.op === "revokeIdentity")
       await api("/api/auth/logout", "POST", undefined, identity);
-    else if (c.op === "disableModel")
+    else if (c.op === "renameModel") {
+      if (typeof c.name !== "string" || !c.name.trim() || c.name.length > 200)
+        throw Error("Invalid fixture model name");
+      const rows = await api(p + "/models");
+      const current = rows.find((row) => row.id === model.id);
+      if (!current) throw Error("Owned fixture model missing");
+      await api(p + "/models/" + model.id, "PUT", {
+        ...current.data,
+        name: c.name.trim(),
+        scope: current.scope,
+        enabled: current.enabled,
+        revision: current.revision,
+      });
+    } else if (c.op === "disableModel")
       await api(p + "/models/" + model.id, "DELETE");
     else if (c.op === "stats") {
       console.log(

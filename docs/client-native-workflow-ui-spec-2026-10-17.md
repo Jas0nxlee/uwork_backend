@@ -34,3 +34,13 @@ Native agents 菜单 → 工作流页签 → Run → 原 V4 创建会话/启动 
 原生目录选择器若因 macOS 锁屏不可操作，保留该阻断，不绕过锁屏。可使用正式 Main 已支持的 `--open-workspace <真实目录>` 冷启动路径；路径只能是所拥有夹具根内新建的空目录，不能预写 settings/store 冒充 UI 选择。运行中的同参数 second-instance 若停在 renderer-ready 队列，只记录实际观察，不把已接收参数当作工作区已打开。此启动入口不替代原生选择器或深链确认验收。
 
 测试快照逐目录使用真实 readdir(withFileTypes)，创建新 owned app/out；常规文件以最多 8 个并发、COPYFILE_FICLONE|COPYFILE_EXCL 复制。保留全部文件（含 map 和隐藏文件）、空目录；符号链接不跟随，按原 fs.cp 缺省语义将相对目标解析到源父目录。拒绝特殊文件和源树内目标。首次失败后停止新 job，等待所有已发 job 完成再报错，避免清理与写入竞争。Native 启动前对全部常规文件验证源/目标字节 SHA，对符号链接验证语义；验证失败不能启动 Main。此工具只用于测试快照，不修改产品构建或分发语义。
+
+## 新 CLI/Host 的父结果通知追加正向
+
+旧 `client-native-workflow-ui-final-20261017` 在原测试限额下保留 9 条真实账本和两次父通知 402；该证据保持原样，不能用后续成功覆盖，也不能改写旧 uncertain。
+
+后续使用新独占 profile `client-native-workflow-label-final-20261017`，先等父任务明确给出正式 CLI/Main/Host/Renderer SHA，再读取、验证和复制 out。测试必须实际消费新 CLI/Host 的严格 Provider 合同，不能用旧 a684 结果代替本轮代表性复测。
+
+仅夹具 `alwaysOn` 模式的初始成员和部门测试限额改为各 3,000,000，仍经真实后台 `PUT /limits` 配置，再由 `GET /limits` 核对对应 subject 的实际 amount；实际配置、时间和 API 确认写到新 profile 的 `initial-test-limits.json` 与 metadata。没有 workflow 模式时，原成员 150,000 / 部门 200,000 不变。不新增万能 API、改产品额度逻辑、重置账本或读取父进程内存秘密。
+
+新 Native 通过真实 SaveWorkflow 批准、工作流中枢 Run、运行中 UI Cancel、原会话冷恢复同 run；完成步骤仍零重跑。除了 run 到 completed，还必须看到原父会话实际收到本次结果消息、完成后继模型响应并在 UI 呈现，供应商正文与当前账本相互对应，不能把运行详情中固定的“结果以后台消息投递”文案当作送达证据。新取消请求已经到供应商时继续保留新 uncertain，核对没有因“正向成功”被抹去。DOM/AX、截图、同版 SHA、模型正文、账本和清理均落新证据目录；锁屏原生选择器、正式生产安装包灰度来源及外部供应商边界保持未验收。
