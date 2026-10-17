@@ -45,3 +45,7 @@ Agent 引用的 connector 必须已审核发布、supportedClients 含 agent、�
 run_tools 的 kind/dispatched/asset_id/asset_version/remote_name 是持久化审计合同。真正 HTTP 分派前在写事务中登记 dispatched；同 run/callId 仅确认成功时回放结果，未知结果不重发。取消通知只能尽力发送，断开连接不是远端已停止的证据：分派后任何未确认结果均保留 uncertain，父运行 failed/REMOTE_EFFECT_UNCONFIRMED；强制重启保留 uncertain/PROCESS_RESTARTED。本地会话释放不等于远端 session 删除或业务副作用回滚，远端回收仍由服务提供方负责。
 
 参考：[MCP SDK Client](https://ts.sdk.modelcontextprotocol.io/v2/clients/connect)、[MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports)、[MCP Cancellation](https://modelcontextprotocol.io/specification/2025-03-26/basic/utilities/cancellation)。
+
+## 通知业务确认
+
+通用 Webhook 维持 HTTP 2xx 接受语义；`type=feishu` 另按[官方自定义机器人合同](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)要求 HTTP 2xx、64 KiB 内合法 JSON 且数字 `code=0`。非零业务码、缺失/非法 code、非 JSON 或超限均走原 DELIVERY_FAILED 重试和上限，不因 HTTP 200 误记 sent；冗余 StatusCode 不覆盖业务 code，远端 msg 不进入错误记录。该确认只表示接收端接受，不证明用户已读或真实账号验收。

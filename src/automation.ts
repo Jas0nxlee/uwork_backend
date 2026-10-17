@@ -7,7 +7,7 @@ import type { Vault } from "./vault.js";
 import { authenticate, requirePermission, currentActor } from "./access.js";
 import { audit } from "./events.js";
 import { fail, id, now, text } from "./core.js";
-import { safeRequest } from "./network.js";
+import { readJson, safeRequest } from "./network.js";
 
 export const scheduleSchema = z.discriminatedUnion("type", [
   z
@@ -201,12 +201,17 @@ export class AutomationWorker {
           },
           this.allowPrivate,
         );
-        try {
-          if (response.statusCode < 200 || response.statusCode >= 300)
-            throw new Error("delivery rejected");
-        } finally {
-          await response.close();
-        }
+        if (target.type === "feishu")
+          z.object({ code: z.literal(0) }).parse(
+            await readJson(response, 65536),
+          );
+        else
+          try {
+            if (response.statusCode < 200 || response.statusCode >= 300)
+              throw new Error("delivery rejected");
+          } finally {
+            await response.close();
+          }
         this.db.run(
           "UPDATE deliveries SET status='sent',attempts=attempts+1,error_code=NULL WHERE id=?",
           d.id,
