@@ -49,6 +49,18 @@ sequenceDiagram
 
 The scenes SWR resource and plugin-order hook bind derived values to the existing base identity service and view revision. Identity changes synchronously hide old data, invalidate late reads and separate deduplication scopes. A managed failure does not preserve a previous tenant's scene/order. Deliberate published empty data is distinct from unsupported/unavailable; unmanaged local behavior remains independent. These are disposable display projections, never execution authorization.
 
+### Scene resource lifetime during navigation
+
+The existing SWR cache owns scene data shared by consumers with the same service, cache provider and identity/publication scope. Unmounting a draft recommendation or navigating between pages is not an owner invalidation: it must neither erase another consumer's data nor leave a remounted automation page empty inside the ten-minute deduplication interval. The last consumer may unmount and remount under the same scope without changing that rule.
+
+Actual owner, identity revision, publication version or availability changes must still hide the old key immediately and retire its cached data. A result from the retired scope, including a late failure, cannot replace the current scope. This also applies when the scope changes while no scene consumer is mounted. Keep SWR as the data owner; any shared lifetime bookkeeping may store only scope/key metadata, never another accepted scene cache. Do not fix navigation by disabling deduplication or adding timed retries.
+
+Only enabled readers contribute to per-scope subscription bookkeeping. The last reader retires data and SWR request-deduplication markers together; clearing data with revalidation disabled leaves a completed old request that a remount cannot consume after mutation invalidation. A microtask recheck permits same-commit handoff and StrictMode to register the replacement reader before retirement. This bookkeeping contains no scene values.
+
+Regression coverage uses actual React/SWR consumers: two readers with one unmounting; all readers unmounting and remounting; same-commit handoff and StrictMode; publication/owner changes and same-owner logout with a held old response; scope changes without readers; and current-scope failure. Browser verification uses an isolated localhost fixture and browser profile, not the running Native profile. Its Vite root/envDir/cache and Chrome/CDP/BH_HOME are owned temporary directories. The browser runner accepts an explicit Chrome executable as its third argument on other platforms; this round validates macOS only.
+
+Run from the client root with `node packages/ui/test/clientScenesResource.e2e.mjs <new-owned-evidence-directory> [chrome-executable]`. The evidence directory must be new so prior RED/Native evidence is never overwritten.
+
 Main's window/child Help and trace projection, tracing epochs, and CLI reservation/turn-context changes are separate owners' implementation slices. They consume the shared DTO and existing identity getter; this slice does not modify Main IPC or CLI protocol. Managed Help never falls back to old anonymous services or built-in cloud feedback. Desktop flags do not authorize execution or enable packaged dynamic workflows.
 
 ## Unified feedback entry and legacy egress

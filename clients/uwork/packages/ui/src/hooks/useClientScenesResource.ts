@@ -10,7 +10,13 @@ const CLIENT_SCENES_DEDUPING_INTERVAL_MS = 10 * 60 * 1000;
 const EMPTY_SCENES: ClientSceneConfig[] = [];
 const serviceAuthorityIds = new WeakMap<IClientScenesService, number>();
 let nextServiceAuthorityId = 1;
-const visibilityAuthorities = new WeakMap<IClientScenesService, WeakMap<object, object>>();
+interface ClientScenesResourceAuthority {
+  readers: Map<string, number>;
+}
+const visibilityAuthorities = new WeakMap<
+  IClientScenesService,
+  WeakMap<object, ClientScenesResourceAuthority>
+>();
 let visibilityRecovery: ReturnType<typeof createClientScenesVisibilityRecovery> | null = null;
 
 function getServiceAuthorityId(service: IClientScenesService): number {
@@ -22,15 +28,18 @@ function getServiceAuthorityId(service: IClientScenesService): number {
   return next;
 }
 
-function getVisibilityAuthority(service: IClientScenesService, cache: object): object {
+function getVisibilityAuthority(
+  service: IClientScenesService,
+  cache: object,
+): ClientScenesResourceAuthority {
   let cacheAuthorities = visibilityAuthorities.get(service);
   if (!cacheAuthorities) {
-    cacheAuthorities = new WeakMap<object, object>();
+    cacheAuthorities = new WeakMap<object, ClientScenesResourceAuthority>();
     visibilityAuthorities.set(service, cacheAuthorities);
   }
   const existing = cacheAuthorities.get(cache);
   if (existing) return existing;
-  const authority = {};
+  const authority: ClientScenesResourceAuthority = { readers: new Map() };
   cacheAuthorities.set(cache, authority);
   return authority;
 }
@@ -90,15 +99,28 @@ export function useClientScenesResource(
     },
   );
 
-  useEffect(
-    () => () => {
-      // service 实例跨登录仍稳定；失效的是原 owner 的显示投影，不能留给下一身份复用。
-      void mutate([CLIENT_SCENES_RESOURCE_KEY, authorityId, scope], undefined, {
-        revalidate: false,
+  useEffect(() => {
+    if (!enabled) return;
+    const readers = visibilityAuthority.readers;
+    readers.set(scope, (readers.get(scope) ?? 0) + 1);
+    return () => {
+      const remaining = (readers.get(scope) ?? 1) - 1;
+      if (remaining > 0) {
+        readers.set(scope, remaining);
+        return;
+      }
+      readers.delete(scope);
+      // 同一提交中的重挂/StrictMode 可能马上注册新 reader；不能由旧组件清掉共享数据。
+      queueMicrotask(() => {
+        if (readers.has(scope)) return;
+        // 只在最后一个 reader 退休时清理原 scope。revalidate=false 会留下 FETCH 去重标记，
+        // 导致新页面复用已被 mutation 退休的旧 promise，十分钟内既无数据也不重新请求。
+        void mutate([CLIENT_SCENES_RESOURCE_KEY, authorityId, scope], undefined, {
+          revalidate: true,
+        });
       });
-    },
-    [authorityId, mutate, scope],
-  );
+    };
+  }, [authorityId, enabled, mutate, scope, visibilityAuthority]);
 
   useEffect(() => {
     if (!enabled) return;
