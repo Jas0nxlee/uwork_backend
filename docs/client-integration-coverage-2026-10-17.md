@@ -134,3 +134,19 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 首轮测试观测器错误要求 ISO fetchedAt，实际后台返回 Date.now 数字，因此旧 60 条拒绝收据和部分恢复 GREEN 保留；新增真实 createApp TCP 三阶段 RED→GREEN，13 单测及独立真实 HTTP 回归后另起 profile 才通过完整 Native。修复只在测试层，产品源码和产物保持原候选。最终主后台 health200/PID37266、9 表哈希、7 静态资产和外部 checkout 均不变，未重新部署。
 
 会话分享的后续[只读计划](../evidence/client-native-sharing-readonly-20261018/plan.md) 明确：自有服务当前只有分享准入/配置，没有准备、确认发布和预览存储 API；此前 299 HTTP 是外部旧服务的本机替身。客户端按钮和发布 client 仍依赖旧 OAuth，不能只换 URL/token 或解除 gate 即声称完成。企业内认证访问、外部公开链接或关闭入口的产品选择已询问用户，未决定前保留当前隐藏状态。
+
+## 当前入口适用性核对（2026-10-18，只读）
+
+[技能入口核对](../evidence/client-native-skill-copy-readonly-20261018/plan.md) 确认 `copyToCommon` / `removeFromCommon` 目前没有产品 UI caller；两语言遗留文案不能作为菜单存在的证据。它们保留现有 service/真实 FS 验证，Native UI 项为不适用。现有“导入→直接复制→当前项目”调用 `settingsSyncService.importSelected`，项目行 Trash 调用 `deleteSkill`，是另两条真实入口；项目目标、跨项目隔离与三门撤权另以独占 Native 切片验收，不能据此把前两个 legacy RPC 勾为 UI 成功。
+
+[企业选择核对](../evidence/client-native-org-switch-readonly-20261018/plan.md) 确认已登录 Badge 只有同步、网关设置和退出，没有热切换企业入口；登录页 radio 仅持久化登录应用偏好。后台 `/api/auth/switch`、偏好 A→B→A 与实际认证主体切换分开记录。拟补偏好、退出、失败和冷恢复，不能替代真实企微或多企业认证成功。
+
+[商店与 offPeak 核对](../evidence/client-native-store-readonly-20261018/plan.md) 确认公开分类排序有真实 caller，但个人/企业目录不走相同分类排序，不能用两条个人资源替代公开商店验收。旧套餐 provider 的配置字符串没有当前 DI caller；当前 provider 固定关闭 offPeak，新建入口被 gate。存量任务的 ticket/status/settle 路径仍存在，不能据此宣布整个领域均为死代码，也不使用会代理真实付费上游的 mock gateway 进行本机测试。
+
+本机 IORegistry 于北京时间 2026-10-18 01:24 实收 ScreenIsLocked/OnConsole 均为 true，证据为 [console-state.json](../evidence/client-platform-local-boundary-20261018/console-state.json)。这只说明该时点状态，不作为历史阻断的追溯原因；本轮没有尝试解锁或系统输入，系统选择器、剪贴板、安装注册和三平台发行验收仍独立保留。上述三份入口核对都是源码审计，不是新增 Native 成功记录。
+
+## 项目范围技能追加验收（2026-10-18）
+
+[真实项目 Copy/Delete 联测](client-native-project-skills-test-2026-10-18.md) 已通过：选好技能后撤权再提交拒绝、恢复后 Copy 的字节/模式、W2 无 W1 技能且返回 W1 恢复原行、三门独立撤权后的真实确认拒绝，以及取消/允许删除。10阶段文件与账本断言、8次真实已发布权限回读通过，2个本机初始化请求与原账本零增量。未提交的驱动 attempt1 和 AX 快捷键名误判保留原 SHA 归档，成功参考是实际 attempt2，不计产品失败或 UI 阻断。
+
+16个自有 PID、4端口与专属 BH 全闭；私有 R 因 fileproviderd 的8个写句柄保留，不声称优雅 fixture close 或根目录已删除。572项源/产物/历史保护、252项本轮证据已封存。主 health200/PID37266、9表与原静态资源哈希均未变。当前生产业务源/产物未修改，两个新工具只属于测试层：受限正式第二实例工作区入口、完整受信候选清单复制器；后者已独立验证6,659文件/138,785,047字节的三方哈希，未用于替换本轮13,268文件完整快照，也不以冷热缓存不同的耗时宣称提速倍数。企业登录应用偏好的下一独占切片继续，真实企微等排除项保持。
