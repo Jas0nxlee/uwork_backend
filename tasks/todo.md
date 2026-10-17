@@ -84,3 +84,5 @@
 - [x] G04c 指定 Native 登录应用偏好 A/B、真实退出、跳过重开、未配置应用失败与冷恢复；修复旧失败提示残留，新正式产物12阶段/4次实际503通过，11纯测试/23共享UI及完整client gates通过。旧基线与新run各自封存，完整企微/多企业认证仍未验收；见 `docs/client-native-org-preferences-test-2026-10-18.md`。
 - [x] G05d 当前 offPeak 关闭时的真实 action 导航、scheduled-only、原空白composer/工作区保留、标准定时模板打开及取消；三次只读任务库与模型/账本零增量，113工件封存。未观察独立eligibility RPC，不替代启用创建或存量ticket/status/settle；清理和保留根目录边界见 `docs/client-native-offpeak-disabled-test-2026-10-18.md`。
 - [x] G04d 正式新CLI与真实公开目录46项的Native分类/类内排序：草稿不生效、发布后两mode独立顺序、ghost缺失、搜索对照及null恢复；补修自定义CA移除默认根问题，Source严格TLS与正式单证书目录复测通过。完整12,972文件树、零Native模型/账本增量及13PID/5端口清理边界见 `docs/client-native-public-store-test-2026-10-18.md`；公司/个人空库存、Featured/已安装正向、身份迟到及外部/平台项不冒领。
+- [x] G04e 同页真实私有配置 pending 保留P→约10s超时清旧D→正常读取恢复P；退出时关闭新在途读取，恢复传输后63次/31,570ms旧排序无回灌。53条观察记录、11份模型/账本快照零Native增量；含正常scope失效，不冒称独立catch、直接插件版本交付或成功晚到。见 `docs/client-native-configuration-lifecycle-test-2026-10-18.md`。
+- [x] G07c Native 自有文件正常预览、右键添加到聊天、真实按键移除引用并保留非空草稿；63字节/权限/hash不变，无模型发送。路径由实际绝对文件行、当前工作区和唯一相对mention共同核对，不替代正文进入模型或FS撤权竞态；清理及保留根目录边界见同报告。
