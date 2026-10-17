@@ -1,6 +1,6 @@
 # 实现与验收台账
 
-2026-10-15，Asia/Shanghai。构建结果代表本地自有实现，不代表 WorkBuddy 完整服务端复现、生产上线或外部供应商批准。
+2026-10-17，Asia/Shanghai（历史分轮证据保留原日期）。构建结果代表本地自有实现，不代表 WorkBuddy 完整服务端复现、生产上线或外部供应商批准。
 
 | 模块                       | 实现位置                                                            | 本轮证据                                                                                                                                  | 边界                                                                                                                         |
 | -------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -21,7 +21,7 @@
 
 自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run ledger:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts scripts/client-policy-contract-smoke.ts scripts/client-assets-contract-smoke.ts scripts/client-assets-host-contract-smoke.ts scripts/client-assets-rpc-contract-smoke.ts`，共 6 项，另加 `scripts/client-connectors-mcp-contract-smoke.ts` 的连接器闭环，使用真实适配源码和受控企微 provider/本机 HTTP，未调用真实企业凭据。
 
-自动化结果：后端 224 项测试通过，0 失败/跳过/取消（第五批新增初始化失败恢复、模型目录与管理、网关错误/终态/崩溃/准入原子性，以及核实/事件/通知/调度/评测边界回归）；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，前轮依赖审计 0 个已知漏洞。UWork 适配仓库此前 services 233 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。本轮后端真实 TCP、磁盘库、Docker、浏览器及安全负面场景的独立记录见 `docs/backend-system-test-2026-10-15.md`；后续记录见 `docs/live-business-test-2026-10-15.md`、`docs/live-more-test-2026-10-15.md`、`docs/live-third-test-2026-10-16.md`、`docs/live-fourth-test-2026-10-16.md` 和 `docs/live-fifth-test-2026-10-16.md`；本轮没有重复声明客户端平台验收。
+自动化结果：后端 232 项测试通过，0 失败/跳过/取消（第六轮补齐 Cookie Origin、通知业务确认与 64 KiB 边界、Agent 版本冻结及 Session 串行/隔离；前五轮回归保留）；类型检查覆盖生产、测试和验证脚本，Lint/格式/生产构建通过，前轮依赖审计 0 个已知漏洞。UWork 适配仓库此前 services 233 项、CLI core 60 项与跨源码十个脚本共 12 项通过；精确 Node 24.14.0/pnpm 10.33.2 的 root/CLI 类型、严格测试类型、格式和架构检查（0 violations）通过。Root Lint 为 114 warnings/0 errors；CLI Lint 14 个任务成功、0 errors，17 个范围内包中 3 个未定义 lint，已有 warnings 如实保留。根 frozen install 重验成功，根/嵌套锁摘要不变。CLI 是依赖父仓库共享包的 private 子工作区，正式发布使用 root workspace 构建；不把嵌套目录宣称为独立源码安装项目。跨源码/组件测试不能代替真实企业与已安装平台验收。本轮后端真实 TCP、磁盘库、Docker、浏览器及安全负面场景的独立记录见 `docs/backend-system-test-2026-10-15.md`；后续记录见 `docs/live-business-test-2026-10-15.md`、`docs/live-more-test-2026-10-15.md`、`docs/live-third-test-2026-10-16.md`、`docs/live-fourth-test-2026-10-16.md`、`docs/live-fifth-test-2026-10-16.md` 和 `docs/live-sixth-test-2026-10-17.md`；本轮没有重复声明客户端平台验收。
 
 Host 准入：独立适配副本中的 CLI 使用现有 PermissionService 承载不可由项目/yolo/Hook/用户审批覆盖的企业裁决端口，反向 RPC 绑定当前连接和工作区。Host 每次向真实后端查询当前订阅、渠道和安全策略；私有身份代际、共享会话修订、issuer 与配置指纹阻止退出/撤权/换端点后的迟到允许。已进入受管模式的 Host 遇到配置消失仍拒绝，显式 UCAS 保留旧行为。原生前台/后台进程另行准入；受管 HTTP 强制手工跳转与公网出口，并逐跳裁决目标域名。拒绝会发布工具终止错误。
 
@@ -102,3 +102,5 @@ REA：此前已复用 55 份页面和发布脚本证据并对 automation-fL5mZb_
 第四批补测完成多租户切换、设备轮换/批量退出、并发最后 owner 与限流持久化、部门迁移/祖先作用域及策略交集。修复 Host 同步跨身份混用、取消后继续应用及迟到响应/旧下载版本问题，并保护草稿之外的当前发布分类引用，阻止失效历史分类重发布或重新启用。独立磁盘/TCP 回归及当前主实例五组实际检查通过；仅通过 API 解除前批两条停用测试资产的旧引用，原模型/Agent/安全配置不变，未新增真实模型生成或计量。
 
 第五批补测修复初始化后随机密码遗失、失效凭据模型仍被列出、SSE 错误被视为成功、DONE 后继续读取，以及派发前存储失败残留预占。新增回归均先复现后通过，模型管理独立生产构建 HTTP 矩阵 65/65；当前主实例已备份更新，原模型/Agent v4/安全配置保持不变。两次真实供应商图像与思考参数请求均得到预期基础结果，新增 414 内部 Credit，原 uncertain 账目未处理。按规格审计补齐五组有限边界：人工核实金额/状态/并发/权限与跨租户、事件首写/隔离/字段、通知 pending 磁盘重启/截止/Feishu 载荷、锁定 Cron 库夏令时 UTC 投影、评测数量/长度/Unicode/空值/失败评分。后几组仅受控本地协议与显式测试时钟，无新增产品缺陷、真实通知账号或 DST 墙钟验收。详情见第五批报告；已排除外部服务与 T13c6/T13d 等项目级验收继续保留。
+
+第六轮按现行模块规格与具名命令逐项复核：当前范围 116/116 个公开操作实际成功、17 组业务断言通过；15 个企微/网盘操作排除且无请求，外部 MCP 未连接，受控本机 MCP 仍测试。实际生产界面 26 视图、139 有名检查与四尺寸通过，十个专用 Docker 场景、七项严格网络检查通过；独立锁定安装成功、锁文件不变、当前依赖审计 0 漏洞。修复非 Bearer 头借 Cookie 绕过 Origin，以及飞书 HTTP200 业务失败被误记 sent；232 项测试、类型/Lint/格式/台账/构建通过，独立审查无阻断。主实例已备份更新并通过实际认证模型目录探测，原模型/Agent v4/安全配置/账本不变，本轮付费生成与新增 Credit 为0。详细范围、原始中断和清理边界见第六轮报告；项目级与排除外部项不据此关闭。
