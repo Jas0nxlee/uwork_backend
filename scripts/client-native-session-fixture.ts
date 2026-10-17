@@ -67,6 +67,14 @@ export async function liveFixture(
   ];
   let fullCleanupInstalled = false;
   const ownedCliCleanups: (() => Promise<void>)[] = [];
+  const cliProcesses: {
+    pid?: number;
+    sessionId?: string;
+    resumed: boolean;
+    exitCode?: number | null;
+    signalCode?: NodeJS.Signals | null;
+    exited?: boolean;
+  }[] = [];
   t.after(async () => {
     if (!fullCleanupInstalled)
       for (const clean of earlyCleanup.reverse()) {
@@ -387,9 +395,10 @@ export async function liveFixture(
     adminLogin.token,
     201,
   );
+  const credentialSecret = randomBytes(32).toString("hex");
   const credentials = credentialModule.createCredentialService({
     cipherProvider: cipherModule.createCredentialCipherProvider({
-      env: { ZCODE_CREDENTIAL_SECRET: randomBytes(32).toString("hex") },
+      env: { ZCODE_CREDENTIAL_SECRET: credentialSecret },
     }),
   });
   const sessionStore = sessionModule.createSharedIdentitySessionStore(
@@ -576,6 +585,7 @@ export async function liveFixture(
           ledger,
           requests,
           modelCalls,
+          cliProcesses,
           node: process.version,
           cleanup: {
             portsClosed,
@@ -599,7 +609,10 @@ export async function liveFixture(
     p,
     privateFrames,
     requests,
-    packaged: async (automaticSelection = false) => {
+    packaged: async (
+      automaticSelection = false,
+      options: { resumeSessionId?: string } = {},
+    ) => {
       const { ZCodeProtocolClient } = await source(
         "zcode-agent/zcodeProtocolClient.ts",
       );
@@ -625,8 +638,8 @@ export async function liveFixture(
       );
       const workspacePath = join(directory, "cli-workspace"),
         home = join(directory, "cli-home");
-      await mkdir(workspacePath);
-      await mkdir(home);
+      await mkdir(workspacePath, { recursive: true });
+      await mkdir(home, { recursive: true });
       await hooks.prepareCliWorkspace?.({
         workspacePath,
         home,
@@ -691,6 +704,13 @@ export async function liveFixture(
           },
         },
       );
+      const processFact: (typeof cliProcesses)[number] = {
+        pid: child.pid,
+        resumed: options.resumeSessionId !== undefined,
+      };
+      cliProcesses.push(processFact);
+      const outputSuffix =
+        cliProcesses.length === 1 ? "" : `-${cliProcesses.length}`;
       const notifications: { method: string; params: Row }[] = [];
       const stdout: Buffer[] = [];
       child.stdout.on("data", (chunk: Buffer) =>
@@ -726,6 +746,12 @@ export async function liveFixture(
         },
       );
       client.onClose(() => hostRelay.closeRuntime(client));
+      // 正式 Host 使用已存在的存储目录；夹具也必须先创建可信父目录，
+      // 不能把不存在的 parent 误测成企业目录不可用后的回退行为。
+      await mkdir(join(directory, "cli-assets"), {
+        recursive: true,
+        mode: 0o700,
+      });
       const assets = createEnterpriseAssetsHost({
         backendSession: backend,
         storageDirectory: join(directory, "cli-assets"),
@@ -739,10 +765,16 @@ export async function liveFixture(
         isCurrent: () => !client.isDisposed,
       });
       client.onRequest(
-        (request: { id: number; method: string; params: unknown }) => {
+        (request: {
+          id: number;
+          method: string;
+          params: unknown;
+          trace?: { traceId: string };
+        }) => {
           privateFrames.push({
             method: request.method,
             params: request.params,
+            trace: request.trace,
           });
           if (
             request.method ===
@@ -762,6 +794,7 @@ export async function liveFixture(
                 workspace,
                 request.id,
                 request.params,
+                request.trace?.traceId,
               );
             })().catch(() => {});
           else if (
@@ -769,14 +802,26 @@ export async function liveFixture(
             shared.zcodeProtocolMethods.interactionReadEnterpriseSkills
           )
             void bridge
-              .handleCatalog(client, workspace, request.id, request.params)
+              .handleCatalog(
+                client,
+                workspace,
+                request.id,
+                request.params,
+                request.trace?.traceId,
+              )
               .catch(() => {});
           else if (
             request.method ===
             shared.zcodeProtocolMethods.interactionAuthorizeEnterpriseTool
           )
             void bridge
-              .handle(client, workspace, request.id, request.params)
+              .handle(
+                client,
+                workspace,
+                request.id,
+                request.params,
+                request.trace?.traceId,
+              )
               .catch(() => {});
           else if (
             request.method ===
@@ -810,84 +855,129 @@ export async function liveFixture(
               .catch(() => {});
         },
       );
-      ownedCliCleanups.push(async () => {
-        let assertionError: unknown;
-        try {
+      let cleanupPromise: Promise<void> | undefined;
+      const disposeAndWait = () =>
+        (cleanupPromise ??= (async () => {
+          let assertionError: unknown;
           const forbidden = [
+            credentialSecret,
             adminLogin.token,
             session.token,
             "live-gateway-synthetic-vendor",
           ];
-          const transportText =
-            Buffer.concat(stdout).toString("utf8") +
-            JSON.stringify(privateFrames);
-          for (const secret of forbidden)
-            assert.ok(
-              !transportText.includes(secret),
-              "CLI stdout and Host model RPC frames cannot contain any credential",
+          const sanitize = (value: string) =>
+            forbidden.reduce(
+              (safe, secret) => safe.replaceAll(secret, "[redacted]"),
+              value,
             );
-          assert.deepEqual(
-            runtime.registryService.getProvider("ucas")?.config.access.toJSON(),
-            {
-              type: "enterprise-session",
-            },
-          );
-          assert.ok(
-            !(await readFile(personalPath, "utf8")).includes(session.token),
-          );
-          let safe = JSON.stringify(notifications);
-          for (const secret of forbidden)
-            if (secret) safe = safe.replaceAll(secret, "[redacted]");
+          try {
+            const transportText =
+              Buffer.concat(stdout).toString("utf8") +
+              stderr.join("") +
+              JSON.stringify(privateFrames);
+            for (const secret of forbidden)
+              assert.ok(
+                !transportText.includes(secret),
+                "CLI streams and Host model RPC frames cannot contain any credential",
+              );
+            assert.deepEqual(
+              runtime.registryService
+                .getProvider("ucas")
+                ?.config.access.toJSON(),
+              {
+                type: "enterprise-session",
+              },
+            );
+            assert.ok(
+              !(await readFile(personalPath, "utf8")).includes(session.token),
+            );
+            await writeFile(
+              join(
+                evidence,
+                `${name}-packaged-notifications${outputSuffix}.json`,
+              ),
+              sanitize(JSON.stringify(notifications)),
+              {
+                mode: 0o600,
+              },
+            );
+          } catch (error) {
+            assertionError = error;
+          }
+          await client.disposeAndWait();
+          await assets.disposeAllAndWait();
+          if (child.exitCode === null && child.signalCode === null)
+            await new Promise<void>((done, reject) => {
+              const timeout = setTimeout(
+                () => reject(new Error("controlled CLI exit timeout")),
+                5000,
+              );
+              child.once("exit", () => {
+                clearTimeout(timeout);
+                done();
+              });
+            });
+          processFact.exitCode = child.exitCode;
+          processFact.signalCode = child.signalCode;
+          processFact.exited =
+            child.exitCode !== null || child.signalCode !== null;
           await writeFile(
-            join(evidence, `${name}-packaged-notifications.json`),
-            safe,
-            {
-              mode: 0o600,
-            },
+            join(evidence, `${name}-packaged-stderr${outputSuffix}.log`),
+            sanitize(stderr.join("")),
+            { mode: 0o600 },
           );
-        } catch (error) {
-          assertionError = error;
-        }
-        await client.disposeAndWait();
-        await assets.disposeAllAndWait();
-        await writeFile(
-          join(evidence, `${name}-packaged-stderr.log`),
-          stderr.join(""),
-          { mode: 0o600 },
-        );
-        if (assertionError) throw assertionError;
-      });
-      const state = await client.request(
-        v4.V4_METHODS.command,
-        {
-          commandId: randomBytes(16).toString("hex"),
-          clientId: "cancel-controlled",
-          sessionId: null,
-          type: "createSession",
-          payload: {
-            workspaceId: workspacePath,
-            ...(automaticSelection
-              ? {}
-              : {
-                  config: {
-                    modelSelection: {
-                      providerId: "ucas",
-                      modelId: String(model.id),
-                      options: { reasoningLevel: "high" },
-                    },
-                  },
-                }),
-          },
-          issuedAt: Date.now(),
-        },
-        v4.commandAckSchema,
-        { timeoutMs: 15000, lifecycle: "observation" },
-      );
-      assert.equal(state.status, "accepted");
-      const sessionId = state.result.sessionId;
-      let currentRevision = state.revisionAtDecision;
+          if (assertionError) throw assertionError;
+        })());
+      ownedCliCleanups.push(disposeAndWait);
+      const state = options.resumeSessionId
+        ? await client.request(
+            v4.V4_METHODS.conversationSubscribe,
+            {
+              connectionId: "cancel-controlled",
+              clientMode: "desktop-continuous",
+              topic: `conversation/${options.resumeSessionId}`,
+              workspace,
+            },
+            v4.v4ConversationSubscribeResultSchema,
+            { timeoutMs: 15000, lifecycle: "observation" },
+          )
+        : await client.request(
+            v4.V4_METHODS.command,
+            {
+              commandId: randomBytes(16).toString("hex"),
+              clientId: "cancel-controlled",
+              sessionId: null,
+              type: "createSession",
+              payload: {
+                workspaceId: workspacePath,
+                ...(automaticSelection
+                  ? {}
+                  : {
+                      config: {
+                        modelSelection: {
+                          providerId: "ucas",
+                          modelId: String(model.id),
+                          options: { reasoningLevel: "high" },
+                        },
+                      },
+                    }),
+              },
+              issuedAt: Date.now(),
+            },
+            v4.commandAckSchema,
+            { timeoutMs: 15000, lifecycle: "observation" },
+          );
+      if (!options.resumeSessionId) assert.equal(state.status, "accepted");
+      else assert.equal(state.ack.mode, "snapshot");
+      const sessionId = options.resumeSessionId ?? state.result.sessionId;
+      processFact.sessionId = sessionId;
+      let currentRevision = options.resumeSessionId
+        ? 0
+        : state.revisionAtDecision;
       return {
         workspacePath,
+        sessionId: sessionId as string,
+        disposeAndWait,
         setMode: async (mode: "build" | "yolo") => {
           let receipt;
           for (let attempt = 0; attempt < 3; attempt++) {
@@ -981,6 +1071,27 @@ export async function liveFixture(
       };
     },
     login: adminLogin,
+    ownedDesktopHostBootstrap: () => ({
+      directory,
+      dataBaseDirectory: join(directory, "client-home"),
+      apiBaseUrl: origin,
+      certificatePath: certificate,
+      credentialSecret,
+      assertPrivateOutputSafe(output: string) {
+        for (const secret of [
+          credentialSecret,
+          session.token,
+          adminLogin.token,
+          "live-gateway-synthetic-vendor",
+        ])
+          assert.equal(
+            output.includes(secret),
+            false,
+            "private Host material cannot enter output",
+          );
+      },
+    }),
+    logoutIdentity: () => identity.logout(),
     model,
     check,
     gateway: () => gateway,
