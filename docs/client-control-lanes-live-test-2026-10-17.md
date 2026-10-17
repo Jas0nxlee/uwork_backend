@@ -36,3 +36,11 @@ spec：`clients/uwork/specs/enterprise-control-lane-ownership.md`；源码守卫
 证据分别位于 `evidence/client-control-lanes-20261017/red/`、`green/` 和 `source/`；保存 summary、RPC、production Host 日志、HTTP 与清理结果。旧源码 RED 在 `source/red-before-fix.json`，旧版源码 GREEN 在 `source/0d958862-green-summary.json`。
 
 精确 Node 24.14.0 下客户端完整 typecheck 通过，Lint 为既有 114 warnings/0 errors，目标 production 文件单独 0 warnings/0 errors；架构 0 violations。新增脚本的后端 tsc、ESLint、定向 Prettier，以及目标 client oxfmt 均通过。结果限本机 Desktop Host/受控 TCP，不扩展为外部 MCP 服务、远程 Host 或跨平台安装验收。
+
+## final-settings 组合复测：19:26
+
+Root 完成最终技能导入的 Node composition/settings-sync 增量并统一重建 Desktop 后，再次对实际 Host `29ed78eadf5f9529ad4909502aa777e8ecaec27f0c543fa8fa90bb0e041312b5`、不变 CLI `a684e40751e1f9bf7e8e7e3710f8518001451ec33d74964e5502a297a1d23d0c` 执行同一真实 MCP case，1 通过、0 失败/跳过，3.629 秒。此处仅确认原 MCP 控制载体组合未回归，不代替独立的技能导入或 Native 验收。
+
+当前 false→true→false 仍分别为 `enterprise_personal_connectors_denied`、`connected/toolCount=1`、`enterprise_personal_connectors_denied`。自有 peer 仅收到允许阶段的 `initialize`、`notifications/initialized`、`tools/list`；撤权后新增 0 帧，模型调用 0，已保存配置字节不变。自有 PID 32518/32521/32531 均退出，peer 64722 与后台三个端口关闭，临时目录删除。
+
+本 phase 独占 `evidence/client-control-lanes-20261017/final-settings/`，未覆盖既有 RED/GREEN/source。驱动新增 `UWORK_CONTROL_LANES_EVIDENCE_DIRECTORY`，只允许选择本仓 evidence 根下的输出目录；未改生产源、out/CLI、tick 或 TTL。该增量的后端 tsc、目标 ESLint 与定向格式检查通过。

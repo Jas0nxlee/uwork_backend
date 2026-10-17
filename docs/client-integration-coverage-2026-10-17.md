@@ -6,39 +6,39 @@
 
 ## 既有能力与证据层次
 
-| 能力                                                   | 当前已证实层次                                                                                    | 仍需单列的边界                                                              |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 交互身份、issuer、企业/成员切换、私有会话存储与撤销    | 后端 HTTP、实际 Host/加密存储、CLI；Native 注销和重启                                             | 真实企微明确不测；原生企业选择对话框切换尚未等同私有 Host 测试              |
-| 成员角色/部门/企微映射、席位和有效额度                 | 249 项后端基线、129 次用户链路 HTTP、24 HTTPS/Host、Native 角色/额度/席位/会话                    | 基线报告 `client-user-journey-test-2026-10-17.md`；本轮未重复付费生成       |
-| 后端模型目录、默认选择、能力与参数、私有 Keyless relay | Registry/SDK、真实 HTTPS/Host、当前打包 CLI、Native 实际对话                                      | 当前正式 CLI 与 staged SHA 相同；安装包和远程模型出口分别验收               |
-| JSON/SSE、取消、私有输出防泄露、账务终态               | 真实 TCP、SDK、打包 CLI、Native 停止和退出                                                        | uncertain 是保守预留，不推断远端费用或副作用退款                            |
-| 企业技能发布/下载/缓存/更新/撤权                       | HTTP、Host、真实磁盘、打包 CLI；本轮 Native Skill 工具及后继模型上下文                            | 缓存故障组合及个人技能生产入口仍见下表                                      |
-| 企业专家                                               | 当前正式 CLI 的 v1/v2、同 session 冷恢复、撤权及个人别名隔离；Native 指定企业专家正文和撤权冷恢复 | 动态工作流资产消费与运行中的合法快照按各自规格验收                          |
-| 受控连接器                                             | 本机 MCP 与真实 Host/CLI/后端合同、逐次准入和回收                                                 | 外部 MCP 明确排除；不把技能文件缓存当连接器权限                             |
-| 已发布菜单、欢迎和风险提示                             | HTTP/Host、真实 Sidebar 浏览器；本轮 production Electron 动态发布/路由/退出                       | 隐藏入口不等于禁止全部快捷键；实际执行另有渠道守卫                          |
-| 个人模型/技能/连接器、危险技能策略                     | Native 个人模型；实际 CLI 用户/项目 Skill、本机 MCP 开关及真实 identity 注销                      | Native 技能/连接器设置 UI、跨平台出口不由 CLI 代替                          |
-| 分享、文件、网络/域名/席位与身份变更                   | 本轮真实文件 DB+HTTP+现 Host+真实受控分享服务；实际 multipart/hash                                | 公网链接不可当组织协作；不是正式外部分享服务或 Native 分享对话框验收        |
-| 兼容后端 Agents/runs API、本人任务与取消               | `client-console-contract-smoke.ts` 实际 HTTP/Host，后台 Runtime 测试                              | 与本地自动化菜单独立；不由菜单跳转推断后端任务执行                          |
-| 本地自动化                                             | 本轮 Native 创建、立即运行、渠道拒绝、重启后再次运行与真实供应商/计量                             | 已接受次数不等于成功次数；绑定已有任务的 resume 分支仍待专项联动            |
-| 审计、Trace、用量与客户端事件                          | 后端全量/导出/脱敏及既有实际客户端 HTTP 证据                                                      | 用量隔离已验；不把合成事件当全平台遥测部署验收                              |
-| Web/手机 attachment、远端 workspace                    | 正式 standalone Web/Server HTTP/静态 JS、真实 WS/RPC 与重连、Host ticket 首用/重放/30s 到期       | standalone 企业身份实际未配置；managed 远端/手机 attachment、浏览器渲染另列 |
-| 云助手/组织协作/微信与企微分享                         | 后台布尔准入已有验证                                                                              | 没有对应本地产品出口/外部合同，不能以 200 或配置布尔声称真实云/协作成功     |
-| Windows/Linux/macOS 发行安装及生产目标机               | macOS 仓库构建的独立 Electron、CLI、后端镜像可运行                                                | 已安装发行包、Windows/Linux runner 和生产主机/远端 CI 保留未验收            |
+| 能力                                                   | 当前已证实层次                                                                                    | 仍需单列的边界                                                          |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 交互身份、issuer、企业/成员切换、私有会话存储与撤销    | 后端 HTTP、实际 Host/加密存储、CLI；Native 注销和重启                                             | 真实企微明确不测；原生企业选择对话框切换尚未等同私有 Host 测试          |
+| 成员角色/部门/企微映射、席位和有效额度                 | 249 项后端基线、129 次用户链路 HTTP、24 HTTPS/Host、Native 角色/额度/席位/会话                    | 基线报告 `client-user-journey-test-2026-10-17.md`；本轮未重复付费生成   |
+| 后端模型目录、默认选择、能力与参数、私有 Keyless relay | Registry/SDK、真实 HTTPS/Host、当前打包 CLI、Native 实际对话                                      | 当前正式 CLI 与 staged SHA 相同；安装包和远程模型出口分别验收           |
+| JSON/SSE、取消、私有输出防泄露、账务终态               | 真实 TCP、SDK、打包 CLI、Native 停止和退出                                                        | uncertain 是保守预留，不推断远端费用或副作用退款                        |
+| 企业技能发布/下载/缓存/更新/撤权                       | HTTP、Host、真实磁盘、打包 CLI；本轮 Native Skill 工具及后继模型上下文                            | 本机缓存故障和 Native 导入已补测；其余管理入口与跨平台见下表            |
+| 企业专家                                               | 当前正式 CLI 的 v1/v2、同 session 冷恢复、撤权及个人别名隔离；Native 指定企业专家正文和撤权冷恢复 | 动态工作流资产消费与运行中的合法快照按各自规格验收                      |
+| 受控连接器                                             | 本机 MCP 与真实 Host/CLI/后端合同、逐次准入和回收                                                 | 外部 MCP 明确排除；不把技能文件缓存当连接器权限                         |
+| 已发布菜单、欢迎和风险提示                             | HTTP/Host、真实 Sidebar 浏览器；本轮 production Electron 动态发布/路由/退出                       | 隐藏入口不等于禁止全部快捷键；实际执行另有渠道守卫                      |
+| 个人模型/技能/连接器、危险技能策略                     | Native 个人模型；实际 CLI 用户/项目 Skill、本机 MCP 开关及真实 identity 注销                      | Native 技能导入/连接器设置已实际验证；其余管理入口和跨平台仍单列        |
+| 分享、文件、网络/域名/席位与身份变更                   | 本轮真实文件 DB+HTTP+现 Host+真实受控分享服务；实际 multipart/hash                                | 公网链接不可当组织协作；不是正式外部分享服务或 Native 分享对话框验收    |
+| 兼容后端 Agents/runs API、本人任务与取消               | `client-console-contract-smoke.ts` 实际 HTTP/Host，后台 Runtime 测试                              | 与本地自动化菜单独立；不由菜单跳转推断后端任务执行                      |
+| 本地自动化                                             | Native 创建/立即运行、绑定原任务；完整 Main 自然到期和重启恢复、当前权限拒绝及真实计量            | 已接受次数不等于成功次数；agents/全局作用域及移动云助手仍单列           |
+| 审计、Trace、用量与客户端事件                          | 后端全量/导出/脱敏及既有实际客户端 HTTP 证据                                                      | 用量隔离已验；不把合成事件当全平台遥测部署验收                          |
+| Web/手机 attachment、远端 workspace                    | 正式 standalone Web/Server HTTP/静态 JS、真实 WS/RPC 与重连、Host ticket 首用/重放/30s 到期       | 普通 Docker File/System 断开/重连已补测；managed 远端/手机仍另列        |
+| 云助手/组织协作/微信与企微分享                         | 后台布尔准入已有验证                                                                              | 没有对应本地产品出口/外部合同，不能以 200 或配置布尔声称真实云/协作成功 |
+| Windows/Linux/macOS 发行安装及生产目标机               | macOS 仓库构建的独立 Electron、CLI、后端镜像可运行                                                | 已安装发行包、Windows/Linux runner 和生产主机/远端 CI 保留未验收        |
 
 ## 尚缺组合证据的执行矩阵
 
 此表不要求无穷输入笛卡尔积。每项需要对应的实际允许、拒绝/更新、异步边界和清理证据。测试脚本存在、方法返回 200 或目录文件存在不能单独勾完成。
 
-| ID  | 原缺口                                         | 当前新增证据                                                                                                                                                          | 剩余工作                                                                                         |
-| --- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| G01 | 跨企业/issuer 资产缓存和当前交互身份           | **完成 HTTP/Host/打包 CLI 层**：2 项、279 次 HTTP、4 个 CLI；A→B→A 当前版本、旧下载迟到、双 issuer、冷恢复、禁用/恢复及退出                                           | Native 组织选择界面不由此替代                                                                    |
-| G02 | 资产正文进入实际会话、子任务及恢复             | **补完指定专家切片**：原 Native Skill；当前 CLI 专家 4 项；Native 实际 Agent 使用批准正文，撤权后重启/打开原任务，旧名称不可用且无个人子请求                          | 真正动态工作流资产消费组合；不由普通 session resume 代替自动化                                   |
-| G03 | 损坏/并发/崩溃缓存贯穿实际 Host+CLI            | **已列五类故障完成**：原 3 项315 HTTP/9CLI，加真实双 Host、部分 stage SIGKILL 两项131 HTTP/4CLI；当前新 CLI 再验证                                                    | 本机 macOS 结果不替代 Windows/Linux 的安装/进程语义                                              |
-| G04 | Native 菜单/欢迎/risk 动态发布与身份变化       | **部分完成**：草稿/发布、禁用隐藏、名字/顺序/既有页面、退出；另延迟真实配置响应后旧可见菜单点击确实被拒，未路由                                                       | 自定义 HTTPS 页面与原生身份切换迟到响应                                                          |
-| G05 | 助理渠道与真实本地自动化入口                   | **指定 Native/Host 切片完成**：原 Native 创建/立即运行/重启；补真实 CronCreate 绑定原 task→production Host run-now，关闭 local 无新增派发，恢复权限并重启仍执行原任务 | Main 定时 scheduler、agents/全局作用域组合、移动云助手仍单列；默认 task 及消息合同修复见追加报告 |
-| G06 | 个人模型/技能/本机 MCP 的生产入口开关          | **指定 Host/CLI 切片完成**：原 Native 个人模型；新增用户/项目 Skill、本机受控 MCP、实际 owner 注销 3 项；当前新 CLI 回归通过                                          | Native 技能/连接器设置界面与更广身份切换 UI；外部 MCP 仍排除                                     |
-| G07 | 正式 CLI builtin Read/Write/Bash/WebFetch 出口 | **指定 Host/CLI 切片完成**：原5项真实副作用及批准/Hook/yolo后撤权；补公共HTTPS正文→提取→后继模型，同runtime移除域名后拒绝且0目标网络帧                                | Native 工具 UI 与各平台限制分别验收，不能推广为任意网站或带身份页面成功                          |
-| G08 | 分享文件完整允许/撤权出口                      | **完成指定 Host/service 切片**：5 项新测试+26 回归，299 次 HTTP；生产文件源 stat/read→自动 manifest/hash→实际 multipart→confirm，并测 prepare/upload 后撤 files       | Native 分享 UI、正式外部分享及组织协作独立保留；不回滚已发生的分享/上传副作用                    |
+| ID  | 原缺口                                         | 当前新增证据                                                                                                                                                    | 剩余工作                                                                                |
+| --- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| G01 | 跨企业/issuer 资产缓存和当前交互身份           | **完成 HTTP/Host/打包 CLI 层**：2 项、279 次 HTTP、4 个 CLI；A→B→A 当前版本、旧下载迟到、双 issuer、冷恢复、禁用/恢复及退出                                     | Native 组织选择界面不由此替代                                                           |
+| G02 | 资产正文进入实际会话、子任务及恢复             | **指定 Host/CLI 切片完成**：专家/Native Skill，新增正式 V4 动态工作流 10 项；actor 正文 v1→v2、撤权、原 owner、同 run 冷恢复零已完成模型重跑                    | Native workflow UI、跨 session 及未公开 expert persona 不由此替代                       |
+| G03 | 损坏/并发/崩溃缓存贯穿实际 Host+CLI            | **已列五类故障完成**：原 3 项315 HTTP/9CLI，加真实双 Host、部分 stage SIGKILL 两项131 HTTP/4CLI；当前新 CLI 再验证                                              | 本机 macOS 结果不替代 Windows/Linux 的安装/进程语义                                     |
+| G04 | Native 菜单/欢迎/risk 动态发布与身份变化       | **指定菜单切片完成**：草稿/发布、禁用隐藏、名字/顺序/既有页面、退出、旧可见菜单迟到点击拒绝；补实际自定义 HTTPS 页面导航                                        | 原生企业选择/身份切换迟到响应仍单列；真实企微排除                                       |
+| G05 | 助理渠道与真实本地自动化入口                   | **指定 Native/Host/Main 切片完成**：创建/run-now/绑定原 task；完整 Main 自然到期和完整重启继续原任务，撤权后真实模型调用/账本增量 0                             | Main 已派发输入后才模型拒绝，不称 scheduler 未派发；agents/全局作用域与移动云助手仍单列 |
+| G06 | 个人模型/技能/本机 MCP 的生产入口开关          | **指定 Host/CLI/Native 切片完成**：个人模型、用户/项目 Skill、原生 MCP 设置连接/撤权；原生技能先选后撤权零写、恢复导入立即可见、再次拒读文件保留                | 个人技能删除/开关等其余管理动作及更广身份切换 UI 仍需逐入口测试；外部 MCP 排除          |
+| G07 | 正式 CLI builtin Read/Write/Bash/WebFetch 出口 | **指定 Host/CLI 切片完成**：原5项真实副作用及批准/Hook/yolo后撤权；补公共HTTPS正文→提取→后继模型，同runtime移除域名后拒绝且0目标网络帧                          | Native 工具 UI 与各平台限制分别验收，不能推广为任意网站或带身份页面成功                 |
+| G08 | 分享文件完整允许/撤权出口                      | **完成指定 Host/service 切片**：5 项新测试+26 回归，299 次 HTTP；生产文件源 stat/read→自动 manifest/hash→实际 multipart→confirm，并测 prepare/upload 后撤 files | Native 分享 UI、正式外部分享及组织协作独立保留；不回滚已发生的分享/上传副作用           |
 
 ## 新增实测的具体边界
 
@@ -70,18 +70,32 @@ Agent 子任务实测为父模型工具调用→子 SSE→父继续→标题 JSO
 
 前一轮生产改动为上述两条 UI 提示及 exact-code 映射；追加本轮已修复企业专家撤权后的个人别名回退，以及个人子智能体逐次准入，详见追加报告。后端/admin 类型、新脚本 Lint/格式、客户端全类型/Lint/定向格式/架构和 Native 构建通过；客户端保留 114 条既有警告、0 错误，架构 0 新违例。新增切片及共享夹具经独立只读审查通过。主后端保持运行，未读取主 .env 或解密主 Vault；只读校验主业务表哈希，确认原资源/配置/成员/账本等未变，不调用真实付费供应商。Git 中另有不属于本轮的未跟踪 `tests/security-sixth-provider-echo.test 2.ts`，保留且不纳入提交。
 
-本目标仍在推进：G03 和 G06 的指定 Host/CLI 缺口已补完；G02/G04/G05 的其余组合、Native 设置/分享 UI、managed remote/手机和跨平台安装继续保留。standalone Web 的两项网络实测不等于 managed enterprise 远端验收。不能据本表局部成功宣称“全部测试已覆盖”，也不关闭原 T13c6/T13d/平台验收项。
+本目标仍在推进：G02/G03/G04/G05/G06 的下述指定切片已补完；Native 技能其余管理、workflow/身份切换/分享 UI、managed remote/手机和跨平台安装继续保留。standalone Web 的两项网络实测不等于 managed enterprise 远端验收。不能据本表局部成功宣称“全部测试已覆盖”，也不关闭原 T13c6/T13d/平台验收项。
 
 ## 追加权限修复与新产物验收
 
-详见 [企业权限追加联测报告](client-enterprise-authorization-test-2026-10-17.md)。实际发现并修复撤权企业专家回退到同名个人 profile 的问题。个人 profile 采用明确 canonical 名称，按同次目录装配，并在个人内容读取和每次新子模型请求前复核当前权限与 owner。当前正式 CLI 和 Desktop staged SHA 均为 `0d9588624db3368787cbbd86c3d27a92b327e1d169614f1b1162f7e61895454c`。
+详见 [企业权限追加联测报告](client-enterprise-authorization-test-2026-10-17.md)。实际发现并修复撤权企业专家回退到同名个人 profile 的问题。个人 profile 采用明确 canonical 名称，按同次目录装配，并在个人内容读取和每次新子模型请求前复核当前权限与 owner。该阶段正式 CLI 和 Desktop staged SHA 均为 `0d9588624db3368787cbbd86c3d27a92b327e1d169614f1b1162f7e61895454c`。
 
 当前产物下专家4项及相关15项共19/19通过，1569后台HTTP、92供应商/92账本（90settled、2取消uncertain）；个人技能/MCP三项已在其中，不重复相加。Native 专家正向与撤权重启原任务复测另有8供应商/8settled（含另一成员初始化2），撤权后新Agent工具调用返回不可用，0个人子请求。实际工具结果决定拒绝，受控供应商的固定完成文案不决定权限。
 
 独立 Web/Server 另有2/2真实网络场景：正式产物静态JS、Cookie/WS/RPC、真实文件写盘和重连、Host票据首用/重放/实际30100ms过期。企业身份实际signed-out/unconfigured、模型为空；没有伪造Desktop身份来制造企业成功。规范见 `docs/client-web-standalone-live-spec-2026-10-17.md`，证据 `evidence/client-web-standalone-20261017/validation.json`。
 
-新门禁为Core25、任务读取合同4、Host/UI15、资产合同4、SDK1通过，根/CLI类型和Lint、严格测试类型、格式、架构0违例及正式构建通过。主后台health200，业务表只读哈希不变。全部结果按层次记录，保留未完成的U02/U03/U04/U05、T13c6/T13d及平台验收项。
+该阶段门禁为Core25、任务读取合同4、Host/UI15、资产合同4、SDK1通过，根/CLI类型和Lint、严格测试类型、格式、架构0违例及正式构建通过。主后台health200，业务表只读哈希不变。全部结果按层次记录，保留未完成的U02/U03/U04/U05、T13c6/T13d及平台验收项。
 
 追加发现并修复默认 task 首条输入外键失败、实际权限模式与元数据不一致、历史消息未转 wire 形状被严格 schema 拒绝。三项原始失败和默认首发/读取/绑定自动化的真实 Host 复测单列在 `evidence/client-automation-bound-resume-20261017/`，不把最初传可选deferred的成功当作默认调用成功。
 
-最终候选为 `0d9588624db3368787cbbd86c3d27a92b327e1d169614f1b1162f7e61895454c`：Root相关23项和独立production Host默认任务/绑定自动化1项，共24个不重复真实用例通过。Native同产物专家允许/后台撤权/重启原task复测也通过；Core29（含任务读取4）及Host/UI15定向通过。格式后正式ordered重建仍为同一字节SHA，证据不混用中间fd6或原8663产物。未完成的Native设置/分享/身份界面、Main定时scheduler、动态工作流、managed远端和平台验收继续保留。
+此前候选为 `0d9588624db3368787cbbd86c3d27a92b327e1d169614f1b1162f7e61895454c`：Root相关23项和独立production Host默认任务/绑定自动化1项，共24个不重复真实用例通过。Native同产物专家允许/后台撤权/重启原task复测也通过；Core29（含任务读取4）及Host/UI15定向通过。格式后正式ordered重建仍为同一字节SHA，证据不混用中间fd6或原8663产物。当时仍未完成的 Native 设置、Main scheduler 与动态工作流，现已按下节指定范围补验；分享/身份界面、managed 远端和平台验收仍保留。
+
+## a684 新产物与原生导入收尾
+
+当前正式 CLI/source 与 Desktop staged 均为 `a684e40751e1f9bf7e8e7e3710f8518001451ec33d74964e5502a297a1d23d0c`。工作流直接入口的文件权限、准备/VM、转录和正文回放缺口均已修复；每次 actor 模型请求仍绑定原 run，私有模型 open 携带首次 invocation 的不透明 owner proof，Host 在构建请求前比较，不向 Renderer、模型正文、read/close 或 VM 增加该字段。独立 source 探针已证有效 A→B 窗口派发前拒绝；不是仅在输出后发现身份变化。
+
+- 正式 G02 10/10：1,699 HTTP、54 本机供应商/54 settled，18 CLI、30 端口、10 临时目录全部清理。模型 Create/Amend/Resume 未分类 capability 及未公开 expert selector 仍按实际拒绝记录，不能冒称新增支持。
+- 私有 stdio 5/5：187 HTTP、7 供应商/7 账本（5 settled、2 取消 uncertain）。另 Root 23/23 实际回归覆盖专家、身份、缓存故障/崩溃、个人技能/MCP、Builtin、副作用、子任务和一次公开 HTTPS；含一项夹具准备超时清理检查。各自历史证据先归档，未拿旧候选结果冒充新候选。
+- 完整 production Main 的自然到期、Main 重启原任务及 local=false 模型拒绝通过，精确最终组合见 [Main 报告](client-automation-main-scheduler-report-2026-10-17.md)。独立 MCP Host 和 Native 设置均完成 false→connected 1 工具→false，撤权无新 peer 帧；只保存配置不授予运行权限。
+- 普通 Desktop Docker File/System 连接→断开→重连已真实通过，两个 stdio PID 正常回收、文件字节一致、容器/Host/临时根清理。只验普通 transport lifetime；不是 managed enterprise remote、模型或手机验收。新脚本为 `scripts/client-remote-docker-lifecycle-smoke.ts`。
+- 原生技能导入另修复先选后撤权仍写入、写旧目录导致成功不可见两条实际缺陷。最终 2 个真实 Copy 导入立即列出，源/目标字节一致；再次撤权拒读且文件不变、旧目录保留。整个 Native 夹具 8 供应商/8 settled，含另一成员初始化 2；最终 9 自有 PID、5 端口、数据根与专用浏览器 daemon 清理。详见 [Native 报告](client-native-settings-live-test-2026-10-17.md)。
+
+技能导入收尾只重建 Desktop，最终 Main `15610678767611a3efeefaacafc84a0749df7818aed9c70fdfbb995e9c20b899`、Host `29ed78eadf5f9529ad4909502aa777e8ecaec27f0c543fa8fa90bb0e041312b5`；Renderer 文案收尾后 Main/Host/CLI 不变。完整 enterprise-policy 最终 Core 106、Host 197 通过，专项工作流 22、技能导入 runner 39（含分组）、UI 提示 9 均通过；后台 250/250。类型、lint、定向正确版本格式和架构检查通过，客户端 114 既有 warning、0 error。
+
+Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入口的证据，不伪造 OAuth 用户或服务。个人技能其他管理入口、Native workflow UI、managed 远端/手机、正式分享/组织协作和 Windows/Linux/macOS 安装包仍保留。远端模型/命令探针曾被工具自动安全审查以可能网络安全风险拦截，已停止并保留历史证据；后续仅独立 File/System 元数据夹具，不重试被拦动作。CI 所在 GitHub 远端当前为空，公开发布代码不在既有授权内；未 push/触发发布。主后台保持运行，只读业务表哈希不变，相邻客户端仓库干净。原 T13c6/T13d/U02/U03/U04/U05 仍不因上述局部完成而关闭。

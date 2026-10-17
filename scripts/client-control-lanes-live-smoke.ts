@@ -12,7 +12,14 @@ import { liveFixture, eventually } from "./client-native-session-fixture.js";
 type Row = Record<string, unknown>;
 const phase =
   process.env.UWORK_CONTROL_LANES_EVIDENCE === "red" ? "red" : "green";
-const evidence = resolve(`evidence/client-control-lanes-20261017/${phase}`);
+const evidence = resolve(
+  process.env.UWORK_CONTROL_LANES_EVIDENCE_DIRECTORY ??
+    `evidence/client-control-lanes-20261017/${phase}`,
+);
+assert.ok(
+  evidence.startsWith(resolve("evidence") + "/"),
+  "owned evidence directory must stay under this repository's evidence root",
+);
 const facts: Row = {
   status: "running",
   boundary:

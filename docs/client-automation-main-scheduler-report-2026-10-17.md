@@ -77,3 +77,26 @@ production `out/` 只读复制到隔离 app，使 unpackaged Main 的本地环�
 - 精确 Node 24.14.0：`tsc -p tsconfig.verify.json`、新增 TS ESLint、定向 Prettier、CJS `node --check` 通过；客户端架构检查 0 violations。
 
 范围限本机 macOS/Electron 与受控 HTTP 供应商；未由此声明跨平台安装、休眠/唤醒、过期 misfire、外部服务或 automation 禁用后的到期行为验收。
+
+## final-settings 组合复测：19:27–19:29
+
+Root 完成最终技能导入的 services Node composition/settings-sync 增量并统一重建 Desktop 后，使用最后一组 Main/Host 重新执行完整自然到期 case；本驱动没有修改生产源或重建产物。最终 1 通过、0 失败/跳过，193.049 秒。
+
+| 北京时间计划到期 | 实际认领     | 实际结果                                                                                    |
+| ---------------- | ------------ | ------------------------------------------------------------------------------------------- |
+| 19:27:00         | 19:27:13.759 | 原 task `succeeded`                                                                         |
+| 19:28:00         | 19:28:17.810 | 完整 Main 退出/重启后，仍恢复原 task `succeeded`，模型消费原始 conversation 与自动化 marker |
+| 19:29:00         | 19:29:17.813 | 当前 `local=false` 下 `failed`，真实 authorize HTTP 403，supplier/ledger delta 均 0         |
+
+三个 run 全是 `schedule`，任务与 automation 均保持一个，累计 4 次受控模型调用、4 条 settled。撤权 run 仍为 `dispatch_status=dispatched`，automation 仍 active/enabled、`run_count=3`；本 phase 只确认旧自动化组合未回归，继续保留“Host 接受输入后在模型执行前拒绝”的边界，不声明 scheduler 未派发或 automation 自动禁用。
+
+| 最终组合产物        | SHA256                                                             |
+| ------------------- | ------------------------------------------------------------------ |
+| CLI 源构建与 staged | `a684e40751e1f9bf7e8e7e3710f8518001451ec33d74964e5502a297a1d23d0c` |
+| Main                | `15610678767611a3efeefaacafc84a0749df7818aed9c70fdfbb995e9c20b899` |
+| Host                | `29ed78eadf5f9529ad4909502aa777e8ecaec27f0c543fa8fa90bb0e041312b5` |
+| scheduler           | `5b50b05c1fcc991920eb580b8b2a2fa35d8c13ab5d2eb32582007d8ec1988ece` |
+
+准备 Host PID 32525、两个完整 Main PID 32611/34302、绑定任务 CLI PID 34235/35697，以及已观测 Host/scheduler/helper 均实际退出。生产 spawn 日志与自有进程树再次交叉核对 staged CLI；后台三个端口关闭、隔离目录删除，私密输出审计通过。完整 Main 的 `.mjs` launcher ready 时序两次实测通过，未改生产 tick/TTL。
+
+本 phase 独占 `evidence/client-automation-main-scheduler-final-settings-20261017/`，包含 summary、model-and-schedule-proof、runtime-process-proof、HTTP 与日志；前两档历史目录和结果均未覆盖。收尾主后端 PID 37266 仍在，本驱动未读主 `.env`/业务库、未提交，当前工作区 HEAD 观测为 Root 的 `b8dda4b540f611100dd384f7d0f3df98d668d00a`。这不替代技能导入、Native 或跨平台安装的独立验收。
