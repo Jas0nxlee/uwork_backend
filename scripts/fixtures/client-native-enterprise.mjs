@@ -58,7 +58,7 @@ let backendOrigin = "",
   modelCalls = 0,
   electron;
 const traffic = [];
-let enterpriseAsset, denyPolicy;
+let enterpriseAsset, denyPolicy, enterpriseExpert, expertDenyPolicy;
 const modelRequests = [];
 const upstream = httpServer(async (req, res) => {
   let text = "";
@@ -71,26 +71,43 @@ const upstream = httpServer(async (req, res) => {
   modelCalls++;
   const body = JSON.parse(text);
   modelRequests.push(body);
+  const lastUserIndex = body.messages.findLastIndex((m) => m.role === "user");
+  const currentUser = body.messages[lastUserIndex];
+  const currentHasTool = body.messages
+    .slice(lastUserIndex + 1)
+    .some((m) => m.role === "tool");
   const skillTurn =
     body.tools?.some((t) => t.function?.name === "Skill") &&
-    !body.messages.some((m) => m.role === "tool") &&
-    body.messages.some(
-      (m) =>
-        typeof m.content === "string" && m.content.includes("运行企业技能"),
-    );
+    !currentHasTool &&
+    typeof currentUser?.content === "string" &&
+    currentUser.content.includes("运行企业技能");
+  const expertTurn =
+    body.tools?.some((t) => t.function?.name === "Agent") &&
+    !currentHasTool &&
+    typeof currentUser?.content === "string" &&
+    currentUser.content.includes("运行企业专家");
+  const toolTurn = skillTurn || expertTurn;
   const call = {
     index: 0,
-    id: "native-skill-" + modelCalls,
+    id: (expertTurn ? "native-expert-" : "native-skill-") + modelCalls,
     type: "function",
     function: {
-      name: "Skill",
-      arguments: JSON.stringify({ skill: "enterprise:" + enterpriseAsset?.id }),
+      name: expertTurn ? "Agent" : "Skill",
+      arguments: JSON.stringify(
+        expertTurn
+          ? {
+              description: "Native enterprise expert",
+              prompt: "NATIVE_ENTERPRISE_EXPERT_CHILD",
+              subagent_type: enterpriseExpert?.name,
+            }
+          : { skill: "enterprise:" + enterpriseAsset?.id },
+      ),
     },
   };
   const output = "原生企业资产联动完成。";
   if (body.stream) {
     res.setHeader("content-type", "text/event-stream");
-    if (skillTurn)
+    if (toolTurn)
       res.write(
         "data: " +
           JSON.stringify({
@@ -129,10 +146,10 @@ const upstream = httpServer(async (req, res) => {
         choices: [
           {
             index: 0,
-            message: skillTurn
+            message: toolTurn
               ? { role: "assistant", content: null, tool_calls: [call] }
               : { role: "assistant", content: output },
-            finish_reason: skillTurn ? "tool_calls" : "stop",
+            finish_reason: toolTurn ? "tool_calls" : "stop",
           },
         ],
         usage: { prompt_tokens: 12, completion_tokens: 10 },
@@ -474,6 +491,34 @@ async function assetUpdate() {
   });
   await publishAsset(2);
 }
+async function expertCreate() {
+  const name = "native-enterprise-expert";
+  const created = await api(p + "/assets", "POST", {
+    name,
+    kind: "expert",
+    scope: { all: true },
+    content: {
+      instructions: "NATIVE_APPROVED_ENTERPRISE_EXPERT_V1",
+      profession: "Native acceptance expert",
+    },
+  });
+  enterpriseExpert = { ...created, name };
+  for (const operation of ["review", "publish"])
+    await api(p + "/assets/" + enterpriseExpert.id + "/" + operation, "POST", {
+      version: 1,
+      ...(operation === "review" ? { approved: true } : {}),
+    });
+  // 只在隔离测试根内放同名个人对照，不改用户或项目真实配置。
+  for (const storage of [".uwork", ".zcode"]) {
+    const agents = join(home, storage, "agents");
+    await mkdir(agents, { recursive: true, mode: 0o700 });
+    await writeFile(
+      join(agents, name + ".md"),
+      `---\nname: ${name}\ndescription: Personal shadow must not replace approved expert\n---\nNATIVE_PERSONAL_SHADOW_MUST_NOT_REPLACE_ENTERPRISE`,
+      { mode: 0o600 },
+    );
+  }
+}
 async function launch() {
   if (electron) throw Error("Already launched");
   electron = spawn(
@@ -603,6 +648,17 @@ rl.on("line", async (line) => {
     else if (c.op === "publish") await publishDraft(c.kind);
     else if (c.op === "configure") await configure(c.kind, c.data);
     else if (c.op === "assetCreate") await assetCreate();
+    else if (c.op === "expertCreate") await expertCreate();
+    else if (c.op === "expertRevoke")
+      expertDenyPolicy = await api(p + "/policies", "POST", {
+        name: "Native expert revoke",
+        family: "expert",
+        mode: "deny",
+        resourceIds: [enterpriseExpert.id],
+        scope: { all: true },
+      });
+    else if (c.op === "expertRestore")
+      await api(p + "/policies/" + expertDenyPolicy.id, "DELETE");
     else if (c.op === "assetUpdate") await assetUpdate();
     else if (c.op === "assetRevoke")
       denyPolicy = await api(p + "/policies", "POST", {
@@ -624,6 +680,8 @@ rl.on("line", async (line) => {
           cdpPort,
           modelCalls,
           assetId: enterpriseAsset?.id,
+          expertId: enterpriseExpert?.id,
+          expertName: enterpriseExpert?.name,
           traffic: traffic.slice(-30),
         }),
       );
