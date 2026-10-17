@@ -81,4 +81,4 @@
 - [x] G03c 同 Main 原 CDP target 的 owned Host 单次故障→标准 Renderer reload→新 Host 自然恢复；实际配置 false 交付后 trace 零新增。见 `docs/client-native-host-recovery-test-2026-10-18.md`，不冒称自动重启或 UI 恢复按钮。
 - [x] G06c 用户范围 Native 技能开关、确认期间撤权、取消及允许删除；见 `docs/client-native-skill-management-test-2026-10-17.md`。copyToCommon/removeFromCommon 当前没有产品 UI caller，归为 Native UI 不适用并保留原 service/FS 证据。
 - [x] G06d 项目范围 Native Copy 导入、W1/W2/user 目标隔离、skills/filesystem/dangerousSkills 三门独立撤权、取消及允许删除：10阶段/8真实回读通过，模型/账本零增量。16自有PID/4端口/BH已闭，私有R因系统fileproviderd写FD保留，不冒称根目录已删；见 `docs/client-native-project-skills-test-2026-10-18.md`。
-- [ ] G04c Native 登录应用偏好 A/B、真实退出、跳过重开、未配置应用失败与冷恢复；这是偏好和失败链路，不是多企业认证切换，真实企微仍排除。
+- [x] G04c 指定 Native 登录应用偏好 A/B、真实退出、跳过重开、未配置应用失败与冷恢复；修复旧失败提示残留，新正式产物12阶段/4次实际503通过，11纯测试/23共享UI及完整client gates通过。旧基线与新run各自封存，完整企微/多企业认证仍未验收；见 `docs/client-native-org-preferences-test-2026-10-18.md`。
