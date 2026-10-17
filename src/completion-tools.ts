@@ -2,6 +2,8 @@ import { z } from "zod";
 import { fail } from "./core.js";
 
 const name = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+// 正式 CLI 的工作流说明包含完整 facade，超过旧 20,000 限制；保留明确上限及整体请求预算。
+const MAX_FUNCTION_DESCRIPTION_CHARS = 65_536;
 function objectJson(value: string) {
   try {
     const parsed: unknown = JSON.parse(value);
@@ -35,7 +37,7 @@ export const functionToolSchema = z
     function: z
       .object({
         name,
-        description: z.string().max(20000).optional(),
+        description: z.string().max(MAX_FUNCTION_DESCRIPTION_CHARS).optional(),
         parameters: z
           .record(z.string(), z.unknown())
           .refine(boundedSchema, "工具参数 schema 超出限制"),
