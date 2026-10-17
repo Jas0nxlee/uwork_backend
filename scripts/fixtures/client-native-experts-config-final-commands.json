@@ -1,0 +1,61 @@
+[
+  {
+    "op": "configure",
+    "kind": "security",
+    "data": { "allowFilesystem": true }
+  },
+  { "op": "expertCreate" },
+  {
+    "op": "configure",
+    "kind": "desktop",
+    "data": { "desktopContextPrompt": { "enabled": true } }
+  },
+  {
+    "op": "configure",
+    "kind": "scenes",
+    "data": {
+      "draftSuggestions": [
+        {
+          "id": "expert-config-draft",
+          "title": {
+            "cn": "专家验收建议",
+            "en": "Expert acceptance suggestion"
+          },
+          "prompt": {
+            "cn": "EXPERT_CONFIG_FINAL_SCENE 普通建议",
+            "en": "EXPERT_CONFIG_FINAL_SCENE Plain suggestion"
+          },
+          "pluginStableId": "expert-config-uninstalled-plugin"
+        }
+      ],
+      "scheduledTemplates": [
+        {
+          "id": "expert-config-scheduled",
+          "title": {
+            "cn": "专家验收定时",
+            "en": "Expert acceptance scheduled template"
+          },
+          "prompt": {
+            "cn": "EXPERT_CONFIG_FINAL_SCHEDULED",
+            "en": "EXPERT_CONFIG_FINAL_SCHEDULED"
+          },
+          "cronExpr": "0 9 * * 1-5"
+        }
+      ],
+      "offPeakTemplates": [
+        {
+          "id": "expert-config-offpeak",
+          "title": {
+            "cn": "专家验收闲时",
+            "en": "Expert acceptance off-peak template"
+          },
+          "prompt": {
+            "cn": "EXPERT_CONFIG_FINAL_OFFPEAK",
+            "en": "EXPERT_CONFIG_FINAL_OFFPEAK"
+          },
+          "description": { "cn": "独占本机模板", "en": "Owned local template" }
+        }
+      ]
+    }
+  }
+]

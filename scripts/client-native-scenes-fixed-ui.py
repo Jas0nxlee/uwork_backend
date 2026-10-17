@@ -5,7 +5,8 @@ import re
 import time
 from pathlib import Path
 
-FIXTURE = "client-native-scenes-fixed-20261017"
+FIXTURE = globals().get("FIXTURE", "client-native-scenes-fixed-20261017")
+assert re.fullmatch(r"client-native-[a-z0-9-]+", FIXTURE)
 REPOSITORY = Path.cwd().resolve()
 assert (REPOSITORY / "scripts/fixtures/client-native-enterprise.mjs").is_file()
 EVIDENCE = REPOSITORY / "evidence" / FIXTURE
