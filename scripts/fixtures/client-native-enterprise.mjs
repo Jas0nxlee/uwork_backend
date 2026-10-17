@@ -21,6 +21,7 @@ import { bootstrap } from "../../src/identity.ts";
 import { copyNativeOutSnapshot } from "./native-out-snapshot.mjs";
 import { copyNativeAdminSnapshot } from "./native-admin-snapshot.mjs";
 import { createNativeTraceCapture } from "./native-trace-capture.mjs";
+import { validateOwnedNativeWorkspace } from "./native-owned-workspace.mjs";
 import {
   MAX_NATIVE_CONFIGURATION_BYTES,
   createNativeConfigurationCapture,
@@ -943,6 +944,38 @@ async function expertCreate() {
     );
   }
 }
+function nativeEnvironment() {
+  return {
+    PATH: process.env.PATH,
+    HOME: home,
+    USERPROFILE: home,
+    ZCODE_TELEMETRY_REPORT_ENDPOINT: "",
+    ZCODE_ARMS_RUM_ENDPOINT: "",
+    UWORK_DATA_BASE_DIR: home,
+    ZCODE_DESKTOP_HOME_DIR: home,
+    ZCODE_DESKTOP_USER_DATA_DIR: join(root, "userdata"),
+    ZCODE_DESKTOP_SESSION_DATA_DIR: join(root, "sessiondata"),
+    ZCODE_DESKTOP_APPLICATION_NAME: "UWork 联动验证",
+    ZCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT: "1",
+    ZCODE_CREDENTIAL_SECRET: credentialSecret,
+    NODE_EXTRA_CA_CERTS: cert,
+    ZCODE_STORAGE_DIR: join(home, ".uwork"),
+    ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: join(
+      client,
+      "config/provider/zcode-builtin.json",
+    ),
+    ZCODE_ENV: "production",
+    ZCODE_BASE_URL: origin,
+    ...(experienceMode
+      ? {
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: `http://127.0.0.1:${upstream.address().port}/v1/traces`,
+        }
+      : {}),
+    ...(dynamicWorkflowMode === "alwaysOn"
+      ? { ZCODE_DYNAMIC_WORKFLOW_MODE: dynamicWorkflowMode }
+      : {}),
+  };
+}
 async function launch() {
   if (electron) throw Error("Already launched");
   electron = spawn(
@@ -957,36 +990,7 @@ async function launch() {
     {
       cwd: appRoot,
       detached: true,
-      env: {
-        PATH: process.env.PATH,
-        HOME: home,
-        USERPROFILE: home,
-        ZCODE_TELEMETRY_REPORT_ENDPOINT: "",
-        ZCODE_ARMS_RUM_ENDPOINT: "",
-        UWORK_DATA_BASE_DIR: home,
-        ZCODE_DESKTOP_HOME_DIR: home,
-        ZCODE_DESKTOP_USER_DATA_DIR: join(root, "userdata"),
-        ZCODE_DESKTOP_SESSION_DATA_DIR: join(root, "sessiondata"),
-        ZCODE_DESKTOP_APPLICATION_NAME: "UWork 联动验证",
-        ZCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT: "1",
-        ZCODE_CREDENTIAL_SECRET: credentialSecret,
-        NODE_EXTRA_CA_CERTS: cert,
-        ZCODE_STORAGE_DIR: join(home, ".uwork"),
-        ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: join(
-          client,
-          "config/provider/zcode-builtin.json",
-        ),
-        ZCODE_ENV: "production",
-        ZCODE_BASE_URL: origin,
-        ...(experienceMode
-          ? {
-              OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: `http://127.0.0.1:${upstream.address().port}/v1/traces`,
-            }
-          : {}),
-        ...(dynamicWorkflowMode === "alwaysOn"
-          ? { ZCODE_DYNAMIC_WORKFLOW_MODE: dynamicWorkflowMode }
-          : {}),
-      },
+      env: nativeEnvironment(),
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
@@ -1007,6 +1011,68 @@ async function launch() {
   console.log(
     JSON.stringify({ event: "launched", pid: electron.pid, cdpPort }),
   );
+}
+async function openWorkspace(workspacePath) {
+  const primary = electron;
+  if (!primary || primary.exitCode !== null || primary.signalCode !== null)
+    throw Error("Owned Native Main is not running");
+  const target = await validateOwnedNativeWorkspace(root, workspacePath);
+  if (
+    electron !== primary ||
+    primary.exitCode !== null ||
+    primary.signalCode !== null
+  )
+    throw Error("Owned Native Main changed");
+  const child = spawn(runtime.electron, [appRoot, "--open-workspace", target], {
+    cwd: appRoot,
+    env: nativeEnvironment(),
+    stdio: "ignore",
+  });
+  console.log(
+    JSON.stringify({
+      event: "workspace-secondary-started",
+      primaryPid: primary.pid,
+      secondaryPid: child.pid,
+    }),
+  );
+  let timedOut = false;
+  let timer;
+  let reapTimer;
+  const exit = await new Promise((resolveExit, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => resolveExit({ code, signal }));
+    timer = setTimeout(() => {
+      timedOut = true;
+      // 只回收本次副实例，原 Main 不属于这个有界等待的清理对象。
+      child.kill("SIGKILL");
+      reapTimer = setTimeout(
+        () => reject(Error("Owned secondary did not exit")),
+        2000,
+      );
+    }, 10000);
+  }).finally(() => {
+    clearTimeout(timer);
+    clearTimeout(reapTimer);
+  });
+  const primaryStillExists =
+    electron === primary &&
+    primary.exitCode === null &&
+    primary.signalCode === null;
+  console.log(
+    JSON.stringify({
+      event: "workspace-secondary-exit",
+      primaryPid: primary.pid,
+      secondaryPid: child.pid,
+      workspacePath: target,
+      exit,
+      primaryStillExists,
+      timedOut,
+      existingCredentialMaterialRecovered: false,
+      privateFixtureEnvironmentReused: true,
+    }),
+  );
+  if (timedOut || exit.code !== 0 || !primaryStillExists)
+    throw Error("Owned workspace secondary failed");
 }
 async function stopNative() {
   const child = electron;
@@ -1166,6 +1232,8 @@ rl.on("line", async (line) => {
   try {
     const c = JSON.parse(line);
     if (c.op === "launch") await launch();
+    else if (c.op === "openWorkspace" && experienceMode)
+      await openWorkspace(c.workspacePath);
     else if (
       c.op === "stopNative" &&
       (dynamicWorkflowMode === "alwaysOn" || experienceMode)
