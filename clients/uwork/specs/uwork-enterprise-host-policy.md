@@ -85,6 +85,14 @@ Three bounded adversarial review cycles identified and reproduced Hook subproces
 
 ## Remaining Host Slices
 
+### Personal Ports Controlled Live Acceptance
+
+The controlled live check uses the current in-repository packaged CLI, its existing Registry/Skill/MCP owners and the real Host identity/Gateway/private admission path against a temporary backend reached over HTTP. Only owned user/project skill files and a harmless loopback MCP server are seeded; those files are test setup, not product settings creation or an external MCP acceptance claim. Backend policy mutations use the public configuration revision/publish HTTP contract.
+
+1. With both published `personal.skills` and `security.dangerousSkills` true, the actual Skill tool must deliver the owned user and project bodies to the controlled model. Publishing either switch false must prevent a subsequent Skill load in the same runtime from delivering the requested body in that call's result, while preserving the owned files. Previously accepted conversation history is not erased by this check. A seeded personal name cannot acquire the enterprise namespace or enterprise asset provenance.
+2. A seeded personal loopback MCP server connects through the normal CLI configuration/connection owner and executes an actual harmless tool with independently observed call markers while `personal.connectors` is true. Publishing false must prevent a subsequent call in that already connected runtime from dispatching to the server; the user configuration stays byte-identical. This check does not assert remote MCP availability or relax SDK/core egress controls.
+3. After the real identity owner logs out, a new conversation turn in the existing runtime must fail before a new model dispatch, so the previously connected personal ports receive no request. No model/server request or new tool marker may appear, and the pre-existing personal files/configuration remain intact. Refusal is measured against request/side-effect counts and current runtime terminal evidence, not just configuration booleans; this path does not assert a separate direct-tool API logout test.
+
 Asset reconciliation must use owned enterprise paths/metadata, immutable version/checksum checks, atomic writes, safe relative paths, scoped removal, disabled/high-risk filtering, and current backend authorization. Do not overwrite or delete personal/plugin assets. Expert/playbook/instruction and masked MCP configuration must feed their existing runtime owners.
 
 Published UI configuration must be a derived Host projection through existing services/hooks, including mobile attachments. It must not create another identity, task queue, model configuration or permission owner. Desktop-attached remote workspace enforcement and native isolation combinations require their own transport/runtime evidence before the full Host integration is accepted.
