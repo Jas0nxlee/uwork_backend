@@ -29,3 +29,14 @@ test("unknown error or arbitrary supplier prose is not recategorized", () => {
     undefined,
   );
 });
+
+test("filesystem denial identifies the file policy rather than the personal skill switch", () => {
+  assert.equal(
+    resolveSkillsFailureMessageId("enterprise_filesystem_denied"),
+    "settings.skills.enterpriseFilesystemDenied",
+  );
+  assert.equal(
+    resolveSkillsFailureMessageId("upstream mentions enterprise_filesystem_denied"),
+    undefined,
+  );
+});

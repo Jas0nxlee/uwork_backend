@@ -3621,6 +3621,8 @@ const enUS: Record<string, string> = {
     "User-level skills are available on desktop only in this phase.",
   "settings.skills.enterprisePolicyDenied":
     "Your organization has not enabled personal skills. Ask an administrator to review skill permissions.",
+  "settings.skills.enterpriseFilesystemDenied":
+    "Your organization has restricted file access, so skills cannot be read or changed. Contact an administrator.",
   "settings.skills.enterprisePolicyUnavailable":
     "Enterprise permissions could not be verified. Check the backend connection and retry.",
   "settings.skills.enterpriseRuntimeChanged":

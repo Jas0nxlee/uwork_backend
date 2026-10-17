@@ -3396,6 +3396,8 @@ const zhCN: Record<string, string> = {
     "同步失败：远端解包后的 Skills 内容约为 {actualSize}，超过允许上限 {maxSize}。请减少选择后重试。",
   "settings.skills.userScopeDesktopOnly": "当前阶段用户级技能仅支持桌面端。",
   "settings.skills.enterprisePolicyDenied": "企业未允许个人技能，请联系管理员检查技能权限。",
+  "settings.skills.enterpriseFilesystemDenied":
+    "企业已限制文件访问，无法读取或修改技能。请联系管理员。",
   "settings.skills.enterprisePolicyUnavailable": "暂时无法验证企业权限，请检查后台连接后重试。",
   "settings.skills.enterpriseRuntimeChanged": "企业身份或技能会话已变化，请刷新后重试。",
   "settings.skills.detail.description": "描述",
