@@ -125,4 +125,12 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 
 另发现 Native 企业专家首次目录读取与后台同步 CAS 冲突，导致专家未注册；matched trace 的真实 RED 保留。现已沿同 Host/store 串行完整目录事务，保留原 scope、取消、dispose 和跨 Host CAS。新实际专项 9/9、原跨 Host/崩溃 3/3、独审另跑 9/9 及真实尾链 1/1，Required none。Root 全量 typecheck 与正式 Desktop-only 构建通过，CLI/stage 39175 不变，新 Main c3d27b、Host 9afc1a。[最终 Native 组](client-native-experts-config-final-test-2026-10-17.md) 首启与同 profile 冷启各有真正批准专家 child，父 system 有 Desktop、child 无 Desktop、全部无个人 shadow；两轮各 4 请求/4 settled。夹具连初始化合计 10 请求/10 settled，0 CAS 拒绝。模板/09:00 表单/返回取消/草稿点击在两代均通过，17 PID、4 端口与独占根已清理；Root 独立重算正文并核对 107 项证据及 88 源/6 产物 SHA。
 
-公开商店排序、offPeak 旧 plan 入口、原生 chooser、OS 外链、生产安装包/跨平台，以及上述原有远端/分享/组织切换边界继续保留。同 Main 并发第二 Root 当前没有产品 UI/命令入口，应标当前 UI 不适用；普通 Renderer reload 复用原 Host，不能冒称 Host 代次恢复。[只读依据与可行生命周期方案](../evidence/client-native-window-child-readonly-20261017/plan.md) 分开记录尚未运行的 owned Host 崩溃恢复。定时表单模型选择区的截图疑点已在另一独占 Native 连续三次判别为正常 200ms 动画；0.5/1 秒后只有一个稳定 label，无产品修改。真实企微、外部 MCP、网盘仍按用户要求排除。
+公开商店排序、offPeak 旧 plan 入口、原生 chooser、OS 外链、生产安装包/跨平台，以及上述原有远端/分享/组织切换边界继续保留。同 Main 并发第二 Root 当前没有产品 UI/命令入口，应标当前 UI 不适用；普通 Renderer reload 复用原 Host，不能冒称 Host 代次恢复。[只读依据](../evidence/client-native-window-child-readonly-20261017/plan.md) 保留入口适用性。定时表单模型选择区的截图疑点已在另一独占 Native 连续三次判别为正常 200ms 动画；0.5/1 秒后只有一个稳定 label，无产品修改。真实企微、外部 MCP、网盘仍按用户要求排除。
+
+## 同 Main Host 故障恢复追加验收（2026-10-18）
+
+[真实 Native 恢复联测](client-native-host-recovery-test-2026-10-18.md) 已通过：唯一 owned H0 单次 SIGKILL 后 Main/原 CDP target 保持，标准 Page.reload 创建 H1 并自然恢复原身份；R0/R1 的 54 次导航分别实收 12/14 条 span。实际发布 desktop v2 后，H1 活 TLS 四元组与完整 false 收据对应，交付后的 54 次导航零新 R1 导出；真实“问题上报”无工单/反馈请求。基线 2 个初始化模型正文与 2 settled/44 Credit 零增量，79 配置收据全 sent。11 PID、4 端口及独占根已清，Root 独立复算、134 项证据及原 107/70/125 证据 SHA 通过。该结果不替代 UI 恢复按钮、自动重启、直接 sender ID 或完整旧 child 迟到隔离。
+
+首轮测试观测器错误要求 ISO fetchedAt，实际后台返回 Date.now 数字，因此旧 60 条拒绝收据和部分恢复 GREEN 保留；新增真实 createApp TCP 三阶段 RED→GREEN，13 单测及独立真实 HTTP 回归后另起 profile 才通过完整 Native。修复只在测试层，产品源码和产物保持原候选。最终主后台 health200/PID37266、9 表哈希、7 静态资产和外部 checkout 均不变，未重新部署。
+
+会话分享的后续[只读计划](../evidence/client-native-sharing-readonly-20261018/plan.md) 明确：自有服务当前只有分享准入/配置，没有准备、确认发布和预览存储 API；此前 299 HTTP 是外部旧服务的本机替身。客户端按钮和发布 client 仍依赖旧 OAuth，不能只换 URL/token 或解除 gate 即声称完成。企业内认证访问、外部公开链接或关闭入口的产品选择已询问用户，未决定前保留当前隐藏状态。
