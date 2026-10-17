@@ -20,6 +20,7 @@ import { createApp } from "../../src/app.ts";
 import { bootstrap } from "../../src/identity.ts";
 import { copyNativeOutSnapshot } from "./native-out-snapshot.mjs";
 import { copyNativeAdminSnapshot } from "./native-admin-snapshot.mjs";
+import { createNativeTraceCapture } from "./native-trace-capture.mjs";
 const fixtureName =
   process.env.UWORK_NATIVE_FIXTURE_NAME ?? "client-native-enterprise-20261017";
 if (!/^client-native-[a-z0-9-]+$/.test(fixtureName))
@@ -129,6 +130,9 @@ let backendOrigin = "",
 const traffic = [];
 let enterpriseAsset, denyPolicy, enterpriseExpert, expertDenyPolicy;
 const modelRequests = [];
+const traceCapture = experienceMode
+  ? createNativeTraceCapture(client)
+  : undefined;
 let workflowHoldSecond = false;
 const workflowPendingReplies = new Set(),
   workflowFacts = [];
@@ -145,8 +149,19 @@ const messageText = (message) =>
       ? message.content.map((part) => part.text ?? "").join("")
       : "";
 const upstream = httpServer(async (req, res) => {
-  let text = "";
-  for await (const b of req) text += b;
+  const chunks = [];
+  for await (const b of req) chunks.push(b);
+  const bytes = Buffer.concat(chunks);
+  if (traceCapture && req.url === "/v1/traces") {
+    try {
+      await traceCapture.capture(bytes, req.headers["content-encoding"]);
+      res.writeHead(200, { "content-type": "application/x-protobuf" }).end();
+    } catch {
+      res.writeHead(400).end();
+    }
+    return;
+  }
+  const text = bytes.toString("utf8");
   if (req.url === "/v1/models") {
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ data: [{ id: "controlled" }] }));
@@ -787,6 +802,11 @@ async function launch() {
         ),
         ZCODE_ENV: "production",
         ZCODE_BASE_URL: origin,
+        ...(experienceMode
+          ? {
+              OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: `http://127.0.0.1:${upstream.address().port}/v1/traces`,
+            }
+          : {}),
         ...(dynamicWorkflowMode === "alwaysOn"
           ? { ZCODE_DYNAMIC_WORKFLOW_MODE: dynamicWorkflowMode }
           : {}),
@@ -797,7 +817,9 @@ async function launch() {
   const { createWriteStream } = await import("node:fs");
   const log = createWriteStream(evidence + "/electron.log", {
     mode: 0o600,
-    ...(dynamicWorkflowMode === "alwaysOn" ? { flags: "a" } : {}),
+    ...(dynamicWorkflowMode === "alwaysOn" || experienceMode
+      ? { flags: "a" }
+      : {}),
   });
   electron.stdout.pipe(log);
   electron.stderr.pipe(log);
@@ -886,6 +908,7 @@ async function saveExperienceProof(name) {
         configurations,
         traffic,
         modelRequests,
+        rendererTraceBatches: traceCapture?.batches,
         ledger: usage.items.map((row) => ({
           id: row.id,
           status: row.status,
@@ -931,6 +954,7 @@ async function close() {
         modelCalls,
         traffic,
         modelRequests,
+        ...(traceCapture ? { rendererTraceBatches: traceCapture.batches } : {}),
         ...(dynamicWorkflowMode === "alwaysOn" ? { workflowFacts } : {}),
       },
       null,

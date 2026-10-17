@@ -20,6 +20,8 @@ Native 沿用公开配置和全部 out 的独占不可变快照、真实 appPath
 
 独占 launcher 在导入正式 Main 前屏蔽默认 URL 协议注册及系统最近文档清理，避免测试改写现有桌面状态；记录两个屏蔽事实，不伪造 appPath/isPackaged。OS 注册、最近文档和正式安装包启动不包含于本轮 Native 功能验收。
 
+追踪使用既有 `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` 指向同一独占受控供应商端口的 `/v1/traces` 收集器，不从后台下发地址或修改全局环境。收集器按当前已安装的 OpenTelemetry protobuf 解码，只保存 Renderer `ui_action` 的有限目录元数据及批次数、字节数、SHA，不保存请求头、原始 protobuf 或其他 scope 的属性。非 Renderer span 仅计数，不能混作界面动作验收。采样仍是正式 0.2 上限，通过真实设置导航动作取得正向出口证据，不替换随机数或注入 batch。
+
 夹具选项 `UWORK_NATIVE_CLIENT_EXPERIENCE=enabled` 仅启用上述测试静态快照、临时浏览器登录资料及状态取证命令；不传给产品，不新增产品配置来源。此模式仍使用原创建配置、草稿、发布、限额与账务接口。只增加测试预算，避免夹具限额先耗尽掩盖功能结果。
 
 ## 验收顺序
