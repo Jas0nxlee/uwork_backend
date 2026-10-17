@@ -112,3 +112,15 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 - 新 CLI 实际代表性回归为 25 个命名检查：child/expert/personal 9，workflow 10，skills stdio 合同 1，私有 relay 5。前组 57 supplier/57 settled；workflow/relay 为 62 supplier/62 ledger（60 settled、2 uncertain）。两组来源明确，旧证据已归档，实际 CLI/端口/根均清理。Native 名称组另有 6 supplier/6 settled（含初始化对照 2），17 已知 PID/4 端口/数据根/两阶段 BH 均清理。
 
 当前日志又发现旧 desktop context prompt、client-scenes 与 help 配置请求 404，正在追踪实际 owner 和现有合同，不能凭对话正常声称全部配置链路已通过。Native 组织切换/分享、生产工作流灰度、managed 远端/手机、跨平台发行与上述未解配置仍保留。主后台只读复核 health 200、原 PID 37266、9 张业务表哈希不变，外部客户端 checkout 干净；真实企微、外部 MCP、网盘和付费模型未参与。
+
+## 自有控制面与模板缓存追加验收
+
+用户选择保留功能并补齐自有后台。已实现 scenes/help/desktop/plugin-store 四类发布配置、结构化管理页和同一私有身份 owner 接线；[规格](../SPEC-client-experience.md) 与 [管理页报告](admin-client-experience-report-2026-10-17.md) 说明草稿、发布、弃稿、严格输入和同 kind 企业切换竞态。旧 UI 的迟到 A 响应可覆盖 B 表单并被真实保存到 B，新 UI 在同序列保持 B。四类完整生命周期和 16 个稳定布局已实测，主静态资产未替换。
+
+初版控制面 CLI/stage 为 39175fd；[25 项正式 CLI 回归](client-experience-cli-regression-2026-10-17.md) 全过，117 supplier/117 ledger（115 settled、2 uncertain）分组保留，不与其他层次重复累加。postbuild Core 109/Host 288 通过，bootstrap 默认 noEmit 已消除旧声明的 5 个错误；Main 独立 noEmit 仍有 81 项既有诊断、无语义新增，CLI 标准 typecheck/lint 仍因缺 turbo 失败，不写成全绿。
+
+[同后台管理页→Native](client-native-experience-test-2026-10-17.md) 已证：desktop 只保存草稿时无 Desktop 段，发布 on/off 后同会话下一 turn 立即采用当前值；设置导航真实产生 14 条 Renderer span，关闭后同样 54 次导航无新增。scenes 草稿冷启保持旧值、发布后原轮询暖更新、再冷启仍为新值；帮助关闭及身份撤销后的直接反馈入口没有请求旧工单。撤销后新模型/账本增量 0，两条旧匿名控制面请求 0。该组 16 supplier/16 settled 包括另一个成员初始化及未派发 child 的专家尝试，不能当 16 个业务成功。
+
+实际 Native 发送后切自动化暴露共享 SWR 清空/去重标记问题；源码修复仅退休最后 reader 的资源。React/SWR 10/10、scope 2/2、独立审查通过，Desktop-only 重建后 [bf0/61fe Native 组](../evidence/client-native-scenes-fixed-20261017/summary.json) 证明模板表单、三轮往返、同 profile 冷启及 V2 暖更新均正常，CLI 字节仍 39175。该组 4 supplier/4 settled、18 个 PID/4 端口/两代 BH/root 已清。
+
+另发现 Native 企业专家首次目录读取与后台同步 CAS 冲突，导致专家未注册；已取得 matched trace 的真实 RED，Host 事务串行化正在独立修复，不能把父模型回复当 child 执行。公开商店排序、offPeak 旧 plan 入口、原生 chooser、OS 外链、同 Main 多窗口、生产安装包/跨平台，以及上述原有远端/分享/组织切换边界继续保留。真实企微、外部 MCP、网盘仍按用户要求排除。
