@@ -2334,6 +2334,12 @@ const enUS: Record<string, string> = {
   "settings.mcp.failure.status_unavailable":
     "Unable to retrieve MCP status. Refresh or restart the Agent.",
   "settings.mcp.failure.connection_failed": "Failed to connect to the MCP server. Try again later.",
+  "settings.mcp.failure.enterprisePolicyDenied":
+    "Enterprise policy blocks this MCP connection. Ask your administrator to check personal connector and execution permissions.",
+  "settings.mcp.failure.enterpriseRuntimeChanged":
+    "Your enterprise identity or MCP session changed. Refresh and retry.",
+  "settings.mcp.failure.enterprisePolicyUnavailable":
+    "Enterprise permissions could not be verified. Check the backend connection and retry.",
   "settings.mcp.failure.technicalDetails": "Details",
   "settings.mcp.deleteConfirmTitle": 'Delete MCP server "{name}"?',
   "settings.mcp.deleteConfirmDescription":
@@ -3613,6 +3619,12 @@ const enUS: Record<string, string> = {
     "Sync failed: the extracted Skill content is about {actualSize}, exceeding the {maxSize} remote limit. Deselect some Skills and try again.",
   "settings.skills.userScopeDesktopOnly":
     "User-level skills are available on desktop only in this phase.",
+  "settings.skills.enterprisePolicyDenied":
+    "Your organization has not enabled personal skills. Ask an administrator to review skill permissions.",
+  "settings.skills.enterprisePolicyUnavailable":
+    "Enterprise permissions could not be verified. Check the backend connection and retry.",
+  "settings.skills.enterpriseRuntimeChanged":
+    "Your enterprise identity or skill session has changed. Refresh and retry.",
   "settings.skills.detail.description": "Description",
   "settings.skills.detail.path": "File path",
   "settings.skills.detail.openPath": "Open",

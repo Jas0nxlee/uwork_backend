@@ -38,6 +38,7 @@ import { buildSkillMentionMarkdown } from "@/mentions/mentionMarkdown.js";
 import { filterSkillsForProvider } from "@/lib/skillSourceFilter.js";
 import { invalidateDeferredDraftSessionForSkillChange } from "@/lib/zcodeDraftSkillInvalidation.js";
 import { PluginStoreAvatar } from "@/settings/PluginStoreAvatar.js";
+import { resolveSkillsFailureMessageId } from "@/settings/skillsFailureCopy.js";
 import { SettingsResourceHeaderActions } from "@/settings/SettingsResourceHeaderActions.js";
 import {
   SettingsResourceGroupHeader,
@@ -561,6 +562,7 @@ export function SkillsSection({
     (diagnostic) => diagnostic.severity === "error",
   ).length;
   const diagnosticWarningCount = diagnostics.length - diagnosticErrorCount;
+  const failureMessageId = error ? resolveSkillsFailureMessageId(error) : undefined;
   const diagnosticsSummary =
     diagnostics.length > 0
       ? intl.formatMessage(
@@ -776,7 +778,11 @@ export function SkillsSection({
         </div>
       ) : null}
 
-      {targetServiceResolution.rpcReady && !capability?.userScopeAvailable ? (
+      {/* 能力读取失败不能推断平台不支持，只有已确认的能力结果才展示此提示。 */}
+      {targetServiceResolution.rpcReady &&
+      !loading &&
+      !error &&
+      capability?.userScopeAvailable === false ? (
         <div className="rounded-lg border border-border bg-card px-3 py-2 text-ui-base text-foreground-subtle">
           {intl.formatMessage({ id: "settings.skills.userScopeDesktopOnly" })}
         </div>
@@ -784,7 +790,7 @@ export function SkillsSection({
 
       {targetServiceResolution.rpcReady && error ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-ui-base text-destructive">
-          {error}
+          {failureMessageId ? intl.formatMessage({ id: failureMessageId }) : error}
         </div>
       ) : null}
 

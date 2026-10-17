@@ -1065,13 +1065,6 @@ export function createZCodeAgentService(
   options?: CreateZCodeAgentServiceOptions,
 ): IZCodeAgentService & { disposeAllAndWait(): Promise<void> } {
   const processManager = new ZCodeAgentProcessManager(options);
-  const enterpriseAuthorizationBridge = createEnterpriseToolAuthorizationBridge({
-    resolver: options?.enterpriseToolAuthorization,
-    assets: options?.enterpriseAssets,
-    connectors: options?.enterpriseConnectors,
-    models: options?.enterpriseModels,
-    isCurrent: (workspace, client) => processManager.getExistingClient(workspace) === client,
-  });
   // Windows indicator 与 macOS producer lifecycle client 共用已校验、去重的 sideband facts。
   const cuaOperationTurnTracker =
     options?.cuaOperationStateReporter || options?.onCuaPipSessionLifecycle
@@ -1111,6 +1104,18 @@ export function createZCodeAgentService(
     waitForSpawnAdmission: options?.waitForSpawnAdmission,
     lane: "mcp-status",
     idleTimeoutMs: options?.mcpStatusIdleTimeoutMs ?? MCP_STATUS_LANE_IDLE_TIMEOUT_MS,
+  });
+  const enterpriseAuthorizationBridge = createEnterpriseToolAuthorizationBridge({
+    resolver: options?.enterpriseToolAuthorization,
+    assets: options?.enterpriseAssets,
+    connectors: options?.enterpriseConnectors,
+    models: options?.enterpriseModels,
+    // 三条泳道共用此桥；仅查 chat 会把仍由独立 manager 持有的 plugin/MCP 控制面误判过时。
+    // 按同一 workspace 查询既有 owner 并比较精确 client；替换/dispose 后旧连接仍不能通过。
+    isCurrent: (workspace, client) =>
+      [processManager, pluginProcessManager, mcpStatusProcessManager].some(
+        (manager) => manager.getExistingClient(workspace) === client,
+      ),
   });
   const sessionEmitters = new Map<string, Emitter<ZCodeAgentServiceEvent>>();
   /**

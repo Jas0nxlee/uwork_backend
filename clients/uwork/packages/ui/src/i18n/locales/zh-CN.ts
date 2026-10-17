@@ -2193,6 +2193,11 @@ const zhCN: Record<string, string> = {
   "settings.mcp.failure.protocol_error": "MCP 协议请求失败，客户端与服务器可能不兼容。",
   "settings.mcp.failure.status_unavailable": "暂时无法获取 MCP 状态，请刷新或重启 Agent。",
   "settings.mcp.failure.connection_failed": "MCP 服务器连接失败，请稍后重试。",
+  "settings.mcp.failure.enterprisePolicyDenied":
+    "企业策略禁止连接此 MCP 服务器，请联系管理员检查个人连接器和执行权限。",
+  "settings.mcp.failure.enterpriseRuntimeChanged": "企业身份或 MCP 会话已变化，请刷新后重试。",
+  "settings.mcp.failure.enterprisePolicyUnavailable":
+    "暂时无法验证企业权限，请检查后台连接后重试。",
   "settings.mcp.failure.technicalDetails": "详情",
   "settings.mcp.deleteConfirmTitle": '删除 MCP 服务器"{name}"？',
   "settings.mcp.deleteConfirmDescription": "删除后将无法恢复，该服务器配置将从文件中移除。",
@@ -3390,6 +3395,9 @@ const zhCN: Record<string, string> = {
   "settings.skills.remoteSync.sizeLimit.extractedContent":
     "同步失败：远端解包后的 Skills 内容约为 {actualSize}，超过允许上限 {maxSize}。请减少选择后重试。",
   "settings.skills.userScopeDesktopOnly": "当前阶段用户级技能仅支持桌面端。",
+  "settings.skills.enterprisePolicyDenied": "企业未允许个人技能，请联系管理员检查技能权限。",
+  "settings.skills.enterprisePolicyUnavailable": "暂时无法验证企业权限，请检查后台连接后重试。",
+  "settings.skills.enterpriseRuntimeChanged": "企业身份或技能会话已变化，请刷新后重试。",
   "settings.skills.detail.description": "描述",
   "settings.skills.detail.path": "文件路径",
   "settings.skills.detail.openPath": "打开",
