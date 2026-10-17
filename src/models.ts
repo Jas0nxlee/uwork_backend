@@ -193,6 +193,10 @@ export function modelsRoutes(
           name: m.name,
           context_window: m.data.contextWindow,
           max_output_tokens: m.data.maxOutputTokens,
+          // 自有客户端必须消费真实模型能力，不能按不透明ID继承通用UCAS高能力默认值。
+          supports_vision: m.data.supportsVision,
+          supports_reasoning: m.data.supportsReasoning,
+          supports_tools: m.data.supportsTools,
         })),
     };
   });

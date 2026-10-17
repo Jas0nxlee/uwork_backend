@@ -24,6 +24,8 @@ import {
 import { createServiceDescriptor } from "../descriptors.js";
 import type { ModelConnectivityResult } from "@zcode/shared";
 import { createServiceLogger } from "../logger/serviceLogger.js";
+import type { UWorkGatewayModelDescriptor } from "../ucas-gateway/contract.js";
+import { applyUWorkGatewayModelConfigs } from "./uworkGatewayModelConfig.js";
 
 export type {
   ProviderSettingsProviderView,
@@ -49,7 +51,7 @@ export const providerSettingsTrustedGatewayProvisioning = Symbol(
 );
 export type HostProviderSettingsService = IProviderSettingsService & {
   [providerSettingsTrustedGatewayProvisioning](
-    input: UcasGatewayProvisioningInput,
+    input: TrustedUcasGatewayProvisioningInput,
   ): Promise<UcasGatewayProvisioningResult>;
 };
 
@@ -59,6 +61,11 @@ export interface UcasGatewayProvisioningInput {
   readonly apiKey?: string;
   readonly replaceApiKey?: boolean;
   readonly modelIds?: readonly string[];
+}
+
+/** 只供Host私有Symbol端口消费；公开个人配置方法不读取该字段。 */
+export interface TrustedUcasGatewayProvisioningInput extends UcasGatewayProvisioningInput {
+  readonly managedModels?: readonly UWorkGatewayModelDescriptor[];
 }
 
 export interface UcasGatewayProvisioningResult {
@@ -195,6 +202,7 @@ export function createProviderSettingsService(
     });
   const applyGatewayProvisioning = async (
     input: UcasGatewayProvisioningInput,
+    managedModels?: readonly UWorkGatewayModelDescriptor[],
   ): Promise<UcasGatewayProvisioningResult> => {
     await ensureReady();
     await facade.waitForProviderOperations(UCAS_PROVIDER_ID);
@@ -210,10 +218,11 @@ export function createProviderSettingsService(
     ];
     const existing = new Set(provider.models.map((model) => model.modelId));
     const added = ids.filter((modelId) => !existing.has(modelId));
-    const view =
+    const membershipView =
       added.length === 0
         ? applied.view
         : await facade.addDiscoveredModels(UCAS_PROVIDER_ID, ids, applied.view.revision);
+    const view = await applyUWorkGatewayModelConfigs(facade, membershipView, managedModels, ids);
     const effective = view.providers.find((item) => item.providerId === UCAS_PROVIDER_ID);
     const access = effective?.effectiveConfig.access;
     return {
@@ -262,7 +271,9 @@ export function createProviderSettingsService(
       personal(() => facade.savePersonalProviderOverlay(providerId, config, metadata)),
     setUcasApiKeyIfMissing: (apiKey) => personal(() => facade.setUcasApiKeyIfMissing(apiKey)),
     applyUcasGatewayProvisioning: (input) => personal(() => applyGatewayProvisioning(input)),
-    [providerSettingsTrustedGatewayProvisioning]: applyGatewayProvisioning,
+    // 只有私有Gateway路径透传后台描述；JS伪造公开入参不能改变受管模型事实。
+    [providerSettingsTrustedGatewayProvisioning]: (input) =>
+      applyGatewayProvisioning(input, input.managedModels),
     deletePersonalProvider: (providerId) =>
       personal(() => facade.deletePersonalProvider(providerId)),
     reorderPersonalProviders: (providerIds) =>

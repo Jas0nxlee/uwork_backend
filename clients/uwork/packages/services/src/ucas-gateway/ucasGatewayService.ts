@@ -1,6 +1,5 @@
 import { Emitter } from "@zcode/rpc";
 import {
-  ucasGatewayModelsSchema,
   ucasGatewayViewSchema,
   type UcasGatewayError,
   type UcasGatewaySyncResult,
@@ -23,12 +22,15 @@ import {
   resolveGatewayEndpoint as resolveEndpoint,
   ensureGatewayKey as ensureKey,
   readGatewayPlanModels as readPlanModels,
+  readGatewayModelApplication,
 } from "./gatewayProvisioningReads.js";
 import {
   uncommittedGatewayResult,
   committedGatewayResult,
   readyGatewayProjection,
   emptyGatewayProjection,
+  appliedModelsProjection,
+  modelCatalogProjection,
 } from "./gatewayViewProjection.js";
 
 export interface UcasGatewayServiceOptions extends GatewayIdentitySource {
@@ -169,6 +171,7 @@ export function createUcasGatewayService(
           ? { replaceApiKey: true }
           : {}),
         modelIds: plan.ids,
+        ...(plan.descriptors ? { managedModels: plan.descriptors } : {}),
       });
       await scope.assertCurrent();
       // Provider 确认写入后才吊销旧凭据，查询/写入失败不能破坏原本可用的配置。
@@ -330,18 +333,8 @@ export function createUcasGatewayService(
         if (!endpoint && !scope.managed) return;
         const plan = await client.readPlanModels();
         const local = new Set(await options.provisioning.listModels());
-        const pending = plan.models.filter((modelId) => !local.has(modelId));
         await scope.assertCurrent();
-        publish({
-          ...view,
-          models: ucasGatewayModelsSchema.parse({
-            available: plan.models,
-            unrestricted: plan.unrestricted,
-            hasSubscription: plan.hasSubscription,
-            appliedCount: plan.models.length - pending.length,
-            pendingCount: pending.length,
-          }),
-        });
+        publish(modelCatalogProjection(view, plan, local));
       });
     },
     async applyModels() {
@@ -373,18 +366,21 @@ export function createUcasGatewayService(
             (view.user?.id !== session.profile.id || view.user.orgId !== session.profile.tenantId))
         )
           return serializeSync("models");
+        const models = await readGatewayModelApplication(
+          scope.managed
+            ? createScopedGatewayClient(options, session, apiBaseUrl, backend, scope)
+            : undefined,
+          ids,
+        );
+        await scope.assertCurrent();
         const applied = await options.provisioning.apply({
           baseUrl: endpoint.baseUrl,
-          modelIds: ids,
+          modelIds: models.ids,
+          ...(models.descriptors ? { managedModels: models.descriptors } : {}),
         });
         await scope.assertCurrent();
         projectedScope = scope;
-        publish({
-          ...view,
-          models: view.models
-            ? { ...view.models, appliedCount: ids.length, pendingCount: 0 }
-            : view.models,
-        });
+        publish(appliedModelsProjection(view, models.ids));
         return committedGatewayResult(view, applied, false, true);
       } catch (error) {
         if (backend === "uwork" && (!scope || !scope.isCurrent())) clearIdentityProjection(scope);

@@ -1,4 +1,5 @@
 import type { UcasGatewayEndpoint, UcasGatewayView } from "@zcode/shared";
+import type { UWorkGatewayModelDescriptor } from "./contract.js";
 import type { UcasGatewayClient } from "./ucasGatewayClient.js";
 /** 无可变状态的协议读取辅助；副作用准入与视图提交始终由Gateway owner负责。 */
 const GATEWAY_KEY_ALIAS = "UWork";
@@ -39,13 +40,15 @@ export const readGatewayPlanModels = async (
   apiKey: string,
 ): Promise<{
   ids: readonly string[];
+  descriptors?: readonly UWorkGatewayModelDescriptor[];
   unrestricted: boolean;
   hasSubscription: boolean;
 }> => {
   const plan = await client.readPlanModels();
-  if (plan.models.length > 0) {
+  if (plan.models.length > 0 || plan.descriptors !== undefined) {
     return {
       ids: plan.models,
+      ...(plan.descriptors ? { descriptors: plan.descriptors } : {}),
       unrestricted: plan.unrestricted,
       hasSubscription: plan.hasSubscription,
     };
@@ -66,3 +69,12 @@ export const readGatewayPlanModels = async (
     };
   }
 };
+
+export async function readGatewayModelApplication(
+  client: UcasGatewayClient | undefined,
+  ids: readonly string[],
+): Promise<{ ids: readonly string[]; descriptors?: readonly UWorkGatewayModelDescriptor[] }> {
+  if (!client) return { ids };
+  const plan = await client.readPlanModels();
+  return { ids: plan.models, ...(plan.descriptors ? { descriptors: plan.descriptors } : {}) };
+}

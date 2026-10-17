@@ -11,3 +11,9 @@ SSE 顶层非 null 的 error 表示上游失败，即使 HTTP 200 且随后给�
 验收：真实 HTTP 受控上游调用、SSE 终态、失败/断开释放、模型撤权立即阻断，客户端看不到供应商凭据。
 命令：npm test；npm run build。测试不连接付费服务。
 边界：先支持 OpenAI-compatible 文本/视觉消息；其他供应商协议必须显式声明不支持。
+
+## UWork 托管模型描述
+
+`GET /v1/models` 保留 `id/object/owned_by/name/context_window/max_output_tokens`，额外返回显式布尔 `supports_vision/supports_reasoning/supports_tools`。这些公开模型能力与上限来自当前租户模型记录，不含供应商地址、凭据或价格秘密，不授予后续执行权限。支持能力为 false 必须明确返回 false，客户端不得把未知 opaque model ID 当成通用 UCAS 高能力模板。
+
+UWork 将同一份已授权目录的描述沿现有私有 Gateway provisioning writer 应用到对应模型的精确配置；同步可纠正已落盘的旧错误参数。此合同只描述当前后端 OpenAI-compatible 字段：输出使用 max_tokens，思考仅 low/medium/high；不兼容的供应商方言不通过放宽全局输入schema处理。旧 UCAS 与个人模型模板由原所有者保留，不被该自有后端描述覆盖。

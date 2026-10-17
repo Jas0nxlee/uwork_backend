@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { UWorkGatewayModelDescriptor } from "./contract.js";
 import {
   normalizeUcasGatewayBaseUrl,
   ucasGatewayKeySchema,
@@ -147,6 +148,7 @@ export interface UcasGatewayClient {
   readUsage(request: UcasGatewayUsageRequest): Promise<UcasGatewayUsageStats>;
   readPlanModels(): Promise<{
     models: readonly string[];
+    descriptors?: readonly UWorkGatewayModelDescriptor[];
     unrestricted: boolean;
     hasSubscription: boolean;
   }>;

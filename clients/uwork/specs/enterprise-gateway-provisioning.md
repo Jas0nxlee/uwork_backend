@@ -145,3 +145,28 @@ sequenceDiagram
 - 从 App 内 Bash 工具启动 dev 时，宿主会注入 `ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` / `ZCODE_PERSONAL_PROVIDER_CONFIG_FILE`，桌面主进程优先采用该显式路径（指向已安装版本的 CDN builtin 缓存，无 `ucas` 模板），表现为 `Provider Template 不存在: ucas` 且播种失败。用 `env -u ZCODE_BUILTIN_PROVIDER_CONFIG_FILE -u ZCODE_PERSONAL_PROVIDER_CONFIG_FILE pnpm dev:desktop:test` 或在普通终端启动即可恢复。
 - Host 有意剔除 `NODE_EXTRA_CA_CERTS`（统一走桌面 custom CA 设置，`settings.httpProxyCaCertPath`）；本机模拟 HTTPS 控制面时用 `NODE_TLS_REJECT_UNAUTHORIZED=0`，仅限测试。
 - 仍未验证：真实企业微信扫码、真实 ucas-proxy 服务、网关面板的视觉呈现与交互（需要 CDP/browser-harness 授权）。
+
+## UWork 托管模型元数据（2026-10-17）
+
+真实 Native SDK 的 JSON/SSE RED 已证明：把后台不透明model ID仅作为字符串追加，会继承UCAS默认Vision=true/context=1M/low|high|max；通用OpenAI规则还输出max_completion_tokens/thinking/enable_thinking/reasoning等本后端未声明字段，真实请求400且供应商0次。不得改fixture flags或放宽所有供应商协议来掩盖。
+
+- 后端 `/v1/models` 继续兼容旧字段并返回context_window/max_output_tokens/supports_vision/supports_reasoning/supports_tools。UWork adapter严格校验并归一化为descriptors `{id,contextWindow,maxOutputTokens,supportsVision,supportsReasoning,supportsTools}`；旧UCAS readPlanModels的models字符串列表与原语义不变。
+- Gateway为唯一目录投影owner，沿现有Node私有provisioning target透传 `managedModels`；ProviderRuntime的Symbol入口是消费该描述的唯一可信写口。公开ProviderSettings.applyUcasGatewayProvisioning不消费managedModels，即使JS调用者伪造多余字段也不能走该元数据豁免。
+- 复用ProviderSettingsFacade和同一ModelConfig Repository writer，对descriptor ID在ucas provider下写精确规则，保留既有enabled/排序；本后端托管model的能力/上限/maps按当前server事实覆盖，已落盘的旧错参数也被修正。其他个人model IDs、默认六个UCAS模型及legacy UCAS模板不变，不新增第二份配置文件或模型owner。
+- contextWindow精确采用后台值；图片和工具能力采用后台bool，音频/视频/PDF/native搜索/JSON-schema输出等未声明能力显式关闭。maxOutputTokens.max取后台上限，map仅 `{"max_tokens": maxOutputTokens}`。
+- reasoning=false时values=`["none"]`、map=`{}`，不输出thinking/enable_thinking/reasoning等方言字段；reasoning=true时values=`["low","medium","high"]`，map只把这些合法值输出为reasoning_effort，旧max或未知档位不透传。精确maps不能被普通UCAS通配规则覆盖。
+- refreshModels只展示当前目录；managed applyModels在现有owner准入后重读当前descriptors，再经同一writer应用。缓存view中的ID列表不代替当前后台参数或执行准入。未实现的外部/平台安装不因此声称完成。
+
+```mermaid
+flowchart LR
+  B[后端模型记录唯一能力事实] --> H[真实HTTPS授权目录]
+  H --> G[UWork Gateway严格descriptors投影]
+  G --> S[Node私有Symbol provisioning端口]
+  S --> F[现有ProviderSettingsFacade]
+  F --> R[同一Repository精确模型规则]
+  R --> P[ProviderRuntime Registry]
+  P --> C[实际CLI/AiSdkModelAdapter]
+  C --> V[后端strict max_tokens与reasoning_effort]
+```
+
+验收：真实Gateway.sync→ProviderRuntime的server false/128k/output16逐字段一致；旧1M/Vision/最高reasoning参数再同步后修正；server更新描述后同ID再次同步生效；JSON/SSE实际SDK请求无不支持方言且成功/计量；旧UCAS及个人配置哨兵不变。只在独立磁盘/合成email与device/本机TLS和零费用provider上执行，不调用企微/外部MCP/网盘。

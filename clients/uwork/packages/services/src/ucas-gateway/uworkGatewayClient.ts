@@ -102,9 +102,32 @@ export function createUWorkGatewayClient(options: UcasGatewayClientOptions): Uca
     },
     async readPlanModels() {
       const raw = z
-        .object({ data: z.array(z.object({ id: z.string() })) })
+        .object({
+          data: z.array(
+            z.object({
+              id: z.string().min(1).max(80),
+              context_window: z.number().int().min(128).max(2000000),
+              max_output_tokens: z.number().int().min(1).max(131072),
+              supports_vision: z.boolean(),
+              supports_reasoning: z.boolean(),
+              supports_tools: z.boolean(),
+            }),
+          ),
+        })
         .parse(await send("/v1/models"));
-      return { models: raw.data.map((m) => m.id), unrestricted: false, hasSubscription: true };
+      return {
+        models: raw.data.map((m) => m.id),
+        descriptors: raw.data.map((m) => ({
+          id: m.id,
+          contextWindow: m.context_window,
+          maxOutputTokens: m.max_output_tokens,
+          supportsVision: m.supports_vision,
+          supportsReasoning: m.supports_reasoning,
+          supportsTools: m.supports_tools,
+        })),
+        unrestricted: false,
+        hasSubscription: true,
+      };
     },
     async listEndpointModels() {
       const raw = z

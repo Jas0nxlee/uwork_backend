@@ -36,6 +36,16 @@ export const IUcasGatewayService = createServiceDescriptor<IUcasGatewayService>(
   ServiceChannels.UcasGateway,
 );
 
+/** 自有后端授权目录的公开事实；只由Host私有Gateway写入对应精确模型规则。 */
+export interface UWorkGatewayModelDescriptor {
+  readonly id: string;
+  readonly contextWindow: number;
+  readonly maxOutputTokens: number;
+  readonly supportsVision: boolean;
+  readonly supportsReasoning: boolean;
+  readonly supportsTools: boolean;
+}
+
 /** Node 装配注入的 Provider 写入端口；网关服务不直接依赖 Provider 实现。 */
 export interface UcasGatewayProvisioningTarget {
   apply(input: {
@@ -43,6 +53,7 @@ export interface UcasGatewayProvisioningTarget {
     readonly apiKey?: string;
     readonly replaceApiKey?: boolean;
     readonly modelIds?: readonly string[];
+    readonly managedModels?: readonly UWorkGatewayModelDescriptor[];
   }): Promise<{
     readonly apiKeyApplied: boolean;
     readonly hasApiKey: boolean;

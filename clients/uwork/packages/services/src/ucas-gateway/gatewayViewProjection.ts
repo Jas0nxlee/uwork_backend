@@ -83,3 +83,32 @@ export function emptyGatewayProjection(
     error: null,
   };
 }
+
+export function appliedModelsProjection(
+  current: UcasGatewayView,
+  ids: readonly string[],
+): Omit<UcasGatewayView, "revision"> {
+  return {
+    ...current,
+    models: current.models
+      ? { ...current.models, available: [...ids], appliedCount: ids.length, pendingCount: 0 }
+      : current.models,
+  };
+}
+export function modelCatalogProjection(
+  current: UcasGatewayView,
+  plan: { models: readonly string[]; unrestricted: boolean; hasSubscription: boolean },
+  local: ReadonlySet<string>,
+): Omit<UcasGatewayView, "revision"> {
+  const pending = plan.models.filter((id) => !local.has(id)).length;
+  return {
+    ...current,
+    models: ucasGatewayModelsSchema.parse({
+      available: plan.models,
+      unrestricted: plan.unrestricted,
+      hasSubscription: plan.hasSubscription,
+      appliedCount: plan.models.length - pending,
+      pendingCount: pending,
+    }),
+  };
+}

@@ -492,6 +492,11 @@ async function liveFixture(t: TestContext, name: string) {
     resolved,
     modelRequest,
     calls: () => modelCalls,
+    settings: () => runtime.providerSettings,
+    seedLegacyModel: () =>
+      runtime.providerSettings[
+        facadeModule.providerSettingsTrustedGatewayProvisioning
+      ]({ baseUrl: origin + "/v1", modelIds: [String(model.id)] }),
     relogin: async () => {
       const issued = await api<{ token: string; expiresAt: number }>(
         "/api/auth/login",
@@ -802,5 +807,197 @@ test("partial refresh after same-profile relogin never mixes old owner projectio
   assert.ok((await f.gateway().applyModels()).committed);
   f.check(
     "current-partial-refresh-keeps-old-identity-fields-cleared-until-full-sync",
+  );
+});
+
+test("current backend descriptors repair old managed metadata without changing personal or legacy UCAS parameters", async (t) => {
+  const f = await liveFixture(t, "managed-metadata");
+  const legacySeed = await f.seedLegacyModel();
+  const legacy = legacySeed.view.providers.find(
+    (p: { providerId: string }) => p.providerId === "ucas",
+  );
+  const wrong = legacy.models.find(
+    (m: { modelId: string }) => m.modelId === f.model.id,
+  ).effectiveConfig;
+  assert.equal(wrong.properties.contextWindow, 1000000);
+  assert.equal(wrong.properties.inputFormat.supportsImage, true);
+  assert.deepEqual(wrong.optionSpecs.reasoningLevel.values, [
+    "low",
+    "high",
+    "max",
+  ]);
+  const sentinelBefore = digest(
+    JSON.stringify(
+      legacy.models.find(
+        (m: { modelId: string }) => m.modelId === "ucas-deepseek-flash",
+      ).effectiveConfig,
+    ),
+  );
+  const personal = await f.api(
+    `${f.p}/configurations/personal`,
+    "GET",
+    undefined,
+    f.login.token,
+  );
+  const draft = await f.api(
+    `${f.p}/configurations/personal`,
+    "PUT",
+    {
+      revision: personal.revision,
+      data: { ...(personal.published as Row), models: true },
+    },
+    f.login.token,
+  );
+  await f.api(
+    `${f.p}/configurations/personal/publish`,
+    "POST",
+    { revision: draft.revision },
+    f.login.token,
+  );
+  const created = await f
+    .settings()
+    .createPersonalProvider({
+      providerName: "Untouched personal sentinel",
+      initialConfig: {
+        api: {
+          type: "openai-chat-completions",
+          baseUrl: "https://personal-sentinel.example.test/v1",
+        },
+        access: {
+          type: "api-key",
+          apiKey: "synthetic-personal-not-dispatched",
+        },
+      },
+    });
+  await f
+    .settings()
+    .addPersonalModel(
+      created.providerId,
+      "personal-sentinel",
+      {
+        properties: { contextWindow: 333333 },
+        optionSpecs: {
+          reasoningLevel: { values: ["personal-only"], map: "{}" },
+        },
+      },
+      true,
+    );
+  const personalBefore = digest(
+    JSON.stringify(
+      (await f.settings().getView()).providers.find(
+        (p: { providerId: string }) => p.providerId === created.providerId,
+      ).models,
+    ),
+  );
+  const directory = await f.api<{ data: Row[] }>(
+    "/v1/models",
+    "GET",
+    undefined,
+    f.login.token,
+  );
+  const described = directory.data.find((m) => m.id === f.model.id)!;
+  assert.equal(described.context_window, 128000);
+  assert.equal(described.max_output_tokens, 16);
+  assert.equal(described.supports_vision, false);
+  assert.equal(described.supports_reasoning, false);
+  assert.equal(described.supports_tools, false);
+  assert.ok((await f.gateway().sync("metadata-migration")).committed);
+  let config = (await f.resolved()).effectiveConfig;
+  assert.equal(config.properties.contextWindow, 128000);
+  assert.equal(config.properties.inputFormat.supportsImage, false);
+  assert.equal(config.properties.supportsToolCall, false);
+  assert.equal(config.optionSpecs.maxOutputTokens.max, 16);
+  assert.equal(
+    config.optionSpecs.maxOutputTokens.map,
+    '{"max_tokens": maxOutputTokens}',
+  );
+  assert.deepEqual(config.optionSpecs.reasoningLevel.values, ["none"]);
+  assert.equal(config.optionSpecs.reasoningLevel.map, "{}");
+  f.check(
+    "old-UCAS-default-metadata-repaired-through-real-Gateway-private-writer",
+  );
+  const key = (await f.resolved()).providerConfig.access.apiKey;
+  const row = (
+    await f.api<Row[]>(`${f.p}/models`, "GET", undefined, f.login.token)
+  ).find((m) => m.id === f.model.id)!;
+  await f.api(
+    `${f.p}/models/${f.model.id}`,
+    "PUT",
+    {
+      ...(row.data as Row),
+      name: row.name,
+      scope: row.scope,
+      enabled: row.enabled,
+      revision: row.revision,
+      contextWindow: 64000,
+      maxOutputTokens: 8,
+      supportsVision: true,
+      supportsReasoning: true,
+      supportsTools: true,
+    },
+    f.login.token,
+  );
+  assert.ok((await f.gateway().applyModels()).committed);
+  config = (await f.resolved()).effectiveConfig;
+  assert.equal(config.properties.contextWindow, 64000);
+  assert.equal(config.properties.inputFormat.supportsImage, true);
+  assert.equal(config.properties.supportsToolCall, true);
+  assert.equal(config.optionSpecs.maxOutputTokens.max, 8);
+  assert.deepEqual(config.optionSpecs.reasoningLevel.values, [
+    "low",
+    "medium",
+    "high",
+  ]);
+  assert.ok(
+    (await f.resolved()).providerConfig.access.apiKey === key,
+    "model metadata application must not rotate the device key",
+  );
+  f.check("HTTP-updated-same-model-descriptor-applies-without-key-rotation");
+  const forged = {
+    id: String(f.model.id),
+    contextWindow: 2000000,
+    maxOutputTokens: 131072,
+    supportsVision: false,
+    supportsReasoning: false,
+    supportsTools: false,
+  };
+  await f
+    .settings()
+    .applyUcasGatewayProvisioning({
+      baseUrl: f.origin + "/v1",
+      modelIds: [String(f.model.id)],
+      managedModels: [forged],
+    });
+  assert.equal(
+    (await f.resolved()).effectiveConfig.properties.contextWindow,
+    64000,
+  );
+  f.check("public-personal-entry-ignores-forged-managed-metadata");
+  const view = await f.settings().getView();
+  assert.equal(
+    digest(
+      JSON.stringify(
+        view.providers
+          .find((p: { providerId: string }) => p.providerId === "ucas")
+          .models.find(
+            (m: { modelId: string }) => m.modelId === "ucas-deepseek-flash",
+          ).effectiveConfig,
+      ),
+    ),
+    sentinelBefore,
+  );
+  assert.equal(
+    digest(
+      JSON.stringify(
+        view.providers.find(
+          (p: { providerId: string }) => p.providerId === created.providerId,
+        ).models,
+      ),
+    ),
+    personalBefore,
+  );
+  assert.equal(f.calls(), 0);
+  f.check(
+    "legacy-UCAS-and-personal-model-parameters-unchanged-no-supplier-dispatch",
   );
 });
