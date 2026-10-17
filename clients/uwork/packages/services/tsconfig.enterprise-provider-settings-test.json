@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "strict": true,
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "disableSourceOfProjectReferenceRedirect": true
+  },
+  "include": ["test/uworkProviderSettingsPolicy.test.ts", "src/model-provider/**/*.ts"],
+  "references": [
+    { "path": "../shared" },
+    { "path": "../rpc" },
+    { "path": "../provider" },
+    { "path": "../provider-node" }
+  ]
+}

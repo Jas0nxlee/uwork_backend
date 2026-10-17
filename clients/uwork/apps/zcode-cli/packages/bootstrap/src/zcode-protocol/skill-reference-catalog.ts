@@ -1,0 +1,84 @@
+// Composer Skill 只读 catalog。
+// 与 Skills Settings 管理接口分离：这里的 sessionId 决定 authority，不提供启停/删除能力。
+import {
+  zcodeSkillsReferenceCatalogParamsSchema,
+  type ZCodeSkillReferenceCatalogEntry,
+  type ZCodeSkillsReferenceCatalogResult,
+  type ZCodeProtocolTrace,
+} from "@zcode/shared";
+import { createSessionId, type SkillLoadOutcome, type SkillMetadata } from "@zcode/contracts";
+import { listZCodeSkills } from "../skills.js";
+import {
+  parseParams,
+  requireSession,
+  type ZCodeProtocolAgentServerContext,
+  createProtocolRootTraceContext,
+} from "./server-types.js";
+
+export async function getSkillReferenceCatalog(
+  context: ZCodeProtocolAgentServerContext,
+  rawParams: unknown,
+  trace?: ZCodeProtocolTrace,
+): Promise<ZCodeSkillsReferenceCatalogResult> {
+  const params = parseParams(zcodeSkillsReferenceCatalogParamsSchema, rawParams);
+  const bound = context.deps.enterpriseWorkspace;
+  if (context.deps.enterpriseToolAuthorization || context.deps.enterpriseSkillsCatalog) {
+    // 反向 RPC 绑定启动工作区，扫描也必须同一绑定，不能把 B 的文件交给 A 的权限裁决。
+    if (
+      !bound ||
+      params.workspace.workspacePath !== bound.workspacePath ||
+      params.workspace.workspaceKey !== bound.workspaceKey ||
+      (params.workspace.workspaceIdentity?.trim() ?? "") !== (bound.workspaceIdentity?.trim() ?? "")
+    )
+      throw new Error("enterprise_workspace_mismatch");
+  }
+  const workspace = bound ?? params.workspace;
+  if (params.sessionId) {
+    const record = requireSession(context, params.sessionId);
+    const outcome = await record.app.getSkillCatalog();
+    return toResult("session", outcome);
+  }
+
+  // 旧 UI cache 只在 workspace 首次挂载时扫描，用户从文件系统手动新增
+  // Skill 后，新建对话仍停在旧快照。草稿请求在 Agent 侧复用 CLI 正式发现配置，
+  // 每次新打开引用面板都读取当前 workspace catalog。
+  const outcome = await listZCodeSkills({
+    env: context.deps.env,
+    logger: context.logger,
+    workingDirectory: workspace.workspacePath,
+    workspaceIdentity: workspace.workspaceIdentity,
+    enterpriseToolAuthorization: context.deps.enterpriseToolAuthorization,
+    enterpriseSkillsCatalog: context.deps.enterpriseSkillsCatalog,
+    traceContext: createProtocolRootTraceContext(createSessionId("enterprise-draft"), trace),
+    sessionId: "enterprise-draft",
+  });
+  return toResult("workspace", outcome);
+}
+
+function toResult(
+  authority: ZCodeSkillsReferenceCatalogResult["authority"],
+  outcome: SkillLoadOutcome,
+): ZCodeSkillsReferenceCatalogResult {
+  return {
+    authority,
+    skills: outcome.skills.map(toReferenceCatalogEntry),
+  };
+}
+
+function toReferenceCatalogEntry(skill: SkillMetadata): ZCodeSkillReferenceCatalogEntry {
+  const scope =
+    skill.source === "plugin" ? "plugin" : skill.scope === "project" ? "workspace" : "user";
+  return {
+    // `glm:` 是现有 UI provider 过滤契约；路径使同名不同来源仍有稳定行身份。
+    id: `glm:${scope}:${skill.path}`,
+    name:
+      skill.source === "remote" && skill.scope === "admin"
+        ? (skill.qualifiedName ?? skill.name)
+        : skill.name,
+    description: skill.description,
+    path: skill.path,
+    scope,
+    enabled: true,
+    ...(skill.pluginName ? { pluginName: skill.pluginName } : {}),
+  };
+}
