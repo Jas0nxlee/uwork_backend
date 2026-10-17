@@ -18,9 +18,7 @@ test(
   "actual packaged CLI stdio binds draft skills to the Host workspace and current HTTP policy",
   { timeout: 30000 },
   async (t) => {
-    const root = resolve(
-      process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
-    );
+    const root = resolve(process.env.UWORK_CLIENT_PATH ?? "clients/uwork");
     const load = (path: string) => import(pathToFileURL(join(root, path)).href);
     const { createUWorkBackendSession } = await load(
       "packages/services/src/enterprise-identity/uworkBackendSession.ts",

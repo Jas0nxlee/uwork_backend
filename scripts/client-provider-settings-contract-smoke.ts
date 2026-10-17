@@ -7,9 +7,7 @@ import { pathToFileURL } from "node:url";
 import { fixture } from "../tests/fixtures.js";
 
 test("actual Provider Settings admits only published personal policy and retains private Gateway provisioning", async (t) => {
-  const root = resolve(
-    process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
-  );
+  const root = resolve(process.env.UWORK_CLIENT_PATH ?? "clients/uwork");
   const source = (path: string) =>
     import(pathToFileURL(join(root, "packages/services/src", path)).href);
   const [runtimeModule, sessionModule, policyModule, facadeModule] =

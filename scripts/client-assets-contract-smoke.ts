@@ -11,9 +11,7 @@ import {
 } from "../src/backend-client.js";
 
 test("actual backend downloads materialize into owned immutable cache and load through the existing SkillPort", async (t) => {
-  const root = resolve(
-    process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
-  );
+  const root = resolve(process.env.UWORK_CLIENT_PATH ?? "clients/uwork");
   const { createEnterpriseAssetStore } = await import(
     pathToFileURL(
       join(root, "packages/services/src/enterprise-assets/assetStore.ts"),

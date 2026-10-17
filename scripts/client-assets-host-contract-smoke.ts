@@ -10,9 +10,7 @@ test(
   "actual HTTP backend and existing identity events prewarm, update, revoke and clear Host assets",
   { timeout: 10000 },
   async (t) => {
-    const root = resolve(
-      process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
-    );
+    const root = resolve(process.env.UWORK_CLIENT_PATH ?? "clients/uwork");
     const load = (path: string) => import(pathToFileURL(join(root, path)).href);
     const { createUWorkBackendSession } = await load(
       "packages/services/src/enterprise-identity/uworkBackendSession.ts",
@@ -375,9 +373,7 @@ test(
   "real HTTP backend distributes an expert asset into the same Host cache and admission",
   { timeout: 10000 },
   async (t) => {
-    const root = resolve(
-      process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
-    );
+    const root = resolve(process.env.UWORK_CLIENT_PATH ?? "clients/uwork");
     const load = (path: string) => import(pathToFileURL(join(root, path)).href);
     const { createUWorkBackendSession } = await load(
       "packages/services/src/enterprise-identity/uworkBackendSession.ts",

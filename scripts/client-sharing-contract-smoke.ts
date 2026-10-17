@@ -8,9 +8,7 @@ import { pathToFileURL } from "node:url";
 import { fixture } from "../tests/fixtures.js";
 
 test("actual Host sharing obeys published backend policy through its existing identity owner", async (t) => {
-  const root = resolve(
-    process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
-  );
+  const root = resolve(process.env.UWORK_CLIENT_PATH ?? "clients/uwork");
   const source = (path: string) =>
     import(pathToFileURL(join(root, "packages/services/src", path)).href);
   const [

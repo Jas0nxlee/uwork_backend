@@ -8,9 +8,7 @@ import { createApp } from "../src/app.js";
 import { bootstrap } from "../src/identity.js";
 
 test("actual protocol admission bounds input and cancels late responses with trace propagation", async () => {
-  const root = resolve(
-    process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
-  );
+  const root = resolve(process.env.UWORK_CLIENT_PATH ?? "clients/uwork");
   const { createProtocolEnterpriseToolAuthorization } = await import(
     pathToFileURL(
       join(
@@ -99,9 +97,7 @@ test("actual protocol admission bounds input and cancels late responses with tra
 });
 
 test("actual CLI admission, Host private identity and backend publication gate native execution", async (t) => {
-  const root = resolve(
-    process.env.UWORK_CLIENT_PATH ?? "clients/uwork",
-  );
+  const root = resolve(process.env.UWORK_CLIENT_PATH ?? "clients/uwork");
   const load = (path: string) => import(pathToFileURL(join(root, path)).href);
   const { createUWorkToolAuthorizationResolver } = await load(
     "packages/services/src/enterprise-identity/uworkToolAuthorization.ts",
