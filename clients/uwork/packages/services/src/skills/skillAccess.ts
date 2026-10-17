@@ -18,7 +18,8 @@ import {
   type UWorkBackendSession,
 } from "../enterprise-identity/backendSessionContract.js";
 
-export interface SettingsSyncSkillAccess {
+export interface SkillAccess {
+  checkpoint(): Promise<void>;
   io<T>(work: () => Promise<T>): Promise<T>;
 }
 
@@ -28,17 +29,47 @@ export function isSkillAccessError(
   return error instanceof EnterpriseAssetStoreError || error instanceof UWorkBackendSessionError;
 }
 
-export function skillIO<T>(
-  access: SettingsSyncSkillAccess | undefined,
-  work: () => Promise<T>,
-): Promise<T> {
+export function skillIO<T>(access: SkillAccess | undefined, work: () => Promise<T>): Promise<T> {
   return access ? access.io(work) : work();
 }
 
-/** 只围住含技能的整次调用；身份/config 唯一 owner 仍是既有私有 backendSession。 */
-export async function withSettingsSyncSkillAccess<T>(
+function readWork<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  signal.throwIfAborted();
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener("abort", abort);
+      reject(signal.reason);
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    Promise.resolve()
+      .then(() => {
+        signal.throwIfAborted();
+        return work();
+      })
+      .then(
+        (value) => {
+          signal.removeEventListener("abort", abort);
+          resolve(value);
+        },
+        (error) => {
+          signal.removeEventListener("abort", abort);
+          reject(error);
+        },
+      );
+  });
+}
+
+/** 整次技能调用复用同一准入；身份/config 唯一 owner 仍是既有私有 backendSession。 */
+export async function withPersonalSkillAccess<T>(
   backendSession: UWorkBackendSession | undefined,
-  work: (access?: SettingsSyncSkillAccess) => Promise<T>,
+  work: (access?: SkillAccess) => Promise<T>,
+  options: {
+    failureCode?:
+      | "enterprise_skill_sync_failed"
+      | "enterprise_skill_read_failed"
+      | "enterprise_skill_management_failed";
+    readWork?: boolean;
+  } = {},
 ): Promise<T> {
   if (!backendSession) return work();
   const traceId = randomUUID();
@@ -54,7 +85,8 @@ export async function withSettingsSyncSkillAccess<T>(
           if (!policy.personalSkills || !policy.dangerousSkills)
             throw new EnterpriseAssetStoreError("enterprise_personal_skills_denied");
         };
-        const access: SettingsSyncSkillAccess = {
+        const access: SkillAccess = {
+          checkpoint,
           async io(operation) {
             await checkpoint();
             try {
@@ -66,7 +98,10 @@ export async function withSettingsSyncSkillAccess<T>(
           },
         };
         await checkpoint();
-        const value = await work(access);
+        // 正文出口保留原取消race；写操作必须等物理IO落定，不能提前释放原writeQueue。
+        const value = options.readWork
+          ? await readWork(() => work(access), scope.signal)
+          : await work(access);
         // run 的末尾只校验 identity/config；mixed 最后一个非技能等待后也必须重读策略。
         await checkpoint();
         return value;
@@ -77,7 +112,7 @@ export async function withSettingsSyncSkillAccess<T>(
     const code =
       isSkillAccessError(error) && /^enterprise_[a-z_]{1,64}$/.test(error.code)
         ? error.code
-        : "enterprise_skill_sync_failed";
+        : (options.failureCode ?? "enterprise_skill_sync_failed");
     throw new EnterpriseAssetStoreError(code, traceId);
   }
   return result.managed ? result.value : work();
@@ -87,7 +122,7 @@ export async function withSettingsSyncSkillAccess<T>(
 export async function copyManagedSkillDirectory(
   sourcePath: string,
   targetPath: string,
-  access: SettingsSyncSkillAccess,
+  access: SkillAccess,
 ): Promise<void> {
   const source = await access.io(() => lstat(sourcePath));
   if (source.isSymbolicLink()) {

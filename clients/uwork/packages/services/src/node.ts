@@ -24,7 +24,6 @@ import { createEnterpriseConsoleService } from "./enterprise-console/module.js";
 import { createEnterpriseModelRelay } from "./enterprise-model-relay/relay.js";
 import { createEnterpriseConnectorRelay } from "./enterprise-assets/connectorRelay.js";
 import { createEnterpriseAssetsHost } from "./enterprise-assets/enterpriseAssetsHost.js";
-import { withEnterpriseSkillBodyPolicy } from "./enterprise-assets/enterpriseSkillBodyPolicy.js";
 import { attachEnterpriseAssetsLifecycle } from "./enterprise-assets/enterpriseAssetsLifecycle.js";
 import {
   readEnterpriseIdentityAuthority,
@@ -1810,10 +1809,10 @@ export function createLocalServices(options: {
       }),
   };
   // mcpSync/hooks 里引用 zcodeAgentService 的闭包是惰性调用，声明顺序不影响初始化。
-  const skillsService = withEnterpriseSkillBodyPolicy(
-    createSkillsService({ isDesktopRuntime: true }),
-    enterpriseBackendSession,
-  );
+  const skillsService = createSkillsService({
+    isDesktopRuntime: true,
+    backendSession: enterpriseBackendSession,
+  });
   const mcpSyncService = createMcpSyncService({
     // mcp/list 的 host 消费点收拢到 mcpSync 服务；真实状态检查仍在 agent 进程。
     listMcpServerStatuses: (params) => zcodeAgentService.listMcpServerStatuses(params),

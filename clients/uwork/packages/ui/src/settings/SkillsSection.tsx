@@ -623,6 +623,8 @@ export function SkillsSection({
           {skill.scope === "plugin" ? null : (
             <>
               <Switch
+                // 原生 AX 中多个开关曾无名称，使用同一行技能名标识控制对象。
+                aria-label={skill.name}
                 checked={skill.enabled}
                 onCheckedChange={(checked) => {
                   void setEnabled(skill.id, checked);

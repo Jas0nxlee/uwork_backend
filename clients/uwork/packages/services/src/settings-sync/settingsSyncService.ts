@@ -46,9 +46,9 @@ import {
   copyManagedSkillDirectory,
   isSkillAccessError,
   skillIO,
-  withSettingsSyncSkillAccess,
-  type SettingsSyncSkillAccess,
-} from "./settingsSyncSkillAccess.js";
+  withPersonalSkillAccess,
+  type SkillAccess,
+} from "../skills/skillAccess.js";
 
 const log = createServiceLogger("settings-sync");
 
@@ -564,7 +564,7 @@ async function importSkillDirectory(
   sourcePath: string,
   targetPath: string,
   importMode: SettingsSyncImportMode,
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<void> {
   if (importMode === "symlink") {
     await skillIO(access, () => createDirectorySymlink(sourcePath, targetPath));
@@ -757,7 +757,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function skillPathExists(path: string, access?: SettingsSyncSkillAccess): Promise<boolean> {
+function skillPathExists(path: string, access?: SkillAccess): Promise<boolean> {
   if (!access) return exists(path);
   return access.io(async () => {
     try {
@@ -772,7 +772,7 @@ function skillPathExists(path: string, access?: SettingsSyncSkillAccess): Promis
 
 async function collectSkillMarkdownPaths(
   rootPath: string,
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<string[]> {
   // 复用共享的有界遍历（排除 node_modules 等内容目录、限制深度、软链去重），
   // 与桌面端技能扫描保持一致，避免设置同步在巨型目录上卡死。
@@ -934,7 +934,7 @@ function readSkillMetadataFromMarkdown(
 
 async function readSkillMetadata(
   skillPath: string,
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<{ name: string; version?: string }> {
   const fallbackName = basename(dirname(skillPath));
   return skillIO(access, async () => {
@@ -948,16 +948,13 @@ async function readSkillMetadata(
   });
 }
 
-async function readSkillNameKey(
-  skillPath: string,
-  access?: SettingsSyncSkillAccess,
-): Promise<string> {
+async function readSkillNameKey(skillPath: string, access?: SkillAccess): Promise<string> {
   return normalizeSkillNameKey((await readSkillMetadata(skillPath, access)).name);
 }
 
 async function collectExistingSkillNameKeys(
   rootPath: string,
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<Set<string>> {
   const nameKeys = new Set<string>();
   if (!(await skillPathExists(rootPath, access))) {
@@ -1226,7 +1223,7 @@ async function collectConfiguredPluginIds(configPath: string): Promise<Set<strin
 async function isSkillImportCandidateImportable(
   candidate: SkillImportCandidate,
   existingNameKeysByTargetRoot: Map<string, Set<string>>,
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<boolean> {
   return (
     (await getSkillImportCandidateSkipReason(candidate, existingNameKeysByTargetRoot, access)) ===
@@ -1237,7 +1234,7 @@ async function isSkillImportCandidateImportable(
 async function getSkillImportCandidateSkipReason(
   candidate: SkillImportCandidate,
   existingNameKeysByTargetRoot: Map<string, Set<string>>,
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<SettingsSyncSkillSkipReason | undefined> {
   if (await skillPathExists(candidate.targetPath, access)) {
     return "targetExists";
@@ -1344,7 +1341,7 @@ async function isMcpImportCandidateImportable(
 
 async function buildSourceRootSummaries(
   candidates: SkillImportCandidate[],
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<SettingsSyncSourceRootSummary[]> {
   const existingNameKeysByTargetRoot = new Map<string, Set<string>>();
   const grouped = new Map<string, SkillImportCandidate[]>();
@@ -1554,7 +1551,7 @@ async function buildMcpSourceRootSummaries(
 
 async function collectSkillImportCandidates(
   workspacePath?: string,
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<SkillImportCandidate[]> {
   const candidates: SkillImportCandidate[] = [];
   const seenSourcePaths = new Set<string>();
@@ -1701,7 +1698,7 @@ async function collectMcpImportCandidates(workspacePath?: string): Promise<McpIm
 
 async function buildSkillsDiscovery(
   workspacePath?: string,
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<SettingsSyncDiscoveryResult> {
   const candidates = await collectSkillImportCandidates(workspacePath, access);
   const agents: SettingsSyncDiscoveryResult["agents"] = [];
@@ -1875,7 +1872,7 @@ async function importSkillsForAgent(
   targetScope?: SettingsSyncSourceScope,
   importMode: SettingsSyncImportMode = "symlink",
   skillPaths?: string[],
-  access?: SettingsSyncSkillAccess,
+  access?: SkillAccess,
 ): Promise<SettingsSyncTaskImportResult> {
   const selectedSkillPaths = skillPaths ? new Set(skillPaths) : null;
   const candidates = (await collectSkillImportCandidates(workspacePath, access)).filter(
@@ -2371,7 +2368,7 @@ export function createSettingsSyncService(
     async detect(request): Promise<SettingsSyncDiscoveryResult> {
       const captured = structuredClone(request);
       if (shouldScanSkills(captured)) {
-        return withSettingsSyncSkillAccess(dependencies.backendSession, (access) =>
+        return withPersonalSkillAccess(dependencies.backendSession, (access) =>
           buildSkillsDiscovery(captured.workspacePath, access),
         );
       }
@@ -2397,7 +2394,7 @@ export function createSettingsSyncService(
         workspaceIdentity: request.workspaceIdentity,
         selections: request.selections,
       });
-      const work = async (access?: SettingsSyncSkillAccess): Promise<SettingsSyncImportResult> => {
+      const work = async (access?: SkillAccess): Promise<SettingsSyncImportResult> => {
         const taskResults: SettingsSyncTaskImportResult[] = [];
         for (const selection of captured.selections) {
           if (selection.category === "skills") {
@@ -2469,7 +2466,7 @@ export function createSettingsSyncService(
         };
       };
       return captured.selections.some((selection) => selection.category === "skills")
-        ? withSettingsSyncSkillAccess(dependencies.backendSession, work)
+        ? withPersonalSkillAccess(dependencies.backendSession, work)
         : work();
     },
 

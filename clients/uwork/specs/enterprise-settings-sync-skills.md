@@ -83,6 +83,8 @@ Providers, commands, plugins, MCP, Claude `AGENTS.md` migration and first-run pr
 
 Tests use `node:test` with real `mkdtemp` files and the real `createUWorkBackendSession`; only backend HTTP and deliberate asynchronous pause points are controlled. Test filesystem patches delegate to real filesystem operations and assert persisted output, not mock call counts alone.
 
+The subsequent approved skill-management slice mechanically moves this existing private access runner and copier to `services/src/skills/skillAccess.ts` for both services. Settings-sync keeps one captured scope, physical-I/O settlement, `enterprise_skill_sync_failed` sanitization and its existing non-skills/unmanaged behavior. The move does not add a second authorization/copy implementation; see `enterprise-skill-management.md`.
+
 From `clients/uwork`, use the pinned Node and pnpm supplied for this task:
 
 ```sh
