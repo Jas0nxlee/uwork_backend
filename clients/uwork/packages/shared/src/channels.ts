@@ -511,6 +511,7 @@ export const ZCODE_RPC_HOST_CAPABILITY_HEADER = "x-zcode-rpc-host-capability";
 
 /** main → host process 的初始化消息类型 */
 export const HostMessageTypes = {
+  ClientPresentationRead: "client-presentation-read",
   DatabaseStartupControl: "database-startup-control",
   /** 初始化本地服务 */
   InitLocal: "init-local",
@@ -565,6 +566,8 @@ export const HostMessageTypes = {
 
 /** host process → main process 的反馈消息类型 */
 export const HostResponseTypes = {
+  ClientPresentationResult: "client-presentation-result",
+  ClientPresentationInvalidated: "client-presentation-invalidated",
   DatabaseStartupState: "database-startup-state",
   /** window Host → main：按 requestId 上报远程连接过程日志 */
   RemoteWorkspaceConnectionLog: "remote-workspace-connection-log",

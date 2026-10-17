@@ -1,5 +1,10 @@
 import { databaseStartupControlSchema, databaseStartupStateSchema } from "./database-startup.js";
 import {
+  hostClientPresentationReadMessageSchema,
+  hostClientPresentationResultSchema,
+  hostClientPresentationInvalidatedSchema,
+} from "./desktop-client-presentation.js";
+import {
   sessionCreateTelemetrySchema,
   automationSessionCreateTelemetrySchema,
 } from "./sessionCreateTelemetry.js";
@@ -446,6 +451,7 @@ export type HostResourceUsageSnapshotRequestMessage = z.infer<
 >;
 
 export const hostIncomingMessageSchema = z.discriminatedUnion("type", [
+  hostClientPresentationReadMessageSchema,
   z
     .object({ type: z.literal("database-startup-control"), control: databaseStartupControlSchema })
     .strict(),
@@ -934,6 +940,8 @@ export type HostResourceUsageSnapshotResultResponse = z.infer<
 >;
 
 export const hostResponseMessageSchema = z.discriminatedUnion("type", [
+  hostClientPresentationResultSchema,
+  hostClientPresentationInvalidatedSchema,
   z
     .object({ type: z.literal("database-startup-state"), state: databaseStartupStateSchema })
     .strict(),

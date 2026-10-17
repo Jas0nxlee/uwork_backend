@@ -3155,6 +3155,7 @@ async function requestSessionRuntimePreferences(
   sessionId: SessionId,
   scope: ZCodeSessionRuntimePreferencesScope,
   trace?: ZCodeProtocolTrace,
+  signal?: AbortSignal,
 ): Promise<ZCodeSessionRuntimePreferencesResult> {
   const startedAt = Date.now();
   // ZCodeProtocolTrace.traceId 是协议层的 string；LogContext 需要 branded TraceId，
@@ -3174,6 +3175,7 @@ async function requestSessionRuntimePreferences(
       zcodeSessionRuntimePreferencesResultSchema,
       {
         timeoutMs: ZCODE_SESSION_RUNTIME_PREFERENCES_REQUEST_TIMEOUT_MS,
+        ...(signal ? { signal } : {}),
         ...(trace ? { trace } : {}),
       },
     );
@@ -3323,6 +3325,25 @@ async function createRecord(
   // 用可变持有者做惰性绑定：CronCreate 在 turn 中调用 create() 时 record 早已就绪。
   let ownSessionRecord: ZCodeProtocolSessionRecord | undefined;
   const app = await createWorkspaceZCodeApp(context, workspace, {
+    turnPresentationPort: {
+      read: async ({ signal, traceContext: turnTrace }) => {
+        const preferences = await requestSessionRuntimePreferences(
+          context,
+          sessionId,
+          "turn-presentation",
+          { traceId: turnTrace.traceId },
+          signal,
+        );
+        signal.throwIfAborted();
+        context.logger?.debug("Turn presentation decision captured", {
+          event: "zcode_protocol.turn_presentation.captured",
+          sessionId,
+          presentationStatus: preferences.presentationStatus,
+          presentationSurface: preferences.presentationSurface,
+        });
+        return preferences.presentationSurface;
+      },
+    },
     env: context.deps.env,
     eventStore,
     resume,

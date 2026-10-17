@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import test, { after } from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import * as services from "@zcode/services";
 import * as shared from "@zcode/shared";
 import { assertLegacyRemoteWorkspaceRpcContract } from "../src/host/legacyRemoteWorkspaceRpcContract.js";
+import { createClientPresentationReader } from "../../services/src/enterprise-identity/clientPresentation.js";
+import { createEnterpriseIdentityService } from "../../services/src/enterprise-identity/enterpriseIdentityService.js";
+import {
+  disposeEnterpriseIdentityService,
+  readEnterpriseIdentityTurnPresentation,
+} from "../../services/src/enterprise-identity/identityServiceLifecycle.js";
+import { UWorkBackendSessionError } from "../../services/src/enterprise-identity/backendSessionContract.js";
 
 type Row = Record<string, unknown>;
 type Disposable = { dispose(): void };
@@ -54,26 +61,55 @@ function productionFunction<T>(file: string, name: string, bindings: Row): T {
     },
   ).outputText;
   bindings.AggregateError = AggregateError;
+  bindings.Error = Error;
   bindings.process = { env: {}, pid: 1 };
+  bindings.AbortController = AbortController;
   return runInNewContext(code, bindings) as T;
 }
 
-function compositionFixture(input: { subscriptionError?: Error; networkError?: Error } = {}) {
+function compositionFixture(
+  input: {
+    subscriptionError?: Error;
+    networkError?: Error;
+    presentation?: shared.UWorkClientPresentation;
+    readPresentation?: () => Promise<shared.UWorkClientPresentation>;
+    getIdentityView?: () => Promise<{ revision: number }>;
+    identityService?: services.IEnterpriseIdentityService;
+  } = {},
+) {
   const calls: string[] = [];
+  const responses: Row[] = [];
   const errors: unknown[] = [];
   const settings = deferred<Row>();
   const network = deferred<void>();
   const localBroadcast = Object.freeze({ marker: "borrowed-window-broadcast" });
-  const identity = Object.freeze({ marker: "borrowed-identity-projection" });
+  const identity =
+    input.identityService ??
+    createEnterpriseIdentityService({
+      credentials: { load: async () => null, save: async () => {}, delete: async () => {} },
+      readClientPresentation: async () => {
+        calls.push("presentation-read");
+        return input.readPresentation
+          ? input.readPresentation()
+          : (input.presentation ?? { status: "unmanaged" });
+      },
+    });
+  if (!input.identityService) after(() => disposeEnterpriseIdentityService(identity));
+  if (input.getIdentityView) {
+    const getView = identity.getView;
+    identity.getView = async () => ({ ...(await getView()), ...(await input.getIdentityView!()) });
+  }
+  const scenes = Object.freeze({ marker: "borrowed-scenes-projection" });
   const sourceServices = new services.ServiceCollection()
     .register(services.IBroadcastService, localBroadcast as unknown as services.IBroadcastService)
     .register(
       services.IEnterpriseIdentityService,
       identity as unknown as services.IEnterpriseIdentityService,
-    );
+    )
+    .register(services.IClientScenesService, scenes as unknown as services.IClientScenesService);
   let listener!: (request: Row) => void;
   const noResource = () => ({});
-  const connectionServices = Object.fromEntries(
+  const connectionServices: Row = Object.fromEntries(
     [
       "fileService",
       "gitService",
@@ -107,11 +143,13 @@ function compositionFixture(input: { subscriptionError?: Error; networkError?: E
           },
         };
       },
-    respondSessionRuntimePreferences: async () => {
+    respondSessionRuntimePreferences: async (response: Row) => {
       calls.push("remote-preferences-response");
+      responses.push(response);
     },
   };
   const bindings: Row = {
+    readEnterpriseIdentityTurnPresentation,
     ...services,
     ...shared,
     assertLegacyRemoteWorkspaceRpcContract,
@@ -187,6 +225,8 @@ function compositionFixture(input: { subscriptionError?: Error; networkError?: E
   });
   return {
     view,
+    scenes,
+    responses,
     calls,
     errors,
     settings,
@@ -220,6 +260,104 @@ test("remote routing view borrows window identity, broadcast and remote services
   assert.deepEqual(f.calls, ["unsubscribe", "network-close"]);
   assert.equal(f.sourceServices.get(services.IEnterpriseIdentityService), f.identity);
   assert.equal(f.sourceServices.get(services.IBroadcastService), f.localBroadcast);
+  assert.equal(f.view.services.get(services.IClientScenesService), f.scenes);
+});
+
+test("remote turn-presentation metadata borrows the base identity's published Desktop flag", async () => {
+  const f = compositionFixture({
+    presentation: {
+      status: "ready",
+      version: 0,
+      welcome: "",
+      riskNotice: "Verify",
+      riskPrefix: "AI",
+      scenes: { status: "unsupported" },
+      help: { status: "unsupported" },
+      pluginStore: { status: "unsupported" },
+      desktop: {
+        status: "ready",
+        version: 1,
+        data: {
+          desktopContextPrompt: { enabled: false },
+          rendererActionTrace: { enabled: false, sampleRatio: 0, enabledGroups: [] },
+        },
+      },
+    },
+  });
+  f.listener({ requestId: "owned-turn", scope: "turn-presentation", sessionId: "owned-session" });
+  f.settings.resolve({});
+  await new Promise<void>((done) => setImmediate(done));
+  const resolution = f.responses[0]?.resolution as Row;
+  assert.equal((resolution.preferences as Row).presentationSurface, "terminal");
+  assert(f.calls.includes("presentation-read"));
+  f.network.resolve();
+  await f.view.disposeAndWait();
+});
+
+test("turn metadata resolved after the routing view is disposed cannot emit a late remote response", async () => {
+  const pending = deferred<shared.UWorkClientPresentation>();
+  const f = compositionFixture({ readPresentation: () => pending.promise });
+  f.listener({
+    requestId: "owned-late-turn",
+    scope: "turn-presentation",
+    sessionId: "owned-session",
+  });
+  f.settings.resolve({});
+  await new Promise<void>((done) => setImmediate(done));
+  assert(f.calls.includes("presentation-read"));
+  const closing = f.view.disposeAndWait();
+  f.network.resolve();
+  await closing;
+  pending.resolve({ status: "unmanaged" });
+  await new Promise<void>((done) => setImmediate(done));
+  assert.deepEqual(f.responses, []);
+});
+
+test("identity replacement during a borrowed turn read is a failure rather than a terminal metadata downgrade", async () => {
+  let revision = 0;
+  const f = compositionFixture({ getIdentityView: async () => ({ revision: ++revision }) });
+  f.listener({
+    requestId: "owned-owner-change",
+    scope: "turn-presentation",
+    sessionId: "owned-session",
+  });
+  f.settings.resolve({});
+  await new Promise<void>((done) => setImmediate(done));
+  const resolution = f.responses[0]?.resolution as Row;
+  assert.equal(resolution.status, "failed");
+  assert.equal(resolution.message, "enterprise_identity_changed");
+  f.network.resolve();
+  await f.view.disposeAndWait();
+});
+
+test("same-revision private configuration invalidation is a failed remote turn response", async () => {
+  const identity = createEnterpriseIdentityService({
+    credentials: { load: async () => null, save: async () => {}, delete: async () => {} },
+    readClientPresentation: createClientPresentationReader({
+      async run() {
+        throw new UWorkBackendSessionError("enterprise_configuration_changed");
+      },
+    }),
+  });
+  const f = compositionFixture({ identityService: identity });
+  try {
+    const before = await identity.getView();
+    f.listener({
+      requestId: "owned-config-change",
+      scope: "turn-presentation",
+      sessionId: "owned-session",
+    });
+    f.settings.resolve({});
+    await new Promise<void>((done) => setImmediate(done));
+    assert.equal((await identity.getView()).revision, before.revision);
+    const resolution = f.responses[0]?.resolution as Row;
+    assert.equal(resolution.status, "failed");
+    assert.equal(resolution.message, "enterprise_configuration_changed");
+  } finally {
+    f.network.resolve();
+    await f.view.disposeAndWait();
+    await disposeEnterpriseIdentityService(identity);
+  }
 });
 
 test("concurrent view disposal shares one result and waits for owned network", async () => {

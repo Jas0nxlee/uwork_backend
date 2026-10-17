@@ -13,7 +13,7 @@ import { createServiceDescriptor } from "../descriptors.js";
 /** 应用级身份 RPC。视图与事件不包含 Token；不提供 Renderer 自行设置姓名的接口。 */
 export interface IEnterpriseIdentityService {
   getView(): Promise<EnterpriseIdentityView>;
-  /** 已发布界面文案的无凭据投影；不能作为任何操作的授权依据。 */
+  /** 已发布文案、场景、帮助和有限桌面配置的无凭据投影；不授予任何执行权限。 */
   readClientPresentation(): Promise<UWorkClientPresentation>;
   restoreSession(): Promise<EnterpriseIdentityView>;
   /**

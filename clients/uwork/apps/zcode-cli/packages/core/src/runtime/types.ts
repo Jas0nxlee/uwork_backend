@@ -319,6 +319,13 @@ export interface AgentRuntimeDeps {
   resolveEffectiveModelSelection?: (selection: ModelSelection) => EffectiveModelSelectionResult;
   modelIoDir?: string;
   providerRuntimeHeadersPort?: ProviderRuntimeHeadersPort;
+  /** Trusted bootstrap-only policy, read once after turn reservation; never a JSON setting. */
+  turnPresentationPort?: {
+    read(input: {
+      signal: AbortSignal;
+      traceContext: TraceContext;
+    }): Promise<PresentationSurface | undefined>;
+  };
   permissionService?: PermissionService;
   permissionBroker?: PermissionBrokerPort;
   toolScheduler?: ToolScheduler;

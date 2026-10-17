@@ -18,7 +18,10 @@ import {
 import { ZCODE_ENTERPRISE_POLICY_REQUIRED_ENV_KEY } from "@zcode/shared";
 import { createUWorkToolAuthorizationResolver } from "./enterprise-identity/uworkToolAuthorization.js";
 import { createUWorkBackendSession } from "./enterprise-identity/uworkBackendSession.js";
-import { createClientPresentationReader } from "./enterprise-identity/clientPresentation.js";
+import {
+  createClientPresentationReader,
+  readClientTurnPresentation,
+} from "./enterprise-identity/clientPresentation.js";
 import { IEnterpriseConsoleService } from "./enterprise-console/contract.js";
 import { createEnterpriseConsoleService } from "./enterprise-console/module.js";
 import { createEnterpriseModelRelay } from "./enterprise-model-relay/relay.js";
@@ -232,6 +235,7 @@ export { runStorageScan } from "./storage/adapters/inProcessScanRunner.js";
 export { createCodingPlanSubscriptionService } from "./coding-plan-subscription/codingPlanSubscriptionService.js";
 export { createClientConfigService } from "./client-config/clientConfigService.js";
 export { createClientScenesService } from "./client-scenes/clientScenesService.js";
+export { readEnterpriseIdentityTurnPresentation } from "./enterprise-identity/identityServiceLifecycle.js";
 export { createSkillsService } from "./skills/skillsService.js";
 export { createSkillSyncService } from "./skill-sync/skillSyncService.js";
 export { createMcpSyncService } from "./mcp-sync/mcpSyncService.js";
@@ -571,7 +575,6 @@ import {
   ZAI_PROVIDER_ID,
   zcodeAccountAccessSchema,
   zcodeProviderAccountAccessSchema,
-  ZCODE_VERSION,
   buildRuntimeZCodeApiUrl,
 } from "@zcode/shared";
 
@@ -1739,6 +1742,7 @@ export function createLocalServices(options: {
     readPersistedSession: () => enterpriseIdentitySessionStore.read(),
     fetchImpl: (input, init) => hostApiNetworkTransport.fetch(input, init),
   });
+  const readClientPresentation = createClientPresentationReader(enterpriseBackendSession);
   const enterpriseToolAuthorization = createUWorkToolAuthorizationResolver({
     backendSession: enterpriseBackendSession,
   });
@@ -2412,16 +2416,21 @@ export function createLocalServices(options: {
       ? { sessionRuntimePreferencesAuthority: "external" as const }
       : {
           sessionRuntimePreferencesAuthority: "local" as const,
-          resolveSessionRuntimePreferences: async (scope) => {
+          resolveSessionRuntimePreferences: async (scope, readOptions) => {
             // 预算已统一，不能把可选远端配置作为本地/手机 shared-host 建会话的前置条件。
             const settings = await settingService.get();
             const modelContextBudgetStrategy = DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY;
+            const presentation =
+              scope === "turn-presentation"
+                ? await readClientTurnPresentation(readClientPresentation, readOptions?.signal)
+                : undefined;
             return {
               askUserQuestionAutoResolutionEnabled:
                 settings.askUserQuestionAutoResolutionEnabled !== false,
               nativeSearchEnhancementsEnabled: settings.nativeSearchEnhancementsEnabled !== false,
               memoryEnabled: settings.memoryEnabled === true,
               modelContextBudgetStrategy,
+              ...presentation,
               // user-execution 只消费 Shell；共享默认策略是统一 result schema 的兼容占位，
               // 不会覆盖 runtime-materialization 阶段已经固定的 strategy。
               ...(scope === "user-execution" && settings.integratedTerminalShell
@@ -2590,7 +2599,7 @@ export function createLocalServices(options: {
   // 注册链上的懒工厂（如 OffPeak）会各自创建 tasks-index sqlite repo；先收集到本数组，
   // services 集合建好后在 return 前统一登记进 sharedSqliteRepos 侧表
   const sqliteReposToClose: Array<{ close(): void }> = [];
-  const services = new ServiceCollection()
+  const services: ServiceCollection = new ServiceCollection()
     .register(IFileService, fileService)
     .register(IMediaPreviewService, mediaPreviewService)
     .register(IGitService, gitService)
@@ -2613,7 +2622,7 @@ export function createLocalServices(options: {
       IEnterpriseIdentityService,
       createEnterpriseIdentityService({
         credentials: credentialService,
-        readClientPresentation: createClientPresentationReader(enterpriseBackendSession),
+        readClientPresentation,
         adapter: options.enterpriseIdentityAdapter,
         // 网关服务读取同一份会话库；身份服务仍是唯一写者与验证者。
         sessionStore: enterpriseIdentitySessionStore,
@@ -2647,15 +2656,17 @@ export function createLocalServices(options: {
     .register(
       IClientConfigService,
       createClientConfigService({
-        apiClient,
-        resolveRequestContext: async () => ({
-          endpointOrigin: await resolveCurrentZCodeEndpointOrigin(),
-          appVersion: ZCODE_VERSION,
-          platform: `${process.platform}-${process.arch}`,
-        }),
+        readClientPresentation: () =>
+          services.get(IEnterpriseIdentityService).readClientPresentation(),
       }),
     )
-    .register(IClientScenesService, createClientScenesService({ apiClient }))
+    .register(
+      IClientScenesService,
+      createClientScenesService({
+        readClientPresentation: () =>
+          services.get(IEnterpriseIdentityService).readClientPresentation(),
+      }),
+    )
     .register(
       IOffPeakTaskService,
       (() => {
@@ -2766,6 +2777,10 @@ export function createLocalServices(options: {
         apiClient,
         credentialService,
         oauthService,
+        readClientPresentation: () =>
+          services.get(IEnterpriseIdentityService).readClientPresentation(),
+        readIdentityAuthority: () =>
+          readEnterpriseIdentityAuthority(services.get(IEnterpriseIdentityService)),
       }),
     )
     .register(IPromptAttachmentTransferService, createLocalPromptAttachmentTransferService());

@@ -57,7 +57,7 @@ import {
   createUsageStatsService,
   createMediaPreviewService,
   createCodingPlanSubscriptionService,
-  createClientScenesService,
+  readEnterpriseIdentityTurnPresentation,
   createServiceLogger,
   createSubagentsService,
   createMemoryService,
@@ -214,6 +214,7 @@ export function createRemoteWorkspaceServiceCollection(params: {
   // desktop shared Host。通过窄化的 runtime-preferences 请求原路返回，避免远端读取自己的 setting。
   const { onError } = params.runtimePreferencesBridge;
   let disposed = false;
+  const turnPresentationController = new AbortController();
   let disposal: Promise<void> | undefined;
   const runtimePreferencesEvent =
     params.connectionServices.zcodeAgentService.onDynamicSessionRuntimePreferencesRequest();
@@ -263,7 +264,30 @@ export function createRemoteWorkspaceServiceCollection(params: {
       try {
         // 与本地 Host 同源：固定预算不依赖配置网关，远程/手机偏好响应不再串行等待网络。
         const settings = await trackStage("settings", localSettingService.get());
+        if (disposed) return;
         const modelContextBudgetStrategy = DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY;
+        let presentation:
+          | Awaited<ReturnType<typeof readEnterpriseIdentityTurnPresentation>>
+          | undefined;
+        if (request.scope === "turn-presentation") {
+          const identity = params.sourceServices.getOptional(IEnterpriseIdentityService);
+          if (!identity) throw new Error("enterprise_identity_changed");
+          else {
+            const before = await identity.getView();
+            if (disposed) return;
+            presentation = await readEnterpriseIdentityTurnPresentation(
+              identity,
+              turnPresentationController.signal,
+            );
+            if (disposed) return;
+            const after = await identity.getView();
+            if (
+              params.sourceServices.getOptional(IEnterpriseIdentityService) !== identity ||
+              before.revision !== after.revision
+            )
+              throw new Error("enterprise_identity_changed");
+          }
+        }
         resolution = {
           status: "resolved",
           preferences: {
@@ -272,6 +296,7 @@ export function createRemoteWorkspaceServiceCollection(params: {
             nativeSearchEnhancementsEnabled: settings.nativeSearchEnhancementsEnabled !== false,
             memoryEnabled: settings.memoryEnabled === true,
             modelContextBudgetStrategy,
+            ...presentation,
             // remote workspace 与本地 Host 保持同一 scope 边界，首次执行不得再次等待 client config。
             ...(request.scope === "user-execution" && settings.integratedTerminalShell
               ? { integratedTerminalShell: settings.integratedTerminalShell }
@@ -351,7 +376,8 @@ export function createRemoteWorkspaceServiceCollection(params: {
     )
     .register(ICodingPlanSubscriptionService, localCodingPlanSubscriptionService)
     .register(IClientConfigService, params.clientConfigService)
-    .register(IClientScenesService, createClientScenesService({ apiClient: localApiClient }))
+    // 场景目录属于 base Host 的显示投影，不为远程 Scope 再建匿名 HTTP owner。
+    .register(IClientScenesService, params.sourceServices.get(IClientScenesService))
     // 远端 workspace 的项目级 skills/plugins/commands 位于 SSH/Docker 文件系统。
     // 这里必须透出远端服务，避免本机服务拿远端 workspacePath 去本机目录扫描。
     .register(ISkillsService, params.connectionServices.skillsService)
@@ -379,6 +405,7 @@ export function createRemoteWorkspaceServiceCollection(params: {
     disposeAndWait() {
       if (disposal) return disposal;
       disposed = true;
+      turnPresentationController.abort();
       // 先缓存 completion 再执行 cleanup；并发和失败后的重复 dispose 共用同一结果。
       disposal = Promise.resolve().then(async () => {
         const errors: unknown[] = [];

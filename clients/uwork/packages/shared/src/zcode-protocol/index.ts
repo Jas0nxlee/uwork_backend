@@ -1681,6 +1681,7 @@ export const zcodeSessionEventsParamsSchema = z
 export type ZCodeSessionEventsParams = z.infer<typeof zcodeSessionEventsParamsSchema>;
 
 export const zcodeSessionRuntimePreferencesScopeSchema = z.enum([
+  "turn-presentation",
   "runtime-materialization",
   "user-execution",
 ]);
@@ -1708,6 +1709,8 @@ export type ZCodeModelContextBudgetStrategy = z.infer<typeof zcodeModelContextBu
 
 export const zcodeSessionRuntimePreferencesResultSchema = z
   .object({
+    presentationSurface: z.enum(["terminal", "zcode_desktop"]).optional(),
+    presentationStatus: z.enum(["ready", "unsupported", "unavailable", "unmanaged"]).optional(),
     nativeSearchEnhancementsEnabled: z.boolean(),
     memoryEnabled: z.boolean().default(false),
     askUserQuestionAutoResolutionEnabled: z.boolean().default(true),

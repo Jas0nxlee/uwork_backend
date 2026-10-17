@@ -44,6 +44,10 @@ let projection: UWorkClientPresentation = {
   welcome: "企业欢迎".repeat(50),
   riskNotice: "重要信息请核实。".repeat(30),
   riskPrefix: "内容由 AI 生成",
+  scenes: { status: "unsupported" },
+  help: { status: "unsupported" },
+  desktop: { status: "unsupported" },
+  pluginStore: { status: "unsupported" },
 };
 let slow = false;
 let release: (() => void) | undefined;
@@ -71,7 +75,13 @@ const service: IEnterpriseIdentityService = {
   completeLogin: async () => ({ view, committedAttemptId: null }),
   cancelLogin: async () => {},
   logout: async () => {
-    view = { ...view, revision: view.revision + 1, status: "signed-out", profile: null };
+    view = {
+      ...view,
+      revision: view.revision + 1,
+      status: "signed-out",
+      profile: null,
+      pending: null,
+    };
     changed.fire(view);
   },
   onDidChange: changed.event,
@@ -90,6 +100,10 @@ function Fixture() {
               welcome: "新发布欢迎",
               riskNotice: "新发布风险",
               riskPrefix: "内容由 AI 生成",
+              scenes: { status: "unsupported" },
+              help: { status: "unsupported" },
+              desktop: { status: "unsupported" },
+              pluginStore: { status: "unsupported" },
             };
             refresh();
           }}
@@ -123,7 +137,13 @@ function Fixture() {
         <button
           data-testid="signin"
           onClick={() => {
-            view = { ...view, revision: view.revision + 1, status: "authenticated", profile };
+            view = {
+              ...view,
+              revision: view.revision + 1,
+              status: "authenticated",
+              profile,
+              pending: null,
+            };
             changed.fire(view);
           }}
         >

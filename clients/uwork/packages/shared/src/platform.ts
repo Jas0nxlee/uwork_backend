@@ -698,7 +698,7 @@ export interface IPlatformService {
   /** 通过宿主环境上报 ARMS 自定义事件；Web 端当前为空实现 */
   reportArmsCustomEvent(payload: ArmsCustomEventPayload): Promise<void>;
 
-  /** 读取 Desktop Renderer 用户操作 Trace 的当前灰度配置；Web/手机不实现。 */
+  /** 读取本窗口当前 Host 的 Trace 派生配置及非秘密 bindingEpoch；Web/手机不实现。 */
   getRendererActionTraceConfig?(): Promise<RendererActionTraceConfigV1>;
   /** 订阅 Main 推送的 Renderer 用户操作 Trace 配置；Web/手机不实现。 */
   onRendererActionTraceConfigChanged?(

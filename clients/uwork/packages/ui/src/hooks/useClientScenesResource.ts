@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import type { ClientSceneConfig, IClientScenesService } from "@zcode/services";
 import { createClientScenesVisibilityRecovery } from "@/hooks/clientScenesVisibilityRecovery.js";
+import { useClientExperienceScope } from "./useClientExperienceScope.js";
 
 const CLIENT_SCENES_RESOURCE_KEY = "client-scenes";
 const CLIENT_SCENES_DEDUPING_INTERVAL_MS = 10 * 60 * 1000;
@@ -66,10 +67,11 @@ export function useClientScenesResource(
 ) {
   const enabled = options.enabled ?? true;
   const authorityId = getServiceAuthorityId(clientScenesService);
-  const { cache } = useSWRConfig();
+  const scope = useClientExperienceScope("scenes");
+  const { cache, mutate } = useSWRConfig();
   const visibilityAuthority = getVisibilityAuthority(clientScenesService, cache as object);
   const resource = useSWR<ClientSceneConfig[], Error>(
-    enabled ? [CLIENT_SCENES_RESOURCE_KEY, authorityId] : null,
+    enabled ? [CLIENT_SCENES_RESOURCE_KEY, authorityId, scope] : null,
     async () => {
       const response = await clientScenesService.list();
       if (response.code !== 0) {
@@ -88,6 +90,16 @@ export function useClientScenesResource(
     },
   );
 
+  useEffect(
+    () => () => {
+      // service 实例跨登录仍稳定；失效的是原 owner 的显示投影，不能留给下一身份复用。
+      void mutate([CLIENT_SCENES_RESOURCE_KEY, authorityId, scope], undefined, {
+        revalidate: false,
+      });
+    },
+    [authorityId, mutate, scope],
+  );
+
   useEffect(() => {
     if (!enabled) return;
     // macOS 点击关闭只 hide BrowserWindow，renderer 与 SWR 缓存不会销毁；
@@ -96,10 +108,10 @@ export function useClientScenesResource(
     return getClientScenesVisibilityRecovery()?.subscribe(visibilityAuthority, () => {
       void resource.mutate().catch(() => undefined);
     });
-  }, [enabled, resource.mutate, visibilityAuthority]);
+  }, [enabled, resource.mutate, scope, visibilityAuthority]);
 
   return {
-    scenes: resource.data ?? EMPTY_SCENES,
+    scenes: enabled ? (resource.data ?? EMPTY_SCENES) : EMPTY_SCENES,
     loading: enabled && resource.data === undefined && resource.isLoading,
     revalidating: resource.isValidating,
     error: resource.error,

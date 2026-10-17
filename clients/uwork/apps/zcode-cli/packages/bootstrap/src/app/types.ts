@@ -153,6 +153,7 @@ export interface ZCodeAppOptions {
    * runtime 取派生实例。
    */
   providerRuntimeHeadersPort?: ProviderRuntimeHeadersPort;
+  turnPresentationPort?: import("@zcode/core").AgentRuntimeDeps["turnPresentationPort"];
   /** Trusted Host-only gate; never read from runtime or workspace configuration. */
   enterpriseToolAuthorization?: EnterpriseToolAuthorizationPort;
   enterpriseSkillsCatalog?: EnterpriseSkillsCatalogPort;

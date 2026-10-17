@@ -17,7 +17,7 @@ export function useClientPresentation(
     value: UWorkClientPresentation;
   } | null>(null);
   useEffect(() => {
-    if (!owner || identity?.status !== "authenticated") return;
+    if (!owner || !identity) return;
     let active = true,
       serial = 0;
     const refresh = async () => {
@@ -44,9 +44,10 @@ export function useClientPresentation(
       window.clearInterval(timer);
     };
   }, [owner, identity?.status, identity?.revision]);
-  return identity?.status === "authenticated" &&
+  return identity &&
     projection?.owner === owner &&
-    projection.revision === identity.revision
+    projection.revision === identity.revision &&
+    (identity.status === "authenticated" || projection.value.status !== "ready")
     ? projection.value
     : null;
 }

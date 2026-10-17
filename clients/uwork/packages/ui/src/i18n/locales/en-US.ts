@@ -5805,6 +5805,12 @@ const enUS: Record<string, string> = {
   "feedback.center.description": "Describe the issue and track progress after submitting.",
   "feedback.center.submitTitle": "Submit feedback",
   "feedback.center.ticketsTitle": "My feedback",
+  "feedback.enterprise.disabled":
+    "Feedback is disabled by your organization. Contact an administrator.",
+  "feedback.enterprise.unavailable":
+    "Enterprise feedback settings could not be verified. Refresh and retry.",
+  "feedback.enterprise.externalOnly":
+    "Your organization uses external feedback. Built-in tickets are unavailable.",
   "feedback.center.backToSubmit": "Back to submit feedback",
   "feedback.center.submitTab": "Submit",
   "feedback.center.ticketsTab": "My feedback",

@@ -62,11 +62,20 @@ function applyProtocolPresentationSurface(
   options: Omit<ZCodeAppOptions, "providerRegistry">,
   presentationSurface: PresentationSurface,
 ): Omit<ZCodeAppOptions, "providerRegistry"> {
+  const initialSurface = options.runtimeConfig?.presentationSurface ?? presentationSurface;
+  const port = options.turnPresentationPort;
   return {
     ...options,
+    ...(port
+      ? {
+          turnPresentationPort: {
+            read: async (input) => (await port.read(input)) ?? initialSurface,
+          },
+        }
+      : {}),
     runtimeConfig: {
       ...options.runtimeConfig,
-      presentationSurface,
+      presentationSurface: initialSurface,
     },
   };
 }

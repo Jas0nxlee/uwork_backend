@@ -1,4 +1,5 @@
 import { beginLocalTurnPreparation, type LocalTtftDetail } from "@zcode/contracts";
+import { applyTurnPresentation } from "./turn-presentation.js";
 import { runtimeInputMetadata } from "../../agent/runtime-input-presentation.js";
 import {
   CoreErrorType,
@@ -187,6 +188,10 @@ export async function executeTurnCommand(
       throwIfTurnAborted(turnAbortSignal);
       let admittedModel;
       try {
+        // admission/FIFO 已建立 reservation；慢配置读取不能在此前制造第二条 turn。
+        turnPhase = "presentation_preferences";
+        await applyTurnPresentation(this, turnAbortSignal, turnTraceContext);
+        turnPhase = "model_creation";
         admittedModel =
           rewindCommand === null
             ? createTurnModel(this, {
@@ -198,15 +203,19 @@ export async function executeTurnCommand(
         // 同步滞后/模型失效可在内层 Turn try 之前创建失败。只写日志会让已接纳输入
         // 没有终态、桌面与手机都看不到错误；复用 outcome，不等待同步、不改原选择。
         turnFailureHandled = true;
-        const coreError = createTurnFailureError(error, turnAbortSignal, "Model creation failed");
+        const preparationMessage =
+          turnPhase === "presentation_preferences"
+            ? "Turn configuration unavailable"
+            : "Model creation failed";
+        const coreError = createTurnFailureError(error, turnAbortSignal, preparationMessage);
         await appendTurnOutcomeEvent(this, {
           coreError,
           events,
           durationMs: Date.now() - turnStartedAtMs,
-          turnPhase: "model_creation",
+          turnPhase,
           inputId: options?.inputId,
           traceContext: turnTraceContext,
-          fallbackMessage: "Model creation failed",
+          fallbackMessage: preparationMessage,
           logEvent: "turn.failed",
           logLabel: "Turn",
         });

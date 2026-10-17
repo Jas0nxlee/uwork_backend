@@ -38,6 +38,7 @@ import {
   IModelSelectionService,
   ISettingService,
   IWindowControllerService,
+  IEnterpriseIdentityService,
   IConversationShareService,
   IZCodeAgentService,
   IZCodeTaskService,
@@ -65,6 +66,7 @@ import {
   type OffPeakRequestAuthBuilder,
 } from "@zcode/services/node";
 import { createHostResourceUsageResponder } from "./hostResourceUsage.js";
+import { createHostClientPresentationBridge } from "./clientPresentationBridge.js";
 import {
   assertBoundSessionDispatchable,
   resolveOffPeakDispatchKind,
@@ -181,6 +183,8 @@ type RemoteAssetDirs = Pick<
 >;
 
 const { parentPort } = process;
+let clientPresentationBridge: ReturnType<typeof createHostClientPresentationBridge> | undefined;
+let clientPresentationSourceEpoch = 0;
 
 // 进程检索体验优化：host 由 utilityProcess 拉起时外壳仍是 Electron Helper，
 // 这里根据 main 传入的窗口 label 补一层稳定的 zcode-* title，方便系统进程列表过滤。
@@ -2121,6 +2125,8 @@ function disposeAttachedServicePorts(): void {
 }
 
 async function disposeHostResources(reason: string): Promise<HostShutdownResult> {
+  clientPresentationBridge?.dispose();
+  clientPresentationBridge = undefined;
   databaseStartup?.dispose();
   pendingStartupAttachments.clear();
   if (hasDisposedHostResources) {
@@ -2201,6 +2207,8 @@ async function disposeHostResources(reason: string): Promise<HostShutdownResult>
 }
 
 function disposeHostResourcesBestEffort(reason: string): void {
+  clientPresentationBridge?.dispose();
+  clientPresentationBridge = undefined;
   if (hasDisposedHostResources) {
     return;
   }
@@ -2297,6 +2305,17 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
 
   const msg = result.data;
   const port = e.ports[0];
+  if (msg.type === HostMessageTypes.ClientPresentationRead) {
+    if (clientPresentationBridge) void clientPresentationBridge.read(msg.requestId);
+    else
+      parentPort.postMessage({
+        type: HostResponseTypes.ClientPresentationResult,
+        requestId: msg.requestId,
+        sourceEpoch: clientPresentationSourceEpoch,
+        projection: { status: "unavailable" },
+      });
+    return;
+  }
   if (msg.type === HostMessageTypes.DatabaseStartupControl) {
     if (msg.control.action === "snapshot") databaseStartup?.coordinator.publish();
     else if (msg.control.action === "retry")
@@ -2867,6 +2886,16 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
                 process.platform === "win32" ? cuaOperationStateReporter : undefined,
             });
             activeServices = initializedServices;
+            clientPresentationBridge?.dispose();
+            clientPresentationBridge = createHostClientPresentationBridge({
+              identity: initializedServices.get(IEnterpriseIdentityService),
+              nextSourceEpoch: () => ++clientPresentationSourceEpoch,
+              publish: (message) => parentPort.postMessage(message),
+            });
+            parentPort.postMessage({
+              type: HostResponseTypes.ClientPresentationInvalidated,
+              sourceEpoch: clientPresentationSourceEpoch,
+            });
             activeHostApiNetworkTransport = hostApiNetworkTransport;
             return initializedServices;
           },

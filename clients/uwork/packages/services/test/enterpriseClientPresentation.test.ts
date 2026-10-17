@@ -62,6 +62,10 @@ test("published presentation uses real HTTP, tracks publication and rejects stal
       welcome: "企业欢迎",
       riskNotice: "请核实",
       riskPrefix: "内容由 AI 生成",
+      scenes: { status: "unsupported" },
+      help: { status: "unsupported" },
+      desktop: { status: "unsupported" },
+      pluginStore: { status: "unsupported" },
     });
     welcome = "";
     version = 2;
@@ -72,6 +76,10 @@ test("published presentation uses real HTTP, tracks publication and rejects stal
       welcome: "",
       riskNotice: "请核实",
       riskPrefix: "内容由 AI 生成",
+      scenes: { status: "unsupported" },
+      help: { status: "unsupported" },
+      desktop: { status: "unsupported" },
+      pluginStore: { status: "unsupported" },
     });
     responseBody = { tenantId: "other" };
     assert.deepEqual(await read(), { status: "unavailable" });

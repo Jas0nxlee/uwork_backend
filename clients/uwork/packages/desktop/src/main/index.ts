@@ -12,10 +12,8 @@ import {
 import armsRum from "@arms/rum-electron";
 import { createArmsUserIdentitySync } from "./armsUserIdentity.js";
 import { ensureDesktopDeviceMidSync } from "./desktopDeviceMid.js";
-import {
-  createDesktopContextPromptRollout,
-  createElectronDesktopContextPromptConfigFetcher,
-} from "./desktopContextPromptRollout.js";
+import { createClientPresentationBindings } from "./clientPresentationBindings.js";
+import { openBoundClientHelp } from "./clientPresentationHelp.js";
 import { buildBrowserViewCloseTabNotification } from "./browserView/browserCloseTabNotification.js";
 import { BrowserGuestManager } from "./browserView/browserGuestManager.js";
 import { createElectronBrowserWebmRecorder } from "./browserView/electronBrowserWebmRecorder.js";
@@ -35,6 +33,7 @@ import {
 import {
   app,
   BrowserWindow,
+  shell,
   dialog,
   ipcMain,
   nativeImage,
@@ -105,7 +104,6 @@ import { createAppTelemetryRuntime } from "./appTelemetryRuntime.js";
 import { createRendererActionTraceBroker } from "./rendererActionTraceBroker.js";
 import { createRendererActionTraceExporter } from "./rendererActionTraceExporter.js";
 import { registerRendererActionTraceIpc } from "./rendererActionTraceIpc.js";
-import { createRendererActionTraceRollout } from "./rendererActionTraceRollout.js";
 import {
   resolveAppShutdownPolicy,
   selectAppShutdownPolicy,
@@ -197,7 +195,6 @@ import {
   listRegisteredHostAgentProcessIds,
   setBrowserUseGuestWebContentsIdsProvider,
 } from "./resourceManagerWindow.js";
-import { createDesktopHelpConfigReader } from "./desktopHelpConfig.js";
 import { registerPlatformIpcHandlers } from "./desktopMainIpcPlatform.js";
 import { registerRemoteIpcHandlers } from "./desktopMainIpcRemote.js";
 import {
@@ -613,6 +610,18 @@ const windowWorkspaceMap = new Map<number, Set<string>>();
 const windowTaskRealtimeHostIdMap = new Map<number, string>();
 const windowUnreadCountMap = new Map<number, number>();
 const windowHostProcessMap = new Map<number, ElectronUtilityProcess>();
+let rendererActionTraceIpc: ReturnType<typeof registerRendererActionTraceIpc> | undefined;
+const clientPresentationBindings = createClientPresentationBindings({
+  currentChild: (senderId) => windowHostProcessMap.get(senderId),
+  changed: (senderId, bound) => {
+    rendererActionTraceIpc?.publish(senderId, bound);
+    // 在当前同步 invalidation/exit 清理结束后再读取，不能复用刚被退休的 pending。
+    if (bound.projection.status === "unavailable")
+      queueMicrotask(() => {
+        void rendererActionTraceIpc?.refresh(senderId).catch(() => {});
+      });
+  },
+});
 const cuaPipFocusRouter = createCuaPipFocusRouter({
   send: (windowId, event) => {
     windowHostProcessMap.get(windowId)?.postMessage({
@@ -673,52 +682,6 @@ async function resolveCurrentZCodeEndpointOrigin() {
     envBaseOrigin: resolveZCodeEndpointEnvBaseOrigin(hostProcessLocalEnv),
     overrideOrigin: (await mainSettingService.get()).zcodeEndpointOrigin,
   });
-}
-let desktopContextPromptRollout: ReturnType<typeof createDesktopContextPromptRollout> | undefined;
-function resolveDesktopContextPromptEnabledForHost(): boolean {
-  const rollout = desktopContextPromptRollout;
-  if (!rollout) {
-    return false;
-  }
-  // Host 创建时顺便触发过期刷新，但只读取当前快照；网络请求不能阻塞 Local/Remote Host。
-  void rollout.refresh();
-  return rollout.getSnapshot().enabled;
-}
-
-// 首个 Host 创建前的有界灰度裁决门。Host/Agent 的 presentation surface 在进程启动时
-// 冻结（services/node.ts 顶层 const + CLI --surface），而灰度请求是旁路、不阻塞 Host。若首个
-// Host fork 早于请求 resolve，成功结果（enabled:true）对已冻结的 Host/Agent 无可达生效路径。
-// 这里给"成功结果"一条有界的生效路径：首 Host fork 前 await 一次裁决（≤2s），失败/超时仍按当前
-// 快照继续（desktopContextPrompt fail-open）。first-only 永久
-// latch——后续 Host fork await 已 resolve 的 promise（近乎 0ms），且各 resolve*ForHost()
-// 同步读取已被刷新的 live 快照。
-const DESKTOP_FIRST_HOST_SPAWN_DECISION_TIMEOUT_MS = 2_000;
-let firstHostSpawnDecisionPromise: Promise<void> | null = null;
-function awaitFirstHostSpawnDecision(): Promise<void> {
-  if (firstHostSpawnDecisionPromise) {
-    return firstHostSpawnDecisionPromise;
-  }
-  firstHostSpawnDecisionPromise = (async () => {
-    const rollout = desktopContextPromptRollout;
-    if (!rollout) {
-      return;
-    }
-    try {
-      const decision = await rollout.awaitFirstDecision(
-        DESKTOP_FIRST_HOST_SPAWN_DECISION_TIMEOUT_MS,
-      );
-      logger.info("[desktop-context-prompt] first host spawn decision resolved", {
-        enabled: decision.enabled,
-        configVersion: decision.configVersion,
-      });
-    } catch (error) {
-      // awaitFirstDecision 永不 reject（refresh 内部已 catch + timeout 回退快照），此处仅兜底。
-      logger.warn("[desktop-context-prompt] first host spawn decision failed, fail-open", {
-        error,
-      });
-    }
-  })();
-  return firstHostSpawnDecisionPromise;
 }
 const appTelemetryCore = createTelemetryCore({
   loadUserId: createTelemetryUserIdLoader(appTelemetryCredentialService),
@@ -784,27 +747,6 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
 });
 
 const deviceMid = ensureDesktopDeviceMidSync();
-// 帮助配置是公开读取，不能复用下面附带账号鉴权的灰度响应缓存。
-const readHelpConfig = createDesktopHelpConfigReader({
-  appVersion: ZCODE_VERSION || app.getVersion(),
-  deviceMid,
-  resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
-});
-// 同一个 /api/v1/client/configs fetcher 供两个灰度 rollout 共用（请求参数与鉴权完全一致，
-// 各自独立缓存/去重，服务端按 data.configs.<key> 区分功能）。
-const electronClientConfigsFetcher = createElectronDesktopContextPromptConfigFetcher({
-  appVersion: ZCODE_VERSION || app.getVersion(),
-  deviceMid,
-  resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
-});
-desktopContextPromptRollout = createDesktopContextPromptRollout({
-  fetchConfig: electronClientConfigsFetcher,
-  logger,
-});
-const rendererActionTraceRollout = createRendererActionTraceRollout({
-  fetchConfig: electronClientConfigsFetcher,
-  logger,
-});
 const localTtftExporter = createLocalTtftExporter({
   env: { ...hostProcessLocalEnv, ...process.env },
   version: ZCODE_VERSION || app.getVersion(),
@@ -820,7 +762,6 @@ const rendererActionTraceBroker = createRendererActionTraceBroker({
   }),
   logger,
 });
-let disposeRendererActionTraceIpc: (() => void) | undefined;
 const armsUserIdentitySync = createArmsUserIdentitySync({
   deviceMid,
   // 采集停用时 SDK 未初始化，setConfig 会抛错。
@@ -992,8 +933,9 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   stopDesktopZCodeDataSizeTelemetry();
   stopDesktopNetworkTelemetry();
   stopRemoteUsageArmsPeriodicSampling();
-  disposeRendererActionTraceIpc?.();
-  disposeRendererActionTraceIpc = undefined;
+  rendererActionTraceIpc?.dispose();
+  rendererActionTraceIpc = undefined;
+  clientPresentationBindings.dispose();
   notifyStabilityAppExit(
     getStabilityLifecycleScene() === "update_install" ? "update_install" : "app_quit",
     logger,
@@ -1319,7 +1261,21 @@ async function executeDesktopCommandForApp(
   senderWindow?: BrowserWindow | null,
 ) {
   return executeDesktopCommand({
-    fetchHelpConfig: readHelpConfig,
+    fetchHelpConfig: async () => undefined,
+    openClientHelp: async (kind, target, locale) => {
+      if (!target || target.isDestroyed()) return true;
+      return openBoundClientHelp({
+        senderId: target.webContents.id,
+        kind,
+        locale,
+        read: clientPresentationBindings.read,
+        isCurrent: (senderId, epoch) =>
+          !target.isDestroyed() &&
+          !target.webContents.isDestroyed() &&
+          clientPresentationBindings.isCurrent(senderId, epoch),
+        open: (url) => shell.openExternal(url),
+      });
+    },
     command,
     senderWindow,
     logger,
@@ -1663,7 +1619,6 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
       }),
     windowHostProcessMap,
     onHostProcessReady: (windowKey) => cuaPipFocusRouter.refreshWindow(windowKey),
-    awaitFirstHostSpawnDecision,
     spawnHostProcess: (win, label, initMessage) =>
       spawnHostProcess(
         win,
@@ -1681,11 +1636,14 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
         },
         {
           hostProcessLocalEnv,
-          desktopContextPromptEnabled: resolveDesktopContextPromptEnabledForHost,
           logger,
           broadcastHub,
           taskRealtimeBus,
           windowHostProcessMap,
+          onClientPresentationMessage: (senderId, child, message) =>
+            clientPresentationBindings.receive(senderId, child, message),
+          onClientPresentationSourceExited: (child) =>
+            clientPresentationBindings.forgetChild(child),
           hostRunningTaskCountMap,
           onCuaOperationStateChanged: (source, event) =>
             windowsCuaOperationIndicator.handleState(source, event),
@@ -1833,8 +1791,6 @@ app.whenReady().then(async () => {
   installLocalMediaPreviewProtocol(session.defaultSession.protocol, {
     isPathAuthorized: localMediaPreviewPathRegistry.isAuthorized,
   });
-  // Electron 的 net.request 只能在 app ready 后使用；灰度请求仍是旁路预热，不阻塞首个 Host。
-  void desktopContextPromptRollout?.refresh();
   installBrowserRestoreBootstrapProtocol(
     session.fromPartition(EMBEDDED_BROWSER_PARTITION).protocol,
   );
@@ -1962,7 +1918,19 @@ app.whenReady().then(async () => {
   });
 
   registerPlatformIpcHandlers({
-    fetchHelpConfig: readHelpConfig,
+    fetchHelpConfig: async () => undefined,
+    canOpenClientCommunity: async (senderId, locale) => {
+      const bound = await clientPresentationBindings.read(senderId);
+      const sender = webContents.fromId(senderId);
+      if (!sender || sender.isDestroyed()) return false;
+      if (!clientPresentationBindings.isCurrent(senderId, bound.bindingEpoch)) return false;
+      if (bound.projection.status === "unmanaged") return undefined;
+      return (
+        bound.projection.status === "ready" &&
+        bound.projection.help.status === "ready" &&
+        bound.projection.help.data.communityUrls[locale] !== null
+      );
+    },
     logger,
     // CDP-on-guest pivot：renderer `<webview>` dom-ready 上报 guest webContentsId → attach。
     attachBrowserGuest: (key, webContentsId, options) => {
@@ -2063,8 +2031,8 @@ app.whenReady().then(async () => {
     deviceMid,
   });
 
-  disposeRendererActionTraceIpc = registerRendererActionTraceIpc({
-    rollout: rendererActionTraceRollout,
+  rendererActionTraceIpc = registerRendererActionTraceIpc({
+    presentation: clientPresentationBindings,
     broker: rendererActionTraceBroker,
     env: process.env,
     logger,

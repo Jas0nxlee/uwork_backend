@@ -879,6 +879,7 @@ interface CreateZCodeAgentServiceOptions extends Omit<
   sessionRuntimePreferencesAuthority?: "local" | "external";
   resolveSessionRuntimePreferences?: (
     scope: ZCodeSessionRuntimePreferencesScope,
+    options?: { signal?: AbortSignal },
   ) => Promise<ZCodeSessionRuntimePreferencesResult>;
   /** manual run 落库后由当前 host 直接派发；返回时 prompt 必须已被 session 接受。 */
   onAutomationManualRunRequested?: (params: {
@@ -2185,7 +2186,9 @@ export function createZCodeAgentService(
                 preferences = zcodeSessionRuntimePreferencesResultSchema.parse(
                   // 同一 RPC 承载 runtime 创建与首次执行两个时机；必须继续传递
                   // 已校验的 scope，避免首次执行为了 Shell 再次等待远端 client config。
-                  (await resolveSessionRuntimePreferences?.(parsed.data.scope)) ?? {
+                  (await resolveSessionRuntimePreferences?.(parsed.data.scope, {
+                    signal: client.disposeSignal,
+                  })) ?? {
                     askUserQuestionAutoResolutionEnabled: true,
                     nativeSearchEnhancementsEnabled: true,
                     memoryEnabled: false,
