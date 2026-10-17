@@ -123,4 +123,6 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 
 实际 Native 发送后切自动化暴露共享 SWR 清空/去重标记问题；源码修复仅退休最后 reader 的资源。React/SWR 10/10、scope 2/2、独立审查通过，Desktop-only 重建后 [bf0/61fe Native 组](../evidence/client-native-scenes-fixed-20261017/summary.json) 证明模板表单、三轮往返、同 profile 冷启及 V2 暖更新均正常，CLI 字节仍 39175。该组 4 supplier/4 settled、18 个 PID/4 端口/两代 BH/root 已清。
 
-另发现 Native 企业专家首次目录读取与后台同步 CAS 冲突，导致专家未注册；已取得 matched trace 的真实 RED，Host 事务串行化正在独立修复，不能把父模型回复当 child 执行。公开商店排序、offPeak 旧 plan 入口、原生 chooser、OS 外链、同 Main 多窗口、生产安装包/跨平台，以及上述原有远端/分享/组织切换边界继续保留。真实企微、外部 MCP、网盘仍按用户要求排除。
+另发现 Native 企业专家首次目录读取与后台同步 CAS 冲突，导致专家未注册；matched trace 的真实 RED 保留。现已沿同 Host/store 串行完整目录事务，保留原 scope、取消、dispose 和跨 Host CAS。新实际专项 9/9、原跨 Host/崩溃 3/3、独审另跑 9/9 及真实尾链 1/1，Required none。Root 全量 typecheck 与正式 Desktop-only 构建通过，CLI/stage 39175 不变，新 Main c3d27b、Host 9afc1a。[最终 Native 组](client-native-experts-config-final-test-2026-10-17.md) 首启与同 profile 冷启各有真正批准专家 child，父 system 有 Desktop、child 无 Desktop、全部无个人 shadow；两轮各 4 请求/4 settled。夹具连初始化合计 10 请求/10 settled，0 CAS 拒绝。模板/09:00 表单/返回取消/草稿点击在两代均通过，17 PID、4 端口与独占根已清理；Root 独立重算正文并核对 107 项证据及 88 源/6 产物 SHA。
+
+公开商店排序、offPeak 旧 plan 入口、原生 chooser、OS 外链、生产安装包/跨平台，以及上述原有远端/分享/组织切换边界继续保留。同 Main 并发第二 Root 当前没有产品 UI/命令入口，应标当前 UI 不适用；普通 Renderer reload 复用原 Host，不能冒称 Host 代次恢复。[只读依据与可行生命周期方案](../evidence/client-native-window-child-readonly-20261017/plan.md) 分开记录尚未运行的 owned Host 崩溃恢复。定时表单模型选择区的截图疑点已在另一独占 Native 连续三次判别为正常 200ms 动画；0.5/1 秒后只有一个稳定 label，无产品修改。真实企微、外部 MCP、网盘仍按用户要求排除。

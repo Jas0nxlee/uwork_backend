@@ -29,6 +29,8 @@
 
 Root 一次手工扩大为 `eslint .` 的命令因遍历全仓库及过程目录超出堆内存，原日志保留；随后按 package.json 的准确 lint 范围执行并通过，未改代码或降低规则。Main 单独 noEmit 的既有 81 项诊断、CLI 标准命令缺 turbo 的限制继续保留，不据工作区检查冒称所有独立入口全绿。
 
-本组是真实未打包 Electron，`isPackaged=false`。正式安装、系统 chooser、OS 外链、公开市场实际排序和不可达的 offPeak 旧入口不由本组替代。定时表单右下模型选择区存在文字视觉疑点，已保留暖、冷截图并单独核查；尚未按控件几何证实，不计作本组业务失败或已修复项。
+本组是真实未打包 Electron，`isPackaged=false`。正式安装、系统 chooser、OS 外链、公开市场实际排序和不可达的 offPeak 旧入口不由本组替代。
+
+定时表单模型选择区的截图疑点已用另一独占 Native 组判别。三次实际进入表单，出现后约 10–13ms 保留旧、新两个 label；第二次还实际捕获两个 running 动画，duration/endTime 均 200ms。每次在 0.5 秒、1 秒后都只有一个新 label、opacity=1、相同 rect，旧 pop span 已移除，当前模型 ID 与本组后台值一致，documentHidden=false。因此没有证实持续重叠，无需修改产品。该组没有发送 Native 模型任务，原 2 条初始化请求/账本保持不变；9 PID、4 端口及独占根已清理，原 107 项证据未变。见 [三轮 DOM/几何/动画结果](../evidence/client-native-model-selector-transition-20261017/summary.json)。
 
 17 个已知 PID 全部退出，4 个测试端口关闭，两代 BH 目录及独占根删除；Root 独立复查 PID、端口、107 项证据 SHA 及源/产物 SHA。见 [完整结果](../evidence/client-native-experts-config-final-20261017/summary.json) 和 [清理证明](../evidence/client-native-experts-config-final-20261017/peer-cleanup-proof.json)。主服务、主环境、主 Vault 和相邻客户端仓库没有参与测试；真实企微、外部 MCP 和网盘仍按用户要求排除。

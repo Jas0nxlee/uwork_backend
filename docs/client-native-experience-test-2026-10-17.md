@@ -28,6 +28,8 @@
 
 本组共 16 次受控供应商请求、16 settled、0 uncertain：2 次为另一成员初始化，14 次为 Native 父会话、标题及三次未实际派发 child 的专家尝试。不是 16 个成功业务用例，也没有已接受的企业专家 child。`readCatalog` 失败前没有进入正文读取，当前失败不能归因于 global crypto。
 
+后续同 Host/store 的完整 catalog FIFO 已修复这个启动自冲突，并在新 `c3d27b / 9afc1a` Native 候选完成 [首启与冷启正向验收](client-native-experts-config-final-test-2026-10-17.md)：两轮均有批准企业 child 的实际模型正文，父有 Desktop、子无 Desktop/个人 shadow，各新增 4 请求和 4 settled。本组原 16 条与 CAS RED 保持原样，不改称为新修复的成功用例。
+
 Help 外链、真实公开商店两个条目的排序、offPeak 旧 plan 入口、同 Main 双窗口/child 代次、系统 chooser、正式安装包及跨平台运行保持各自未验边界；源测试、空目录、单项排序或另一个进程不能替代这些层次。
 
 ## 证据与清理
