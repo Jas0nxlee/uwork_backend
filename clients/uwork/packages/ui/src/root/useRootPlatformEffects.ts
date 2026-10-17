@@ -271,7 +271,18 @@ export function useRootPlatformEffects({
           }
         })
       : () => {};
+    let active = true;
+    // Main 会缓存未 ready 窗口的 second-instance 请求；必须先装好上述监听器再通知。
+    // microtask 让 StrictMode 已 cleanup 的订阅退出，pending 的消费与幂等仍由 Main 拥有。
+    void Promise.resolve()
+      .then(() => {
+        if (active) return platform.notifyRendererReady();
+      })
+      .catch((error: unknown) => {
+        logger.warn("[Root] 通知 renderer ready 失败", { error });
+      });
     return () => {
+      active = false;
       disposeFocusTab();
       disposeNewTab();
       disposeNewTask();
