@@ -189,7 +189,7 @@ export async function createApp(options: AppOptions) {
         fail(403, "ORIGIN_REJECTED", "请求来源不允许");
       if (
         req.headers.cookie?.includes("uwork_session=") &&
-        !req.headers.authorization &&
+        !req.headers.authorization?.startsWith("Bearer ") &&
         !origin
       )
         fail(403, "ORIGIN_REQUIRED", "会话写入需要来源校验");
