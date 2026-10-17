@@ -92,6 +92,7 @@ import {
   shouldExposeSessionEventToProtocol,
 } from "./mapper.js";
 import { optionalModelSelectionFromString } from "./model-mapper.js";
+import { mapMessageWithParts } from "./message-mapper.js";
 import {
   ProtocolRequestError,
   assertExpectedRevision,
@@ -1871,7 +1872,8 @@ export async function readMessages(context: ZCodeProtocolAgentServerContext, raw
     : -1;
   const messages = afterMessageIndex >= 0 ? allMessages.slice(afterMessageIndex + 1) : allMessages;
   return {
-    messages: params.limit ? messages.slice(-params.limit) : messages,
+    // 与 snapshot 使用同一 wire mapper；Core 的 id/sessionID/time 不能直接进入严格协议。
+    messages: (params.limit ? messages.slice(-params.limit) : messages).map(mapMessageWithParts),
   };
 }
 
