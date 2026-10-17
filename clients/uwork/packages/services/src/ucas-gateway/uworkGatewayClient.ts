@@ -3,7 +3,6 @@ import {
   ucasGatewayUserSchema,
   ucasGatewaySubscriptionSchema,
   ucasGatewayUsageStatsSchema,
-  ucasGatewayKeySchema,
 } from "@zcode/shared";
 import {
   UcasGatewayRequestError,
@@ -41,24 +40,7 @@ export function createUWorkGatewayClient(options: UcasGatewayClientOptions): Uca
       );
     return readJson(response);
   };
-  const issue = async () => {
-    const raw = z.object({ id: z.string(), token: z.string(), expiresAt: z.number() }).parse(
-      await send("/api/auth/device-tokens", "POST", {
-        ttlHours: 24,
-      }),
-    );
-    return {
-      key: ucasGatewayKeySchema.parse({
-        id: raw.id,
-        alias: "UWork",
-        maskedKey: "device-credential",
-        status: "active",
-      }),
-      apiKey: raw.token,
-    };
-  };
   return {
-    issueDeviceCredential: issue,
     async retireDeviceCredential(keyId) {
       await send(`/api/auth/device-tokens/${encodeURIComponent(keyId)}`, "DELETE");
     },
@@ -86,7 +68,9 @@ export function createUWorkGatewayClient(options: UcasGatewayClientOptions): Uca
     async listKeys() {
       return [];
     },
-    generateKey: () => issue(),
+    async generateKey() {
+      throw new UcasGatewayRequestError("invalid");
+    },
     async revealKey() {
       throw new UcasGatewayRequestError("invalid");
     },

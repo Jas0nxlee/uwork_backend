@@ -339,6 +339,12 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
     readAuthority: () => lifecycle.readEnterpriseIdentityAuthority(identity),
     readPersistedSession: () => sessionStore.read(),
   });
+  const { createEnterpriseModelRelay } = await source(
+    "enterprise-model-relay/relay.ts",
+  );
+  const hostRelay = createEnterpriseModelRelay({ backendSession: backend });
+  const privateFrames: unknown[] = [];
+  const runtimeOwner = {};
   const personalPath = join(directory, "provider", "personal.json");
   const gatewayPath = join(directory, "gateway.json");
   const gatewayStore = gatewayStoreModule.createUcasGatewayStore({
@@ -430,6 +436,7 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
       inputTokens: row.inputTokens,
       outputTokens: row.outputTokens,
     }));
+    hostRelay.dispose();
     gateway.dispose();
     runtime.dispose();
     await lifecycle.disposeEnterpriseIdentityService(identity);
@@ -467,6 +474,20 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
           done(false);
         });
       });
+    const encodedFrames = JSON.stringify(privateFrames);
+    for (const secret of [
+      login.token,
+      adminLogin.token,
+      "live-gateway-synthetic-vendor",
+    ])
+      assert.ok(
+        !encodedFrames.includes(secret),
+        "private CLI model frames cannot contain any credential",
+      );
+    assert.ok(
+      !requests.some((r) => r.route === "/api/auth/device-tokens"),
+      "Gateway must not request a device/API key",
+    );
     const portsClosed = await Promise.all([
       closed(Number(new URL(origin).port)),
       closed(Number(new URL(backendOrigin).port)),
@@ -478,11 +499,12 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
       JSON.stringify(
         {
           boundary:
-            "real backend temp disk/TCP; actual identity/Gateway/ProviderRuntime/AiSdkModelAdapter+AI SDK source; real Host transport for provisioning and real adapter TCP for generation; email/store bootstrap bridge only; actual source adapter (packaged CLI/Native Electron acceptance is separate); no mocked fetch/WeCom/external MCP/drive/main env/paid vendor",
+            "real backend temp disk/TCP; actual identity/Gateway/ProviderRuntime/AiSdkModelAdapter+AI SDK source; real Host transport for provisioning; actual private Host relay for all SDK generation HTTP; CLI has no key or network generation path; email/store bootstrap bridge only; actual source adapter (packaged CLI/Native Electron acceptance is separate); no mocked fetch/WeCom/external MCP/drive/main env/paid vendor",
           checks,
           wires,
           configurations,
           ledger,
+          privateFrames,
           requests,
           modelCalls,
           node: process.version,
@@ -517,11 +539,52 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
         ).href
       );
       const config = await resolved();
+      assert.equal(config.providerConfig.access.type, "enterprise-session");
+      assert.deepEqual(config.providerConfig.access.toJSON(), {
+        type: "enterprise-session",
+      });
+      const { createEnterpriseSessionFetch } = await import(
+        pathToFileURL(
+          join(
+            clientRoot,
+            "apps/zcode-cli/packages/adapters/src/model/enterprise-session-fetch.ts",
+          ),
+        ).href
+      );
+      const contracts = await import(
+        pathToFileURL(
+          join(clientRoot, "apps/zcode-cli/packages/contracts/src/index.ts"),
+        ).href
+      );
+      const enterpriseSessionFetch = createEnterpriseSessionFetch({
+        relay: {
+          request: async (
+            frame: { request: unknown },
+            signal?: AbortSignal,
+          ) => {
+            privateFrames.push(frame);
+            return hostRelay.request({
+              runtime: runtimeOwner,
+              workspaceKey: directory,
+              sessionId: "actual-sdk-controlled",
+              request: frame.request,
+              signal,
+            });
+          },
+        },
+        sessionId: "actual-sdk-controlled",
+        workspacePath: directory,
+        traceContext: contracts.createRootTraceContext({
+          sessionId: contracts.createSessionId("actual-sdk-controlled"),
+        }),
+      });
       configurations.push({
+        access: config.providerConfig.access.toJSON(),
         properties: config.modelConfig.properties,
         optionSpecs: config.modelConfig.optionSpecs,
       });
       const runner = new AiSdkModelAdapter({
+        enterpriseSessionFetch,
         env: {},
         retry: { maxAttempts: 1 },
       });

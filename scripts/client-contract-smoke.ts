@@ -151,7 +151,6 @@ test("actual UWork identity and gateway adapters negotiate the self-owned backen
   });
   t.after(() => disposeEnterpriseIdentityService(identityOwner));
   assert.equal((await identityOwner.restoreSession()).status, "authenticated");
-  let providerToken = "";
   let providerModels: readonly string[] = [];
   const service = createUcasGatewayService({
     store: {
@@ -179,15 +178,17 @@ test("actual UWork identity and gateway adapters negotiate the self-owned backen
         apiKey?: string;
         modelIds?: readonly string[];
         replaceApiKey?: boolean;
+        authMode?: "enterprise-session";
       }) {
         if (failProvisioning)
           throw new Error("controlled-provisioning-failure");
-        assert.equal(input.replaceApiKey, true);
-        providerToken = input.apiKey ?? providerToken;
+        assert.equal(input.authMode, "enterprise-session");
+        assert.equal(input.apiKey, undefined);
+        assert.equal(input.replaceApiKey, undefined);
         providerModels = input.modelIds ?? providerModels;
         return {
-          apiKeyApplied: true,
-          hasApiKey: true,
+          apiKeyApplied: false,
+          hasApiKey: false,
           modelsAdded: providerModels.length,
           modelsSkipped: 0,
         };
@@ -200,20 +201,16 @@ test("actual UWork identity and gateway adapters negotiate the self-owned backen
   assert.equal(sync.view.status, "ready");
   assert.equal(sync.view.usage.unit, "credits");
   assert.equal(sync.view.models.available.length, 1);
-  assert.ok(providerToken);
-  assert.ok(!JSON.stringify(sync.view).includes(providerToken));
+  assert.equal(sync.view.authMode, "enterprise-session");
+  assert.equal(sync.view.key, null);
+  assert.ok(!JSON.stringify(sync.view).includes(session.token));
   assert.ok(!JSON.stringify(sync.view).includes("synthetic-only"));
-  const first = providerToken;
-  await service.sync("refresh");
-  assert.notEqual(first, providerToken);
+  assert.equal((await service.sync("refresh")).committed, true);
   assert.equal(
-    (
-      await app.inject({
-        url: "/v1/models",
-        headers: { authorization: `Bearer ${first}` },
-      })
-    ).statusCode,
-    401,
+    app.services.db.get<{ n: number }>(
+      "SELECT count(*) n FROM sessions WHERE kind='device'",
+    )!.n,
+    0,
   );
   const second = await adapter.start(signal, tenantId);
   await adapter.cancel(second.id);
@@ -226,7 +223,7 @@ test("actual UWork identity and gateway adapters negotiate the self-owned backen
     ).statusCode,
     400,
   );
-  const validToken = providerToken;
+  const validToken = session.token;
   failModels = true;
   assert.equal(
     (await service.sync("controlled-network-failure")).committed,
@@ -280,7 +277,7 @@ test("actual UWork identity and gateway adapters negotiate the self-owned backen
     (
       await app.inject({
         url: "/v1/models",
-        headers: { authorization: `Bearer ${providerToken}` },
+        headers: { authorization: `Bearer ${session.token}` },
       })
     ).statusCode,
     401,

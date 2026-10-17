@@ -27,6 +27,7 @@ import { cn } from "./components/lib/utils.js";
 import { toast } from "./components/ui/toast.js";
 import { useFeedbackStore } from "@/feedback/feedbackStore.js";
 import { getProviderBusinessErrorMessageId } from "@/lib/providerBusinessError.js";
+import { enterpriseModelErrorMessageId } from "@/lib/enterpriseModelErrorCopy.js";
 import { buildErrorFeedbackDescription } from "@/lib/errorFeedbackDraft.js";
 import {
   isSuspiciousEmptyModelResultMessage,
@@ -71,6 +72,8 @@ export function resolveChatErrorBannerDisplayMessage(
   error: ZCodeUiError,
   intl: IntlInstance,
 ): string {
+  const enterpriseMessage = enterpriseModelErrorMessageId(error);
+  if (enterpriseMessage) return intl.formatMessage({ id: enterpriseMessage });
   if (isModelConfigMissingError(error)) {
     return intl.formatMessage({ id: "chat.error.noAvailableModel" });
   }

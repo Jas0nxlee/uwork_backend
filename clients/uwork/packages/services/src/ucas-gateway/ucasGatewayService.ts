@@ -3,7 +3,6 @@ import {
   ucasGatewayViewSchema,
   type UcasGatewayError,
   type UcasGatewaySyncResult,
-  type UcasGatewaySubscription,
   type UcasGatewayUsageRequest,
   type UcasGatewayView,
 } from "@zcode/shared";
@@ -23,9 +22,11 @@ import {
   ensureGatewayKey as ensureKey,
   readGatewayPlanModels as readPlanModels,
   readGatewayModelApplication,
+  readGatewayAccountStats,
 } from "./gatewayProvisioningReads.js";
 import {
   uncommittedGatewayResult,
+  initialGatewayView,
   committedGatewayResult,
   readyGatewayProjection,
   emptyGatewayProjection,
@@ -53,19 +54,7 @@ export function createUcasGatewayService(
   let syncTask: Promise<UcasGatewaySyncResult> | null = null;
   let usageSerial = 0;
   let projectedScope: GatewayIdentityScope | null = null;
-  let view: UcasGatewayView = {
-    revision: 0,
-    status: "signed-out",
-    configured: false,
-    user: null,
-    endpoint: null,
-    key: null,
-    subscriptions: [],
-    usage: null,
-    models: null,
-    lastSyncedAt: null,
-    error: null,
-  };
+  let view = initialGatewayView();
 
   const publish = (next: Omit<UcasGatewayView, "revision">): void => {
     if (disposed) return;
@@ -86,6 +75,10 @@ export function createUcasGatewayService(
     hydrated = true;
     try {
       const state = await options.store.read();
+      view = {
+        ...view,
+        authMode: (await options.resolveBackend?.()) === "uwork" ? "enterprise-session" : undefined,
+      };
       if (state) {
         publish({
           ...view,
@@ -149,8 +142,9 @@ export function createUcasGatewayService(
       });
       return signedOutResult();
     }
-    publish({ ...view, status: "syncing", configured: true, error: null });
     const backend = (await options.resolveBackend?.()) ?? "ucas";
+    const authMode = backend === "uwork" ? "enterprise-session" : undefined;
+    publish({ ...view, status: "syncing", configured: true, error: null, authMode });
     let scope: GatewayIdentityScope | undefined;
     try {
       scope = createGatewayIdentityScope(options, session, apiBaseUrl, backend, () => disposed);
@@ -158,7 +152,7 @@ export function createUcasGatewayService(
       const client = createScopedGatewayClient(options, session, apiBaseUrl, backend, scope);
       const user = await client.readProfile();
       await scope.assertCurrent();
-      const keyInfo = await ensureKey(client);
+      const keyInfo = await ensureKey(client, scope.managed);
       await scope.assertCurrent();
       const endpoint = resolveEndpoint(await client.readGatewayEndpoints());
       await scope.assertCurrent();
@@ -166,8 +160,10 @@ export function createUcasGatewayService(
       await scope.assertCurrent();
       const applied = await options.provisioning.apply({
         baseUrl: endpoint.baseUrl,
-        apiKey: keyInfo.apiKey,
-        ...(reason === "replace-key" || client.issueDeviceCredential
+        ...(scope.managed
+          ? { authMode: "enterprise-session" as const }
+          : { apiKey: keyInfo.apiKey }),
+        ...(!scope.managed && (reason === "replace-key" || client.issueDeviceCredential)
           ? { replaceApiKey: true }
           : {}),
         modelIds: plan.ids,
@@ -180,16 +176,7 @@ export function createUcasGatewayService(
           .retireDeviceCredential(view.key.id)
           .catch(() => log.warn(undefined, "Previous device credential could not be retired"));
       await scope.assertCurrent();
-      // 套餐读取失败不阻断已完成的关键配置：视图字段要求可变数组，显式拷贝一次。
-      const subscriptions: UcasGatewaySubscription[] = [
-        ...(await client.readSubscriptions().catch(() => [])),
-      ];
-      const usage = await client
-        .readUsage({
-          period: view.usage?.period ?? "month",
-          metric: view.usage?.metric ?? "requests",
-        })
-        .catch(() => null);
+      const { subscriptions, usage } = await readGatewayAccountStats(client, view.usage);
       await scope.assertCurrent();
       const lastSyncedAt = now();
       await options.store
@@ -207,14 +194,22 @@ export function createUcasGatewayService(
       publish(
         readyGatewayProjection(
           view,
-          { user, endpoint, key: keyInfo.key, subscriptions, usage, lastSyncedAt },
+          {
+            user,
+            endpoint,
+            key: keyInfo.key,
+            subscriptions,
+            usage,
+            lastSyncedAt,
+            authMode: scope.managed ? "enterprise-session" : undefined,
+          },
           plan,
         ),
       );
       log.info(undefined, "UCAS gateway provisioning synced", {
         reason,
         endpoint: endpoint.source,
-        authMode: keyInfo.reused ? "reused" : "generated",
+        authMode: scope.managed ? "enterprise-session" : keyInfo.reused ? "reused" : "generated",
       });
       return committedGatewayResult(view, applied, keyInfo.reused);
     } catch (error) {
@@ -376,6 +371,7 @@ export function createUcasGatewayService(
         const applied = await options.provisioning.apply({
           baseUrl: endpoint.baseUrl,
           modelIds: models.ids,
+          ...(scope.managed ? { authMode: "enterprise-session" as const } : {}),
           ...(models.descriptors ? { managedModels: models.descriptors } : {}),
         });
         await scope.assertCurrent();

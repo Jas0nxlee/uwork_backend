@@ -18,11 +18,13 @@ export const resolveGatewayEndpoint = (endpoints: {
 });
 export const ensureGatewayKey = async (
   client: UcasGatewayClient,
+  managed = false,
 ): Promise<{
   key: UcasGatewayView["key"];
-  apiKey: string;
+  apiKey: string | undefined;
   reused: boolean;
 }> => {
+  if (managed) return { key: null, apiKey: undefined, reused: false };
   if (client.issueDeviceCredential)
     return { ...(await client.issueDeviceCredential()), reused: false };
   const keys = await client.listKeys();
@@ -37,7 +39,7 @@ export const ensureGatewayKey = async (
 export const readGatewayPlanModels = async (
   client: UcasGatewayClient,
   endpoint: UcasGatewayEndpoint,
-  apiKey: string,
+  apiKey: string | undefined,
 ): Promise<{
   ids: readonly string[];
   descriptors?: readonly UWorkGatewayModelDescriptor[];
@@ -55,6 +57,8 @@ export const readGatewayPlanModels = async (
   }
   // 套餐不限模型时回退到协议级 `/models`；读取失败不阻断 Key 与端点配置。
   try {
+    if (apiKey === undefined)
+      return { ids: [], unrestricted: plan.unrestricted, hasSubscription: plan.hasSubscription };
     const ids = await client.listEndpointModels(endpoint.baseUrl, apiKey);
     return {
       ids,
@@ -77,4 +81,16 @@ export async function readGatewayModelApplication(
   if (!client) return { ids };
   const plan = await client.readPlanModels();
   return { ids: plan.models, ...(plan.descriptors ? { descriptors: plan.descriptors } : {}) };
+}
+
+/** 账户读操作不持有状态；最终发布与身份复核仍由原Gateway owner完成。 */
+export async function readGatewayAccountStats(
+  client: UcasGatewayClient,
+  usage: UcasGatewayView["usage"],
+) {
+  const subscriptions = [...(await client.readSubscriptions().catch(() => []))];
+  const currentUsage = await client
+    .readUsage({ period: usage?.period ?? "month", metric: usage?.metric ?? "requests" })
+    .catch(() => null);
+  return { subscriptions, usage: currentUsage };
 }

@@ -10,6 +10,7 @@ import type {
 } from "./config/index.js";
 import {
   ApiKeyAccessConfig,
+  EnterpriseSessionAccessConfig,
   ModelConfig,
   ProviderConfigMap,
   ProviderApiConfig,
@@ -69,6 +70,7 @@ export interface UcasEndpointSource {
 /** 企业网关写入 UCAS 的入参；`apiKey` 缺省表示只同步 Base URL。 */
 export interface UcasGatewayConfigInput {
   readonly baseUrl: string;
+  readonly authMode?: "enterprise-session";
   readonly apiKey?: string;
   /** 仅显式替换才覆盖用户已有密钥；默认只补缺失。 */
   readonly replaceApiKey?: boolean;
@@ -321,6 +323,9 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
   applyUcasGatewayConfig(input: UcasGatewayConfigInput): Promise<UcasGatewayConfigApplication> {
     const baseUrl = normalizeUcasGatewayBaseUrl(input.baseUrl);
     const apiKey = input.apiKey?.trim();
+    const enterpriseSession = input.authMode === "enterprise-session";
+    if (enterpriseSession && (input.apiKey !== undefined || input.replaceApiKey))
+      throw new Error("企业会话配置不接受 API Key");
     if (input.apiKey !== undefined && !apiKey) throw new Error("UCAS API Key 不能为空");
     let apiKeyApplied = false;
     return this.#updatePersonal((current) => {
@@ -329,14 +334,24 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
         throw new Error("UCAS 默认供应商不可用");
       }
       const access = rule.config.access;
-      if (access != null && access.type !== "api-key") {
+      if (access != null && access.type !== "api-key" && access.type !== "enterprise-session") {
         throw new Error("UCAS API Key 配置类型无效");
       }
-      apiKeyApplied = Boolean(apiKey) && (input.replaceApiKey === true || !access?.apiKey?.trim());
-      const nextAccess = apiKeyApplied ? new ApiKeyAccessConfig({ apiKey }) : access;
-      const api = rule.config.api
-        ? rule.config.api.overlay(new ProviderApiConfig({ baseUrl }))
-        : new ProviderApiConfig({ type: UCAS_API_TYPE, baseUrl });
+      apiKeyApplied =
+        !enterpriseSession &&
+        Boolean(apiKey) &&
+        (input.replaceApiKey === true || access?.type !== "api-key" || !access.apiKey?.trim());
+      // 复用同一原子写者迁移访问方式；旧终端凭据不能留在 Provider 或另写一份会话。
+      const nextAccess = enterpriseSession
+        ? new EnterpriseSessionAccessConfig()
+        : apiKeyApplied
+          ? new ApiKeyAccessConfig({ apiKey })
+          : access;
+      const api = enterpriseSession
+        ? new ProviderApiConfig({ type: UCAS_API_TYPE, baseUrl, headers: null })
+        : rule.config.api
+          ? rule.config.api.overlay(new ProviderApiConfig({ baseUrl }))
+          : new ProviderApiConfig({ type: UCAS_API_TYPE, baseUrl });
       const config = rule.config.overlay(
         new ProviderConfigValue({
           access: nextAccess ?? new ApiKeyAccessConfig(),
@@ -427,17 +442,22 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
         Boolean(access.apiKey?.trim()),
       );
       const access =
-        currentConfig?.access?.type === "api-key" && currentConfig.access.apiKey?.trim()
+        currentConfig?.access?.type === "enterprise-session"
           ? currentConfig.access
-          : (aliasAccessWithKey ??
-            (currentConfig?.access?.type === "api-key"
-              ? currentConfig.access
-              : (aliasAccessConfigs[0] ?? new ApiKeyAccessConfig())));
-      const headers = Object.assign(
-        {},
-        ...aliasConfigs.map(({ config }) => config.api?.headers ?? {}),
-        currentConfig?.api?.headers ?? {},
-      );
+          : currentConfig?.access?.type === "api-key" && currentConfig.access.apiKey?.trim()
+            ? currentConfig.access
+            : (aliasAccessWithKey ??
+              (currentConfig?.access?.type === "api-key"
+                ? currentConfig.access
+                : (aliasAccessConfigs[0] ?? new ApiKeyAccessConfig())));
+      const headers =
+        access.type === "enterprise-session"
+          ? {}
+          : Object.assign(
+              {},
+              ...aliasConfigs.map(({ config }) => config.api?.headers ?? {}),
+              currentConfig?.api?.headers ?? {},
+            );
       const config = new ProviderConfigValue({
         group: "standard-personal",
         logo: currentConfig?.logo ?? aliasConfigs.find(({ config }) => config.logo)?.config.logo,

@@ -20,7 +20,7 @@ assert.ok(
   clientRoot === resolve("clients/uwork"),
   "client source must remain inside this backend repository",
 );
-const evidence = resolve("evidence/client-live-20261017-gateway");
+const evidence = resolve("evidence/client-live-20261017-keyless-gateway");
 const runLabel =
   process.env.UWORK_GATEWAY_EVIDENCE_RUN === "red" ? "red" : "green";
 const digest = (value: string) =>
@@ -68,7 +68,7 @@ async function liveFixture(t: TestContext, name: string) {
     backendSessionModule,
     policyModule,
     networkModule,
-    apiModule,
+    relayModule,
   ] = await Promise.all([
     source("paths.ts"),
     source("credential/credentialService.ts"),
@@ -85,18 +85,30 @@ async function liveFixture(t: TestContext, name: string) {
     source("enterprise-identity/uworkBackendSession.ts"),
     source("model-provider/uworkProviderSettingsPolicy.ts"),
     source("providers/api/nodeApiNetwork.ts"),
-    source("providers/api/nodeApiClient.ts"),
+    source("enterprise-model-relay/relay.ts"),
   ]);
   paths.setDataBaseDir(join(directory, "client-home"));
   earlyCleanup.push(() => paths.setDataBaseDir(null));
   let modelCalls = 0;
   const provider = createServer(async (req, res) => {
-    assert.equal(
-      req.headers.authorization,
-      "Bearer live-gateway-synthetic-vendor",
+    assert.ok(
+      req.headers.authorization === "Bearer live-gateway-synthetic-vendor",
+      "controlled provider credential must match without printing request headers",
     );
-    req.resume();
+    let encoded = "";
+    for await (const chunk of req) encoded += chunk;
+    const input = JSON.parse(encoded);
     modelCalls++;
+    if (input.stream) {
+      res.setHeader("content-type", "text/event-stream");
+      res.write(
+        'data: {"id":"synthetic","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":"gateway-live-result"},"finish_reason":null}]}\n\n',
+      );
+      res.end(
+        'data: {"id":"synthetic","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}\n\ndata: [DONE]\n\n',
+      );
+      return;
+    }
     res.setHeader("content-type", "application/json");
     res.end(
       JSON.stringify({
@@ -302,7 +314,13 @@ async function liveFixture(t: TestContext, name: string) {
     sessionStore,
   });
   assert.equal((await identity.restoreSession()).status, "authenticated");
+  const network = networkModule.createHostApiNetworkTransport(async () => ({
+    caCertPath: certificate,
+    noProxy: "*",
+  }));
+  earlyCleanup.push(() => network.disposeAndWait());
   const backend = backendSessionModule.createUWorkBackendSession({
+    fetchImpl: network.fetch,
     resolveConfig: async () => ({ backend: "uwork", apiBaseUrl: origin }),
     readAuthority: () => lifecycle.readEnterpriseIdentityAuthority(identity),
     readPersistedSession: () => sessionStore.read(),
@@ -328,8 +346,14 @@ async function liveFixture(t: TestContext, name: string) {
     ),
   });
   await runtime.start();
-  const network = networkModule.createHostApiNetworkTransport(async () => ({}));
-  const nodeApi = new apiModule.NodeApiClient({ fetchImpl: network.fetch });
+  const modelRelay = relayModule.createEnterpriseModelRelay({
+    backendSession: backend,
+  });
+  const modelBinding = {
+    runtime: {},
+    workspaceKey: "controlled-live-workspace",
+    sessionId: "controlled-live-conversation",
+  };
   const createGateway = (withAuthority = true) =>
     gatewayModule.createUcasGatewayService({
       store: gatewayStore,
@@ -379,28 +403,48 @@ async function liveFixture(t: TestContext, name: string) {
     );
     return { ...resolution, providerConfig: provider.config };
   };
-  const modelRequest = async (key = "live-provider-call", expected = 200) => {
+  const modelRequest = async (
+    key = "live-provider-call",
+    expected = 200,
+    stream = false,
+  ) => {
     const config = (await resolved()).providerConfig;
     assert.equal(config.api.baseUrl, origin + "/v1");
-    const response = await nodeApi.request(
-      config.api.baseUrl + "/chat/completions",
-      {
-        method: "POST",
-        timeoutMs: 10000,
-        headers: {
-          authorization: `Bearer ${config.access.apiKey}`,
-          "content-type": "application/json",
-          "idempotency-key": key,
-        },
+    assert.equal(config.access.type, "enterprise-session");
+    assert.equal(config.access.apiKey, undefined);
+    const opened = await modelRelay.request({
+      ...modelBinding,
+      traceId: key,
+      request: {
+        kind: "open",
+        url: config.api.baseUrl + "/chat/completions",
         body: JSON.stringify({
           model: model.id,
           messages: [{ role: "user", content: "synthetic local model" }],
           max_tokens: 8,
+          ...(stream ? { stream: true } : {}),
         }),
       },
-    );
-    assert.equal(response.status, expected);
-    const result = await response.json();
+    });
+    assert.ok(opened.status === "ok" && opened.streamId);
+    assert.equal(opened.httpStatus, expected);
+    const parts: Buffer[] = [];
+    for (;;) {
+      const frame = await modelRelay.request({
+        ...modelBinding,
+        request: { kind: "read", streamId: opened.streamId },
+      });
+      assert.equal(frame.status, "ok");
+      if (frame.chunk) parts.push(Buffer.from(frame.chunk, "base64"));
+      if (frame.done) break;
+    }
+    const text = Buffer.concat(parts).toString();
+    if (stream) {
+      assert.match(text, /gateway-live-result/);
+      assert.match(text, /\[DONE\]/);
+      return text;
+    }
+    const result = JSON.parse(text);
     if (expected === 200)
       assert.equal(result.choices[0].message.content, "gateway-live-result");
     return result;
@@ -409,6 +453,7 @@ async function liveFixture(t: TestContext, name: string) {
   t.after(async () => {
     release.resolve();
     gateway.dispose();
+    modelRelay.dispose();
     runtime.dispose();
     await lifecycle.disposeEnterpriseIdentityService(identity);
     await network.disposeAndWait();
@@ -456,7 +501,7 @@ async function liveFixture(t: TestContext, name: string) {
       JSON.stringify(
         {
           boundary:
-            "real backend temp disk/TCP; actual identity/Gateway/ProviderRuntime/NodeApiClient+Host network source; email/store bootstrap bridge only; no mocked fetch/WeCom/external MCP/drive/main env/paid vendor",
+            "real backend temp disk/TCP; actual identity/Gateway/ProviderRuntime/private Host model relay source; email/store bootstrap bridge only; no mocked fetch/WeCom/external MCP/drive/main env/paid vendor",
           checks,
           requests,
           modelCalls,
@@ -557,7 +602,9 @@ async function liveFixture(t: TestContext, name: string) {
       });
       assert.ok(
         !projection.includes(record.session.token) &&
-          !projection.includes(config.access.apiKey) &&
+          config.access.type === "enterprise-session" &&
+          config.access.apiKey === undefined &&
+          !(await personal()).includes(record.session.token) &&
           !projection.includes("live-gateway-synthetic-vendor"),
       );
       const encrypted = await readFile(
@@ -569,19 +616,22 @@ async function liveFixture(t: TestContext, name: string) {
   };
 }
 
-test("real UWork Gateway provisioning persists ProviderRuntime credentials, generates through its resolved config and tracks current backend usage", async (t) => {
+test("real UWork Gateway persists keyless Provider configuration, forwards privately and tracks current backend usage", async (t) => {
   const f = await liveFixture(t, "provisioning-usage");
+  assert.equal((await f.gateway().getView()).authMode, "enterprise-session");
   const sync = await f.gateway().sync("login");
-  assert.ok(sync.committed && sync.apiKeyApplied);
+  assert.ok(sync.committed && !sync.apiKeyApplied && !sync.providerHasApiKey);
+  assert.equal(sync.view.authMode, "enterprise-session");
+  assert.equal(sync.view.key, null);
   assert.equal(sync.view.status, "ready");
   assert.ok(sync.view.models.available.includes(f.model.id));
   f.check("actual-identity-restore-and-provider-symbol-provision");
   await f.assertSafe();
   f.check("gateway-view-store-and-encrypted-identity-do-not-leak-keys");
-  const firstToken = (await f.resolved()).providerConfig.access.apiKey;
+  assert.equal((await f.resolved()).providerConfig.access.apiKey, undefined);
   await f.modelRequest();
   assert.equal(f.calls(), 1);
-  f.check("actual-ProviderRuntime-config-NodeApiClient-model-generation");
+  f.check("actual-ProviderRuntime-config-private-Host-model-generation");
   for (const period of ["7d", "month", "30d"])
     for (const metric of ["requests", "cost", "tokens"]) {
       const view = await f
@@ -606,41 +656,44 @@ test("real UWork Gateway provisioning persists ProviderRuntime credentials, gene
   assert.equal(ledger.items[0]!.amount, 9);
   f.check("usage-agrees-with-actual-backend-ledger");
   assert.ok((await f.gateway().sync("refresh")).committed);
-  const secondToken = (await f.resolved()).providerConfig.access.apiKey;
-  assert.ok(firstToken !== secondToken);
-  await f.api("/v1/models", "GET", undefined, firstToken, 401);
-  await f.api("/v1/models", "GET", undefined, secondToken);
-  f.check("device-rotation-confirms-new-provider-before-retiring-old");
-  const persisted = (await f.resolved()).providerConfig;
-  const retainedKey = persisted.access.apiKey;
+  assert.deepEqual(
+    await f.api("/api/auth/device-tokens", "GET", undefined, f.login.token),
+    [],
+  );
+  f.check("repeated-managed-Gateway-sync-issues-zero-device-credentials");
   await f.restart();
   const restored = (await f.resolved()).providerConfig;
   assert.equal(restored.api.baseUrl, f.origin + "/v1");
-  assert.ok(
-    restored.access.apiKey === retainedKey,
-    "restart must preserve the existing device credential",
-  );
+  assert.equal(restored.access.type, "enterprise-session");
+  assert.equal(restored.access.apiKey, undefined);
   assert.equal((await f.gateway().getView()).status, "idle");
   assert.ok((await f.gateway().sync("startup")).committed);
   f.check("new-Gateway-and-ProviderRuntime-restore-disk-state");
   const applied = await f.gateway().applyModels();
   assert.equal(applied.modelsAdded, 0);
   f.check("model-append-is-idempotent");
-  const key = (await f.gateway().getView()).key.id;
+  // 公开device API保持兼容；显式HTTP申请/吊销与Gateway自动配置完全分离。
+  const device = await f.api<{ id: string; token: string }>(
+    "/api/auth/device-tokens",
+    "POST",
+    { ttlHours: 1 },
+    f.login.token,
+    201,
+  );
+  await f.api("/v1/models", "GET", undefined, device.token);
   await f.api(
-    `/api/auth/device-tokens/${key}`,
+    `/api/auth/device-tokens/${device.id}`,
     "DELETE",
     undefined,
     f.login.token,
     204,
   );
-  await f.modelRequest("revoked-device", 401);
+  await f.api("/v1/models", "GET", undefined, device.token, 401);
   assert.equal(f.calls(), 1);
-  f.check("public-device-revoke-blocks-provider-dispatch");
-  assert.ok((await f.gateway().sync("recover-revoked-device")).committed);
-  await f.modelRequest("after-recovery");
+  f.check("explicit-public-device-revoke-still-rejects-old-token");
+  await f.modelRequest("after-device-revoke");
   assert.equal(f.calls(), 2);
-  f.check("fresh-device-sync-restores-real-model-path");
+  f.check("Host-private-session-model-path-does-not-depend-on-device-token");
   const usage = await f
     .gateway()
     .refreshUsage({ period: "month", metric: "cost", force: true });
@@ -709,6 +762,7 @@ test("managed Gateway without its private identity authority never provisions", 
     false,
     "managed Gateway must fail closed without the Host authority",
   );
+  assert.equal(result.view.authMode, "enterprise-session");
   assert.equal(digest(await f.personal()), before);
   f.check("managed-production-authority-port-missing-refuses-writes");
 });
@@ -854,34 +908,30 @@ test("current backend descriptors repair old managed metadata without changing p
     { revision: draft.revision },
     f.login.token,
   );
-  const created = await f
-    .settings()
-    .createPersonalProvider({
-      providerName: "Untouched personal sentinel",
-      initialConfig: {
-        api: {
-          type: "openai-chat-completions",
-          baseUrl: "https://personal-sentinel.example.test/v1",
-        },
-        access: {
-          type: "api-key",
-          apiKey: "synthetic-personal-not-dispatched",
-        },
+  const created = await f.settings().createPersonalProvider({
+    providerName: "Untouched personal sentinel",
+    initialConfig: {
+      api: {
+        type: "openai-chat-completions",
+        baseUrl: "https://personal-sentinel.example.test/v1",
       },
-    });
-  await f
-    .settings()
-    .addPersonalModel(
-      created.providerId,
-      "personal-sentinel",
-      {
-        properties: { contextWindow: 333333 },
-        optionSpecs: {
-          reasoningLevel: { values: ["personal-only"], map: "{}" },
-        },
+      access: {
+        type: "api-key",
+        apiKey: "synthetic-personal-not-dispatched",
       },
-      true,
-    );
+    },
+  });
+  await f.settings().addPersonalModel(
+    created.providerId,
+    "personal-sentinel",
+    {
+      properties: { contextWindow: 333333 },
+      optionSpecs: {
+        reasoningLevel: { values: ["personal-only"], map: "{}" },
+      },
+    },
+    true,
+  );
   const personalBefore = digest(
     JSON.stringify(
       (await f.settings().getView()).providers.find(
@@ -916,7 +966,10 @@ test("current backend descriptors repair old managed metadata without changing p
   f.check(
     "old-UCAS-default-metadata-repaired-through-real-Gateway-private-writer",
   );
-  const key = (await f.resolved()).providerConfig.access.apiKey;
+  assert.equal(
+    (await f.resolved()).providerConfig.access.type,
+    "enterprise-session",
+  );
   const row = (
     await f.api<Row[]>(`${f.p}/models`, "GET", undefined, f.login.token)
   ).find((m) => m.id === f.model.id)!;
@@ -949,10 +1002,10 @@ test("current backend descriptors repair old managed metadata without changing p
     "high",
   ]);
   assert.ok(
-    (await f.resolved()).providerConfig.access.apiKey === key,
-    "model metadata application must not rotate the device key",
+    (await f.resolved()).providerConfig.access.apiKey === undefined,
+    "model metadata application must remain keyless",
   );
-  f.check("HTTP-updated-same-model-descriptor-applies-without-key-rotation");
+  f.check("HTTP-updated-same-model-descriptor-applies-without-device-key");
   const forged = {
     id: String(f.model.id),
     contextWindow: 2000000,
@@ -961,13 +1014,11 @@ test("current backend descriptors repair old managed metadata without changing p
     supportsReasoning: false,
     supportsTools: false,
   };
-  await f
-    .settings()
-    .applyUcasGatewayProvisioning({
-      baseUrl: f.origin + "/v1",
-      modelIds: [String(f.model.id)],
-      managedModels: [forged],
-    });
+  await f.settings().applyUcasGatewayProvisioning({
+    baseUrl: f.origin + "/v1",
+    modelIds: [String(f.model.id)],
+    managedModels: [forged],
+  });
   assert.equal(
     (await f.resolved()).effectiveConfig.properties.contextWindow,
     64000,
@@ -1000,4 +1051,17 @@ test("current backend descriptors repair old managed metadata without changing p
   f.check(
     "legacy-UCAS-and-personal-model-parameters-unchanged-no-supplier-dispatch",
   );
+});
+
+test("real backend JSON and SSE model responses traverse private Host byte streams without any device key", async (t) => {
+  const f = await liveFixture(t, "private-sse");
+  assert.ok((await f.gateway().sync("login")).committed);
+  await f.modelRequest("private-real-sse", 200, true);
+  assert.equal(f.calls(), 1);
+  assert.deepEqual(
+    await f.api("/api/auth/device-tokens", "GET", undefined, f.login.token),
+    [],
+  );
+  await f.assertSafe();
+  f.check("actual-backend-SSE-bytes-private-Host-no-device-key");
 });

@@ -111,7 +111,27 @@ export class ZhipuAccountAccessConfig extends ConfigOverlay<ZhipuAccountAccessCo
   }
 }
 
-export type ProviderAccessConfig = ApiKeyAccessConfig | ZhipuAccountAccessConfig;
+/** 企业会话由 Host 私有持有；配置只声明访问方式，不复制任何凭据。 */
+export class EnterpriseSessionAccessConfig extends ConfigOverlay<EnterpriseSessionAccessConfig> {
+  readonly type = "enterprise-session" as const;
+  constructor() {
+    super();
+    Object.freeze(this);
+  }
+  overlay(_next: EnterpriseSessionAccessConfig): EnterpriseSessionAccessConfig {
+    return this;
+  }
+  validateComplete(): readonly ConfigValidationIssue[] {
+    return [];
+  }
+  toJSON(): { readonly type: "enterprise-session" } {
+    return { type: this.type };
+  }
+}
+export type ProviderAccessConfig =
+  | ApiKeyAccessConfig
+  | ZhipuAccountAccessConfig
+  | EnterpriseSessionAccessConfig;
 
 export type ProviderAccessConfigObject = Readonly<z.infer<typeof providerAccessDataSchema>>;
 
@@ -505,6 +525,8 @@ function overlayProviderAccess(
       return current.overlay(next as ApiKeyAccessConfig);
     case "zhipu-account":
       return current.overlay(next as ZhipuAccountAccessConfig);
+    case "enterprise-session":
+      return current.overlay(next as EnterpriseSessionAccessConfig);
   }
 }
 

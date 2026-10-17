@@ -4,11 +4,11 @@
 
 公开配置新增 `backend: "uwork"`，缺省仍是 `"ucas"`。显式切换后由现有 EnterpriseIdentityService 持有不透明会话，新的适配器按 attempt/proof 领取，不假设 JWT；Renderer 不持有新增身份状态。取消同时通知服务端，restore 由 `/api/auth/me` 验证。
 
-现有 UcasGatewayService 继续唯一持有网关视图。自有协议使用成员绑定、可吊销短期 device credential；不调用上游 Key reveal。先签发新终端凭据，经 Provider 既有写入端口确认替换后才吊销旧凭据，失败时旧配置仍可用；未确认写入的新凭据最多存活 24 小时并受签发速率限制。旧 UCAS 模式保持原行为。客户端用量的单位明确为 Credit，不显示成 USD；原有公开协议维持兼容。
+现有 UcasGatewayService 继续唯一持有网关视图。当前自有 UWork 模式使用 Host 私有登录会话转发模型请求，不申请或下载 device API key，不复制会话到 Provider/CLI/Renderer。Provider 只保存 enterprise-session 访问方式、后台地址及公开模型能力；原终端令牌在迁移成功后吊销。旧 UCAS 模式保持原行为，用量单位仍为 Credit。完整当前合同见 enterprise-model-relay.md 与 enterprise-session-provider.md；2026-10-14 的 device credential 配置路径仅保留为历史/旧客户端 API 兼容，不是当前桌面模型出口。
 
 本切片覆盖身份、模型与用量。资产/菜单/Host 安全的完整终端应用另需通过后端 HostConfigurationPorts 合同接入各自现有所有者，不能把快照获取写成已完成所有终端 enforcement。真实扫码与三平台安装仍需逐组织验收。
 
-## 自有后端当前身份与迟到结果（2026-10-17）
+## 身份与迟到结果（2026-10-17，去 Key 前发现及持续约束）
 
 真实HTTPS/磁盘联动发现：models响应已在服务端计算但延迟发送时退出，旧同步仍将已吊销device写入Provider并返回ready；usage晚回包也能返回旧身份视图，applyModels直接沿用缓存模型清单而未读当前身份。
 
@@ -37,7 +37,7 @@ sequenceDiagram
 
 实际平台安装/真实扫码/复杂供应商能力与外部MCP/网盘不由此合成桥验收。原始RED与GREEN另存后端仓evidence/client-live-20261017-gateway，不提交凭据或owned测试数据。
 
-## 背景与目标
+## 旧 UCAS 协议背景与目标
 
 企业微信登录此前只提供姓名展示，模型 Key 与网关地址需要手工填写。本能力让已认证的 UWork 桌面客户端复用现有 ucas-proxy（control-plane）后台接口：
 
@@ -53,7 +53,7 @@ sequenceDiagram
 - 已有非空 UCAS API Key 的用户不被覆盖：默认只补缺失。用户可在网关面板显式执行「使用企业密钥替换」。
 - 网关地址不是新的事实源：UCAS 供应商 Base URL 仍由 Provider Config 唯一持有，只是其固定值改为「网关端点覆盖值 ?? 随包默认值」。
 - 网关入口固定为 HTTPS 公网地址；内网明文入口不进入客户端（不探测、不展示、不写 Provider 配置）。
-- 模型同步是追加语义：只添加服务端返回且本地不存在的模型，不删除、不改参数、不改顺序、不启用/禁用既有模型。
+- 旧 UCAS 模型同步是追加语义：只添加服务端返回且本地不存在的模型，不删除、不改参数、不改顺序、不启用/禁用既有模型。自有 UWork 托管模型同时更新后台声明的能力和上限，规则见下文；界面提示须说明这一区别。
 - 套餐与用量是只读展示；本期不提供购买、重置、撤销 Key 的 UI。
 - API Key 不在 UWork 界面呈现（面板不显示掩码 Key 与别名）；只保留「使用企业密钥替换」这一个显式动作，本地已有 Key 不被自动覆盖。
 - 退出登录清除企业身份会话，但保留已写入的 UCAS Key 与网关地址（与本仓库既有的「退出不清除 Key」一致）；网关面板回到未登录态，不再刷新。

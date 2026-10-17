@@ -3193,7 +3193,9 @@ const enUS: Record<string, string> = {
   "settings.usage.gateway.models.unrestricted": "Unrestricted",
   "settings.usage.gateway.models.empty": "The plan returned no model list.",
   "settings.usage.gateway.models.hint":
-    "Sync only appends missing models and keeps existing settings.",
+    "Sync adds missing models and updates capabilities and limits for UWork-managed models.",
+  "settings.usage.gateway.gateway.sessionHint":
+    "Uses your enterprise login session. Model keys stay on the backend.",
   "settings.usage.gateway.models.refresh": "Reload",
   "settings.usage.gateway.models.apply": "Add to model list",
   "settings.usage.sectionDescriptionRemote":
@@ -5519,6 +5521,12 @@ const enUS: Record<string, string> = {
   "chat.error.copyFull.copied": "Full error details copied",
   "chat.error.copyFailed": "Failed to copy error details: {error}",
   "chat.error.expandDetails": "Show details",
+  "chat.error.enterpriseSessionChanged":
+    "Your enterprise login has changed. Sign in again and retry.",
+  "chat.error.enterpriseServiceUnavailable":
+    "The enterprise model service is unavailable. Please try again later.",
+  "chat.error.enterpriseResponseBlocked":
+    "The enterprise model response failed a security check. Contact your administrator.",
   "chat.error.collapseDetails": "Hide details",
   "chat.error.feedback": "Report issue",
   "chat.error.feedbackOpened": "Feedback opened with the error context attached",

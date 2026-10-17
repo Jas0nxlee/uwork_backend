@@ -69,11 +69,13 @@ export function GatewayCard({
             </span>
           }
         />
-        {/* 密钥不在界面呈现：UWork 只保留"用企业密钥替换本地 Key"这一个显式动作。 */}
+        {/* 自有 UWork 使用 Host 私有会话；不能再引导用户下载或替换模型密钥。 */}
         <Separator />
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-ui-sm text-foreground-subtle">{t("gateway.keyHint")}</span>
-          {key ? (
+          <span className="text-ui-sm text-foreground-subtle">
+            {t(view.authMode === "enterprise-session" ? "gateway.sessionHint" : "gateway.keyHint")}
+          </span>
+          {view.authMode !== "enterprise-session" && key ? (
             <Button
               type="button"
               variant="outline"

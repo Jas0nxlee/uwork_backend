@@ -128,6 +128,7 @@ export const ucasGatewayViewSchema = z.object({
   revision: z.number().int().nonnegative(),
   status: z.enum(["signed-out", "idle", "syncing", "ready", "error"]),
   configured: z.boolean(),
+  authMode: z.literal("enterprise-session").optional(),
   user: ucasGatewayUserSchema.nullable(),
   endpoint: ucasGatewayEndpointSchema.nullable(),
   key: ucasGatewayKeySchema.nullable(),

@@ -1,3 +1,4 @@
+import { createEnterpriseSessionFetch } from "@zcode/adapters/model";
 import { isAbsolute, join, resolve } from "node:path";
 import {
   createInMemorySessionEventStore,
@@ -620,7 +621,20 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         logger: modelLogger,
         modelIoDir,
         modelIoFullRetentionEnabled: options.modelIoFullRetentionEnabled,
-        executionConfig: modelExecutionConfig,
+        executionConfig: {
+          ...modelExecutionConfig,
+          ...(options.enterpriseModelRelay
+            ? {
+                enterpriseSessionFetch: createEnterpriseSessionFetch({
+                  relay: options.enterpriseModelRelay,
+                  sessionId,
+                  workspacePath: workingDirectory,
+                  workspaceIdentity: runtimeConfig.memory?.workspaceIdentity,
+                  traceContext,
+                }),
+              }
+            : {}),
+        },
         statusSink: modelTelemetry.statusSink,
         streamIdleTimeoutMs: configResult.config.modelStream.idleTimeoutMs,
       });

@@ -43,6 +43,7 @@ interface AiSdkProviderConfig {
 }
 
 export interface AiSdkModelExecutionConfig {
+  enterpriseSessionFetch?: ProviderFetch;
   /** 执行环境提供的默认来源信息，不属于 Provider 持久化配置。 */
   defaultHeaders?: Readonly<Record<string, string>>;
   env?: EnvRecord;
@@ -158,6 +159,7 @@ export class AiSdkModelExecution {
   private readonly network: AiSdkNetworkConfig;
   private readonly logger?: Logger;
   private readonly baseTransport?: ProviderFetch;
+  private readonly enterpriseSessionFetch?: ProviderFetch;
   private readonly beforeDispatch?: AiSdkModelExecutionConfig["beforeDispatch"];
   private readonly providerTransports = new Map<string, ProviderFetch>();
 
@@ -167,6 +169,7 @@ export class AiSdkModelExecution {
     this.network = { ...config.network };
     this.logger = options.logger;
     this.baseTransport = options.transport;
+    this.enterpriseSessionFetch = config.enterpriseSessionFetch;
     this.beforeDispatch = config.beforeDispatch;
   }
 
@@ -202,6 +205,8 @@ export class AiSdkModelExecution {
     readonly providerConfig: RegistryProviderConfig;
     readonly supportsJsonSchemaOutput: boolean;
   }): AiSdkModelSnapshot {
+    if (input.providerConfig.access.type === "enterprise-session" && !this.enterpriseSessionFetch)
+      throw new Error("enterprise_model_relay_unavailable");
     const configuredProvider = toAiSdkProviderConfig(input.providerId, input.providerConfig);
     // 重构后模型 SDK 曾只接到用户 Header，漏掉版本和站点归因；在公共绑定边界恢复，
     // 不依赖签名成功，不给各业务重复补头，也不修改 Provider 或已绑定 Model 的配置。
@@ -209,6 +214,8 @@ export class AiSdkModelExecution {
       withOpenRouterAttributionHeaders(this.defaultHeaders, configuredProvider.baseURL),
       configuredProvider.headers,
     );
+    if (configuredProvider.access.type === "enterprise-session")
+      configuredProvider.headers = undefined;
     const apiKey = this.resolveApiKey(configuredProvider);
     return {
       providerConfig: {
@@ -264,8 +271,12 @@ export class AiSdkModelExecution {
     supportsJsonSchemaOutput: boolean,
   ): LanguageModelFactory {
     const apiKey = this.resolveApiKey(providerConfig);
-    const headers = providerConfig.headers;
-    const providerTransport = this.resolveProviderTransport(providerId);
+    const headers =
+      providerConfig.access.type === "enterprise-session" ? undefined : providerConfig.headers;
+    const providerTransport =
+      providerConfig.access.type === "enterprise-session"
+        ? this.enterpriseSessionFetch!
+        : this.resolveProviderTransport(providerId);
     const fetch = createProviderBusinessErrorFetch({
       fetch: providerTransport,
       providerId,
@@ -356,7 +367,9 @@ function toAiSdkProviderConfig(
   config: RegistryProviderConfig,
 ): AiSdkProviderConfig {
   const common = {
-    ...(config.access.type !== "zhipu-account" && config.access.apiKey
+    ...(config.access.type !== "zhipu-account" &&
+    config.access.type !== "enterprise-session" &&
+    config.access.apiKey
       ? { apiKey: config.access.apiKey }
       : {}),
     baseURL: config.api.baseUrl,

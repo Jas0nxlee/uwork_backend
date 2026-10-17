@@ -4,6 +4,9 @@ import {
   zcodeEnterpriseToolAuthorizationResultSchema,
   zcodeEnterpriseSkillsCatalogParamsSchema,
   zcodeEnterpriseConnectorParamsSchema,
+  zcodeEnterpriseModelRequestParamsSchema,
+  zcodeEnterpriseModelRequestResultSchema,
+  type ZCodeEnterpriseModelRequestResult,
   zcodeEnterpriseConnectorResultSchema,
   enterpriseSkillsCatalogSchema,
   type EnterpriseSkillsCatalog,
@@ -16,6 +19,8 @@ import {
 import type { ZCodeProtocolClient } from "./zcodeProtocolClient.js";
 import type { EnterpriseConnectorRelay } from "../enterprise-assets/connectorRelay.js";
 import type { EnterpriseAssetsHost } from "../enterprise-assets/hostContract.js";
+
+import type { EnterpriseModelRelay } from "../enterprise-model-relay/relay.js";
 
 type Client = Pick<ZCodeProtocolClient, "respond" | "respondError" | "isDisposed" | "onClose"> &
   Partial<Pick<ZCodeProtocolClient, "disposeSignal">>;
@@ -35,6 +40,12 @@ interface EnterpriseRequest {
   requestId: string;
   sessionId: string;
 }
+const modelWorkspaceKey = (workspace: ZCodeWorkspaceRef) =>
+  JSON.stringify([
+    workspace.workspaceIdentity?.trim() || workspace.workspacePath,
+    workspace.workspaceKey,
+    workspace.workspacePath,
+  ]);
 function sameWorkspace(left: ZCodeWorkspaceRef, right: ZCodeWorkspaceRef) {
   return (
     left.workspaceKey === right.workspaceKey &&
@@ -53,6 +64,7 @@ export function createEnterpriseToolAuthorizationBridge(options: {
   /** 连接器帧的唯一出口；缺失即整个连接器通道 fail closed。 */
   connectors?: EnterpriseConnectorRelay;
   connectorTimeoutMs?: number;
+  models?: EnterpriseModelRelay;
 }) {
   const clients = new WeakMap<
     Client,
@@ -93,6 +105,7 @@ export function createEnterpriseToolAuthorizationBridge(options: {
       pending = new Map();
       clients.set(client, pending);
       const abortPending = () => {
+        options.models?.closeRuntime(client);
         for (const entry of pending!.values()) entry.controller.abort("closed");
       };
       client.onClose(abortPending);
@@ -128,7 +141,20 @@ export function createEnterpriseToolAuthorizationBridge(options: {
             : valid.success
               ? valid.data
               : settings.deny("enterprise_policy_unavailable");
-      await client.respond(id, response);
+      if (client.isDisposed || !options.isCurrent(workspace, client))
+        options.models?.closeRuntime(client);
+      try {
+        await client.respond(id, response);
+      } catch (error) {
+        // open回执写入失败时CLI拿不到streamId，须按原请求关闭，不能只等TTL。
+        options.models?.cancelRequest({
+          runtime: client,
+          workspaceKey: modelWorkspaceKey(workspace),
+          sessionId: request.sessionId,
+          requestId: request.requestId,
+        });
+        throw error;
+      }
     } finally {
       clearTimeout(timer);
       controller.signal.removeEventListener("abort", abort);
@@ -187,8 +213,42 @@ export function createEnterpriseToolAuthorizationBridge(options: {
     cancel(client: Client, workspace: ZCodeWorkspaceRef, input: unknown) {
       const parsed = zcodeEnterpriseToolAuthorizationCancelledSchema.safeParse(input);
       if (!parsed.success || !sameWorkspace(parsed.data.workspace, workspace)) return;
+      options.models?.cancelRequest({
+        runtime: client,
+        workspaceKey: modelWorkspaceKey(workspace),
+        sessionId: parsed.data.sessionId,
+        requestId: parsed.data.requestId,
+      });
       const entry = clients.get(client)?.get(parsed.data.requestId);
       if (entry?.sessionId === parsed.data.sessionId) entry.controller.abort("cancelled");
+    },
+    handleModel(
+      client: Client,
+      workspace: ZCodeWorkspaceRef,
+      id: ZCodeProtocolRequestId,
+      input: unknown,
+      traceId?: string,
+    ) {
+      const deny = (code: string): ZCodeEnterpriseModelRequestResult => ({
+        status: "denied",
+        code,
+      });
+      return handle(client, workspace, id, input, {
+        params: zcodeEnterpriseModelRequestParamsSchema,
+        result: zcodeEnterpriseModelRequestResultSchema,
+        deny,
+        timeoutMs: 300000,
+        perform: (request, signal) =>
+          options.models?.request({
+            runtime: client,
+            workspaceKey: modelWorkspaceKey(workspace),
+            requestId: request.requestId,
+            sessionId: request.sessionId,
+            request: request.request,
+            signal,
+            traceId,
+          }) ?? deny("enterprise_policy_unavailable"),
+      });
     },
     handleConnector(
       client: Client,

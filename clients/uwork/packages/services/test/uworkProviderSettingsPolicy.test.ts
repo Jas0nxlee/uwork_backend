@@ -334,3 +334,29 @@ test("per-page discovery guards preserve supported same-origin cursor queries an
   assert.deepEqual(result, ["first", "second"]);
   assert.deepEqual(paths, ["/v1/models", "/v1/models?after_id=cursor"]);
 });
+
+test("only the private Gateway Symbol may establish enterprise-session access", async (t) => {
+  const f = await fixture(t);
+  await assert.rejects(
+    () =>
+      f.service.createPersonalProvider({
+        providerName: "forged managed",
+        initialConfig: { access: { type: "enterprise-session" } },
+      }),
+    /enterprise_session_private_only/,
+  );
+  await assert.rejects(
+    () => f.service.savePersonalProviderOverlay(f.id, { access: { type: "enterprise-session" } }),
+    /enterprise_session_private_only/,
+  );
+  const applied = await f.service[providerSettingsTrustedGatewayProvisioning]({
+    baseUrl: "https://backend.example.test/v1",
+    authMode: "enterprise-session",
+    modelIds: [],
+    managedModels: [],
+  });
+  const managed = applied.view.providers.find((provider) => provider.providerId === "ucas");
+  assert.equal(managed?.effectiveConfig.access?.type, "enterprise-session");
+  assert.equal(applied.hasApiKey, false);
+  assert.ok(!(await readFile(f.file, "utf8")).includes("controlled-private-backend"));
+});

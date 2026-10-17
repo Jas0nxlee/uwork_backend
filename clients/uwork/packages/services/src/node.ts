@@ -21,6 +21,7 @@ import { createUWorkBackendSession } from "./enterprise-identity/uworkBackendSes
 import { createClientPresentationReader } from "./enterprise-identity/clientPresentation.js";
 import { IEnterpriseConsoleService } from "./enterprise-console/contract.js";
 import { createEnterpriseConsoleService } from "./enterprise-console/module.js";
+import { createEnterpriseModelRelay } from "./enterprise-model-relay/relay.js";
 import { createEnterpriseConnectorRelay } from "./enterprise-assets/connectorRelay.js";
 import { createEnterpriseAssetsHost } from "./enterprise-assets/enterpriseAssetsHost.js";
 import { withEnterpriseSkillBodyPolicy } from "./enterprise-assets/enterpriseSkillBodyPolicy.js";
@@ -730,6 +731,7 @@ const managedEnterpriseIdentities = new WeakMap<
   ServiceCollection,
   import("./enterprise-identity/contract.js").IEnterpriseIdentityService
 >();
+const managedEnterpriseModelRelays = new WeakMap<ServiceCollection, { dispose(): void }>();
 const managedEnterpriseAssets = new WeakMap<
   ServiceCollection,
   ReturnType<typeof attachEnterpriseAssetsLifecycle>
@@ -1755,6 +1757,9 @@ export function createLocalServices(options: {
       write(event.traceId, "Enterprise asset cache outcome", event);
     },
   });
+  const enterpriseModelRelay = createEnterpriseModelRelay({
+    backendSession: enterpriseBackendSession,
+  });
   const enterpriseConnectorRelay = createEnterpriseConnectorRelay({
     backendSession: enterpriseBackendSession,
     assets: enterpriseAssetsHost,
@@ -2266,6 +2271,7 @@ export function createLocalServices(options: {
     enterpriseToolAuthorization,
     enterpriseAssets: enterpriseAssetsHost,
     enterpriseConnectors: enterpriseConnectorRelay,
+    enterpriseModels: enterpriseModelRelay,
     officialMcpAuthHeadersResolver: createOfficialMcpAuthHeadersResolver({
       accountRequestAuthService,
       credentialService,
@@ -2773,6 +2779,7 @@ export function createLocalServices(options: {
   managedEnterpriseIdentities.set(services, services.get(IEnterpriseIdentityService));
   readEnterpriseAuthority = () =>
     readEnterpriseIdentityAuthority(services.get(IEnterpriseIdentityService));
+  managedEnterpriseModelRelays.set(services, enterpriseModelRelay);
   managedEnterpriseAssets.set(
     services,
     attachEnterpriseAssetsLifecycle({
@@ -2914,6 +2921,8 @@ function readTelemetryOAuthUserId(rawUserInfo: string | null): string {
 }
 
 export function disposeServiceResources(services: ServiceCollection): void {
+  managedEnterpriseModelRelays.get(services)?.dispose();
+  managedEnterpriseModelRelays.delete(services);
   void managedEnterpriseAssets
     .get(services)
     ?.disposeAllAndWait()
@@ -2959,6 +2968,8 @@ export function disposeServiceResources(services: ServiceCollection): void {
 }
 
 export async function disposeServiceResourcesAndWait(services: ServiceCollection): Promise<void> {
+  managedEnterpriseModelRelays.get(services)?.dispose();
+  managedEnterpriseModelRelays.delete(services);
   const assetDisposal = managedEnterpriseAssets.get(services)?.disposeAllAndWait();
   const identity = managedEnterpriseIdentities.get(services);
   // 两个 owner 在任何 await 前同时失效，避免等缓存 IO 时仍准入新的工具。

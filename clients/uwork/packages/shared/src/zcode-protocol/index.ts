@@ -27,6 +27,7 @@ import {
   enterpriseConnectorReferenceSchema,
 } from "../enterprise-assets.js";
 export * from "../process-diagnostic.js";
+export * from "./enterprise-model-relay.js";
 import { errorAttributionSchema } from "../zcode-protocol-v4/snapshot.js";
 import { modelSelectionSchema } from "../model-selection.js";
 import { completeModelPropertiesDataSchema } from "../model-config.js";
@@ -3833,6 +3834,7 @@ export const zcodeProtocolMethods = {
   interactionAuthorizeEnterpriseTool: "interaction/authorizeEnterpriseTool",
   interactionReadEnterpriseSkills: "interaction/readEnterpriseSkills",
   interactionRequestEnterpriseConnector: "interaction/requestEnterpriseConnector",
+  interactionEnterpriseModelRequest: "interaction/enterpriseModelRequest",
   // browser-use 反向请求由 agent 发起，host 转给 main 中的 CDP executor。
   interactionBrowserList: "interaction/browserList",
   interactionBrowserExecute: "interaction/browserExecute",

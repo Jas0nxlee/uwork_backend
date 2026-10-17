@@ -26,7 +26,7 @@ import { useEnterpriseIdentityStore } from "@/store/enterpriseIdentityStore.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
 import { EnterpriseLoginPage } from "@/login/EnterpriseLoginPage.js";
 import { UcasApiKeyDialog } from "@/login/UcasApiKeyDialog.js";
-import { hasConfiguredUcasApiKey } from "@/login/ucasApiKeyPrompt.js";
+import { shouldRequestUcasApiKey } from "@/login/ucasApiKeyPrompt.js";
 import { logger } from "@/logger.js";
 import { createEnterpriseLoginSurfaceGate } from "./enterpriseLoginSurfaceGate.js";
 import { useClientPresentation } from "./useClientPresentation.js";
@@ -288,7 +288,7 @@ export function EnterpriseIdentityProvider({
               completion.committedAttemptId === attempt.id
             ) {
               try {
-                // 登录完成后先自动配置网关地址与 API Key；只有拿不到 Key 才回退手工输入。
+                // 自有 UWork 只配置会话出口；缺 Key 引导仅保留给旧 UCAS 协议。
                 const provisioning = ucasGatewayService
                   ? await ucasGatewayService.sync("login")
                   : null;
@@ -302,10 +302,11 @@ export function EnterpriseIdentityProvider({
                   provisioning?.providerHasApiKey !== true
                 ) {
                   const providerView = await providerSettingsService.refresh("ucas-login-prompt");
-                  if (!hasConfiguredUcasApiKey(providerView)) setShowUcasApiKeyPrompt(true);
+                  if (shouldRequestUcasApiKey(providerView, provisioning?.view.authMode))
+                    setShowUcasApiKeyPrompt(true);
                 }
               } catch {
-                // 网关同步或 Provider Settings 刷新失败不影响已完成的企业登录；模型设置仍可单独录入密钥。
+                // 同步失败不撤销已完成的登录，也不把企业会话降级为手工密钥流程。
                 logger.warn("UCAS provisioning after enterprise login failed");
               }
             }

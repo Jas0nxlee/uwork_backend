@@ -66,6 +66,7 @@ export interface UcasGatewayProvisioningInput {
 /** 只供Host私有Symbol端口消费；公开个人配置方法不读取该字段。 */
 export interface TrustedUcasGatewayProvisioningInput extends UcasGatewayProvisioningInput {
   readonly managedModels?: readonly UWorkGatewayModelDescriptor[];
+  readonly authMode?: "enterprise-session";
 }
 
 export interface UcasGatewayProvisioningResult {
@@ -203,13 +204,19 @@ export function createProviderSettingsService(
   const applyGatewayProvisioning = async (
     input: UcasGatewayProvisioningInput,
     managedModels?: readonly UWorkGatewayModelDescriptor[],
+    enterpriseSession = false,
   ): Promise<UcasGatewayProvisioningResult> => {
     await ensureReady();
     await facade.waitForProviderOperations(UCAS_PROVIDER_ID);
+    // 复用既有唯一Writer原子清旧Key并更新endpoint，不能先发布仍有凭据的中间投影。
     const applied = await facade.applyUcasGatewayConfig({
       baseUrl: input.baseUrl,
-      ...(input.apiKey === undefined ? {} : { apiKey: input.apiKey }),
-      ...(input.replaceApiKey === undefined ? {} : { replaceApiKey: input.replaceApiKey }),
+      ...(enterpriseSession
+        ? { authMode: "enterprise-session" as const }
+        : {
+            ...(input.apiKey === undefined ? {} : { apiKey: input.apiKey }),
+            ...(input.replaceApiKey === undefined ? {} : { replaceApiKey: input.replaceApiKey }),
+          }),
     });
     const provider = applied.view.providers.find((item) => item.providerId === UCAS_PROVIDER_ID);
     if (!provider) throw new Error("UCAS 默认供应商不可用");
@@ -258,7 +265,12 @@ export function createProviderSettingsService(
       await ensureReady();
       return facade.refresh(reason);
     },
-    createPersonalProvider: (input) => personal(() => facade.createPersonalProvider(input)),
+    createPersonalProvider: (input) =>
+      personal(() => {
+        if (input?.initialConfig?.access?.type === "enterprise-session")
+          throw new Error("enterprise_session_private_only");
+        return facade.createPersonalProvider(input);
+      }),
     resolveModelConfig: (input) =>
       admitted(async (scope) => {
         await ensureReady();
@@ -268,12 +280,17 @@ export function createProviderSettingsService(
         return result;
       }),
     savePersonalProviderOverlay: (providerId, config, metadata) =>
-      personal(() => facade.savePersonalProviderOverlay(providerId, config, metadata)),
+      personal(() => {
+        // 公开RPC只能编辑个人配置；无凭据受管模式必须由当前Gateway的私有Symbol入口建立。
+        if (config.access?.type === "enterprise-session")
+          throw new Error("enterprise_session_private_only");
+        return facade.savePersonalProviderOverlay(providerId, config, metadata);
+      }),
     setUcasApiKeyIfMissing: (apiKey) => personal(() => facade.setUcasApiKeyIfMissing(apiKey)),
     applyUcasGatewayProvisioning: (input) => personal(() => applyGatewayProvisioning(input)),
     // 只有私有Gateway路径透传后台描述；JS伪造公开入参不能改变受管模型事实。
     [providerSettingsTrustedGatewayProvisioning]: (input) =>
-      applyGatewayProvisioning(input, input.managedModels),
+      applyGatewayProvisioning(input, input.managedModels, input.authMode === "enterprise-session"),
     deletePersonalProvider: (providerId) =>
       personal(() => facade.deletePersonalProvider(providerId)),
     reorderPersonalProviders: (providerIds) =>

@@ -52,13 +52,18 @@ export const zhipuAccountAccessDataSchema = z
     type: completeZhipuAccountAccessDataSchema.shape.type,
   })
   .strict();
+export const enterpriseSessionAccessDataSchema = z
+  .object({ type: z.literal("enterprise-session") })
+  .strict();
 export const providerAccessDataSchema = z.discriminatedUnion("type", [
   apiKeyAccessDataSchema,
   zhipuAccountAccessDataSchema,
+  enterpriseSessionAccessDataSchema,
 ]);
 const completeProviderAccessDataSchema = z.discriminatedUnion("type", [
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
+  enterpriseSessionAccessDataSchema,
 ]);
 
 export const completeProviderApiDataSchema = z

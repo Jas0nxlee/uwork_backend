@@ -34,6 +34,12 @@ export interface UWorkBackendResponse {
   /** 仅回传后端签发的连接器会话标识，不暴露其他响应头。 */
   mcpSessionId?: string;
 }
+export interface UWorkBackendModelStream {
+  readonly httpStatus: number;
+  readonly contentType: "application/json" | "text/event-stream";
+  read(): Promise<{ chunk: Uint8Array; done: boolean }>;
+  close(): void;
+}
 export interface UWorkBackendScope {
   readonly ownerKey: string;
   readonly origin: string;
@@ -42,6 +48,8 @@ export interface UWorkBackendScope {
   readonly signal: AbortSignal;
   isCurrent(): boolean;
   assertCurrent(): Promise<void>;
+  /** 私有固定模型出口，不接受调用方鉴权头或任意路径。 */
+  openModelStream?(body: string, signal: AbortSignal): Promise<UWorkBackendModelStream>;
   request(
     path: string,
     body?: unknown,

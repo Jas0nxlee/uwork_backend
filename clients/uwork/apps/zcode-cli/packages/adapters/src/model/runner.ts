@@ -55,6 +55,7 @@ export type {
 export { normalizeUsage, toModelStreamEvent } from "./runner-normalization.js";
 
 export interface AiSdkModelAdapterOptions {
+  enterpriseSessionFetch?: AiSdkModelExecutionConfig["enterpriseSessionFetch"];
   defaultHeaders?: AiSdkModelExecutionConfig["defaultHeaders"];
   beforeDispatch?: AiSdkModelExecutionConfig["beforeDispatch"];
   network?: AiSdkNetworkConfig;
@@ -92,6 +93,7 @@ export class AiSdkModelAdapter {
   constructor(options: AiSdkModelAdapterOptions) {
     this.execution = new AiSdkModelExecution(
       {
+        enterpriseSessionFetch: options.enterpriseSessionFetch,
         defaultHeaders: options.defaultHeaders,
         beforeDispatch: options.beforeDispatch,
         ...(options.network ? { network: options.network } : {}),

@@ -4,6 +4,8 @@ import type {
   UWorkBackendSession,
   UWorkBackendSessionOptions,
 } from "./backendSessionContract.js";
+import type { ApiRequestInit } from "@zcode/shared";
+import { createUWorkModelStream } from "./uworkModelStream.js";
 import { createHash } from "node:crypto";
 import { UWorkBackendSessionError } from "./backendSessionContract.js";
 import type { EnterpriseIdentityAuthority } from "./identityServiceLifecycle.js";
@@ -226,6 +228,48 @@ export function createUWorkBackendSession(
         signal,
         isCurrent: () => !signal.aborted && current(),
         assertCurrent: () => assertCurrent(),
+        async openModelStream(body, operationSignal) {
+          if (Buffer.byteLength(body) > ASSET_BYTES) throw error("enterprise_request_limit");
+          const requestSignal = AbortSignal.any([signal, operationSignal]);
+          await assertCurrent(requestSignal);
+          const response = await abortable(async () => {
+            const target = new URL("/v1/chat/completions", endpoint);
+            const init: ApiRequestInit = {
+              method: "POST",
+              redirect: "error",
+              signal: requestSignal,
+              // 代理/CA读取可等待；真实Host末端派发前再次检查同一身份，禁止迟到出口。
+              beforeDispatch: async (url) => {
+                if (url !== target.href) throw error("enterprise_model_target_invalid");
+                await assertCurrent(requestSignal);
+              },
+              headers: {
+                authorization: `Bearer ${token}`,
+                "content-type": "application/json",
+                ...(traceId ? { "x-zcode-trace-id": traceId } : {}),
+              },
+              body,
+            };
+            const value = await fetchImpl(target, init);
+            if (requestSignal.aborted) {
+              void value.body?.cancel().catch(() => {});
+              requestSignal.throwIfAborted();
+            }
+            return value;
+          }, requestSignal);
+          try {
+            await assertCurrent(requestSignal);
+            return createUWorkModelStream({
+              response,
+              token: token!,
+              signal: requestSignal,
+              assertCurrent: () => assertCurrent(requestSignal),
+            });
+          } catch (reason) {
+            void response.body?.cancel().catch(() => {});
+            throw sanitize(reason);
+          }
+        },
         async request(path, body, options = {}) {
           try {
             const connector = CONNECTOR_PATH.test(path);

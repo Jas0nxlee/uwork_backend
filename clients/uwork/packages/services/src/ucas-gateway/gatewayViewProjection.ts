@@ -46,7 +46,7 @@ export function readyGatewayProjection(
   current: UcasGatewayView,
   facts: Pick<
     UcasGatewayView,
-    "user" | "endpoint" | "key" | "subscriptions" | "usage" | "lastSyncedAt"
+    "user" | "endpoint" | "key" | "subscriptions" | "usage" | "lastSyncedAt" | "authMode"
   >,
   plan: { ids: readonly string[]; unrestricted: boolean; hasSubscription: boolean },
 ): Omit<UcasGatewayView, "revision"> {
@@ -110,5 +110,21 @@ export function modelCatalogProjection(
       appliedCount: plan.models.length - pending,
       pendingCount: pending,
     }),
+  };
+}
+
+export function initialGatewayView(): UcasGatewayView {
+  return {
+    revision: 0,
+    status: "signed-out",
+    configured: false,
+    user: null,
+    endpoint: null,
+    key: null,
+    subscriptions: [],
+    usage: null,
+    models: null,
+    lastSyncedAt: null,
+    error: null,
   };
 }

@@ -1,3 +1,4 @@
+import type { EnterpriseModelRelay } from "../enterprise-model-relay/relay.js";
 import { requestPluginReferenceCatalog } from "#src/zcode-agent/pluginReferenceCatalogRequest.js";
 import type { EnterpriseConnectorRelay } from "../enterprise-assets/connectorRelay.js";
 import type { EnterpriseAssetsHost } from "../enterprise-assets/hostContract.js";
@@ -867,6 +868,7 @@ interface CreateZCodeAgentServiceOptions extends Omit<
   enterpriseAssets?: Pick<EnterpriseAssetsHost, "readCatalog" | "authorizeAsset">;
   /** 连接器帧出口：与资产准入同源，缺失即连接器通道整体 fail closed。 */
   enterpriseConnectors?: EnterpriseConnectorRelay;
+  enterpriseModels?: EnterpriseModelRelay;
   /** 仅供 MCP 状态探测进程使用，不能把空闲回收传给 chat。 */
   mcpStatusIdleTimeoutMs?: number;
   accountProviderConfigSource?: ProviderSource<AccountProviderConfigSnapshot>;
@@ -1067,6 +1069,7 @@ export function createZCodeAgentService(
     resolver: options?.enterpriseToolAuthorization,
     assets: options?.enterpriseAssets,
     connectors: options?.enterpriseConnectors,
+    models: options?.enterpriseModels,
     isCurrent: (workspace, client) => processManager.getExistingClient(workspace) === client,
   });
   // Windows indicator 与 macOS producer lifecycle client 共用已校验、去重的 sideband facts。
@@ -2128,14 +2131,17 @@ export function createZCodeAgentService(
         if (
           request.method === zcodeProtocolMethods.interactionAuthorizeEnterpriseTool ||
           request.method === zcodeProtocolMethods.interactionReadEnterpriseSkills ||
-          request.method === zcodeProtocolMethods.interactionRequestEnterpriseConnector
+          request.method === zcodeProtocolMethods.interactionRequestEnterpriseConnector ||
+          request.method === zcodeProtocolMethods.interactionEnterpriseModelRequest
         ) {
           const handle =
             request.method === zcodeProtocolMethods.interactionReadEnterpriseSkills
               ? enterpriseAuthorizationBridge.handleCatalog
               : request.method === zcodeProtocolMethods.interactionRequestEnterpriseConnector
                 ? enterpriseAuthorizationBridge.handleConnector
-                : enterpriseAuthorizationBridge.handle;
+                : request.method === zcodeProtocolMethods.interactionEnterpriseModelRequest
+                  ? enterpriseAuthorizationBridge.handleModel
+                  : enterpriseAuthorizationBridge.handle;
           void handle(
             client,
             { ...workspace, workspaceKey: resolveWorkspaceKey(workspace) },

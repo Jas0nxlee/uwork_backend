@@ -1,11 +1,20 @@
 # uwork-client
 
-目标：公开客户端合同和 UWork 既有服务边界适配；终端凭据调用自有网关，不下发上游密钥。
-实现：src/client.ts 和适配仓库受控模块；使用既有 enterprise-identity/Host/服务/hooks，不新增 Renderer 身份所有者。
+目标：UWork 企业微信登录后，从自有后台获取授权配置；客户端提交对话上下文，由后台验证登录身份、权限、席位和额度后调用模型，上游密钥只存在于后台。
+实现：src/client.ts 和本仓库 clients/uwork/ 受控模块；使用既有 enterprise-identity/Host/服务/hooks，不新增 Renderer 身份所有者。
 验收：模型/资产/配置同步、真实网关对话、吊销阻断；适配仓库 typecheck/lint/architecture；真实三平台安装独立验收。
 Host 后端地址仅接受无用户信息、查询、片段及路径的 HTTPS origin；开发环境仅额外允许 loopback HTTP。loopback 主机也不得使用 FTP、WebSocket 或自定义协议，初始化时即拒绝。
 Host 适配器的一次 synchronize 绑定开始时的终端凭据；目录请求及各应用回调前后重查该身份与取消状态，发生变化后不继续应用或上报成功。交给资产端口的下载回调只接受该次清单中的 ID，绑定清单版本和原身份/取消上下文，换版冲突要求重新同步；下载及最终上报响应返回后再次检查，拒绝迟到内容与成功结果。已完成的 Host 回调或已派发事件不声明可回滚；各实际写入口仍由 Host 自己执行当前权限及身份代次检查，不替代原生客户端验收。
-命令：npm test；npm run build；适配仓库 pnpm typecheck、pnpm lint、pnpm architecture:check --changed。
+命令：npm test；npm run build；clients/uwork/ 内 pnpm typecheck、pnpm lint、pnpm architecture:check --changed。
+
+## 企业身份与模型调用边界（2026-10-17）
+
+- EnterpriseIdentityService 是客户端唯一身份所有者；企微 OAuth Secret 和模型供应商 API Key 只由后台 Vault 持有。登录会话是身份凭据，不以客户端自报 userId 作为鉴权依据。
+- 后台提供企微身份绑定、成员角色/部门/状态/席位、成员与部门额度、模型可见范围和用量管理。客户端仅显示其授权配置及本人用量，不能查询其他成员明细或管理凭据。
+- 自有 UWork 模式不再向 Provider/Renderer 下载、保存模型 API Key，也不把登录会话复制到 Provider 文件。模型出口复用当前 Host 私有身份会话；CLI 只提交上下文及目标模型，Host 固定签发 origin 和允许路径，后台从会话派生真实成员与组织。
+- 后台每次模型调用重新鉴权并计量；原始用户 ID、模型名、Provider 标记均不能绕过权限。退出、停用、撤席位、额度不足、身份/组织换代及取消必须及时阻断调用和迟到响应。
+- 上游返回的授权回答及必要用量可返回客户端；供应商 Key、企微 Secret、内部连接配置和服务端鉴权材料不得进入 Renderer、CLI 模型配置、日志或客户端配置响应。
+- 本机受控身份初始化和供应商测试与真实企微扫码分别验收；本轮不调用真实企微、外部 MCP 或网盘。
 
 Host 资产验证：真实本机 HTTP 后端连接已有私有身份会话端口与受管缓存。既有身份事件触发技能预热；新读取得到当前版本，撤权拒绝逐次加载，退出事件清理已接触的所有自有缓存。控制身份适配器仅模拟企微回调，不代表真实企业 callback 验收。Runtime SkillPort 逐次加载、专家和受控 MCP 已接线，并由真实 stdio/HTTP 合同测试覆盖；三平台安装仍单独跟踪。
 并发规则：缓存磁盘选择代次由缓存唯一维护，每次清理在共享文件锁内比较并推进；旧同步不能删除较新成功同步返回的目录。网络 IO 不持有文件锁，代次不代表权限。

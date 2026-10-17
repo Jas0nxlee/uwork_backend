@@ -50,6 +50,7 @@ export interface UWorkGatewayModelDescriptor {
 export interface UcasGatewayProvisioningTarget {
   apply(input: {
     readonly baseUrl: string;
+    readonly authMode?: "enterprise-session";
     readonly apiKey?: string;
     readonly replaceApiKey?: boolean;
     readonly modelIds?: readonly string[];

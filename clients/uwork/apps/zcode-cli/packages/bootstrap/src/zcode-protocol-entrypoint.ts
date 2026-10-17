@@ -42,6 +42,7 @@ import {
 } from "./zcode-protocol/enterprise-tool-authorization.js";
 import { createProtocolEnterpriseSkillsCatalog } from "./zcode-protocol/enterprise-skills-catalog.js";
 import { createProtocolEnterpriseConnectorPort } from "./zcode-protocol/enterprise-connectors.js";
+import { createProtocolEnterpriseModelRelay } from "./zcode-protocol/enterprise-model-relay.js";
 import {
   createOfficialMcpTrustedOriginRegistry,
   OFFICIAL_MCP_DEV_TRUSTED_ORIGINS_ENV,
@@ -229,6 +230,12 @@ export async function runZCodeProtocolAgent(
           workspace: enterpriseWorkspace,
         })
       : undefined;
+    const enterpriseModelRelay = enterpriseToolAuthorization
+      ? createProtocolEnterpriseModelRelay({
+          context: () => enterpriseAuthorizationContext,
+          workspace: enterpriseWorkspace,
+        })
+      : undefined;
     // stdio 官方 MCP 没有 url 可供校验，targetOrigin 只能由宿主给出。
     // 与下面 trustedOrigins 的 resolveZCodeApiOrigin 必须是同一个表达式，否则两侧判定分叉。
     const resolveZCodeApiOrigin = (): string =>
@@ -327,6 +334,7 @@ export async function runZCodeProtocolAgent(
           enterpriseToolAuthorization,
           enterpriseSkillsCatalog,
           enterpriseConnectors,
+          enterpriseModelRelay,
           onToolExecResource: (params) =>
             connection.send({ method: zcodeProtocolNotifications.toolExecResource, params }),
         }),
