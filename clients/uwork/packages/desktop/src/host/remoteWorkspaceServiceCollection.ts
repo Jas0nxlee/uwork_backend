@@ -43,10 +43,8 @@ import {
   createSettingService,
   createCredentialService,
   createPublicCredentialService,
-  createBroadcastService,
   createNodeApiClient,
   createHostApiNetworkTransport,
-  registerHostApiNetworkTransportForDispose,
   createOAuthService,
   createOAuthProviderLogoutHandler,
   createAccountProviderCredentialStore,
@@ -83,11 +81,15 @@ import {
 const runtimePreferencesLogger = createServiceLogger("remote-runtime-preferences");
 const ZCODE_JWT_TOKEN_KEY = "zcodejwttoken";
 
+export interface RemoteWorkspaceServiceCollection {
+  readonly services: ServiceCollection;
+  disposeAndWait(): Promise<void>;
+}
+
 export function createRemoteWorkspaceServiceCollection(params: {
   clientConfigService: IClientConfigService;
   connectionServices: IServiceAccessor;
-  sourceServices?: ServiceCollection;
-  parentPort: Parameters<typeof createBroadcastService>[0];
+  sourceServices: ServiceCollection;
   createReportingRemoteZCodeTaskService: <T extends object>(service: T) => T;
   createRemotePromptAttachmentTaskService: <T extends object>(service: T) => T;
   createRemotePromptAttachmentSessionService: <T extends object>(service: T) => T;
@@ -95,7 +97,7 @@ export function createRemoteWorkspaceServiceCollection(params: {
   runtimePreferencesBridge: {
     onError: (error: unknown) => void;
   };
-}): ServiceCollection {
+}): RemoteWorkspaceServiceCollection {
   assertLegacyRemoteWorkspaceRpcContract(params.connectionServices);
   const localSettingService = createSettingService();
   const localCredentialService = createCredentialService();
@@ -113,7 +115,8 @@ export function createRemoteWorkspaceServiceCollection(params: {
   const localApiClient = createNodeApiClient({
     fetchImpl: hostApiNetworkTransport.fetch,
   });
-  const localBroadcastService = createBroadcastService(params.parentPort);
+  // 广播 listener 属于窗口 Local Host；远端路由只借用，不能每次重连另加一个无法回收的 listener。
+  const localBroadcastService = params.sourceServices.get(IBroadcastService);
   let handleOAuthProviderLogout: ReturnType<typeof createOAuthProviderLogoutHandler> | null = null;
   const localOAuthCredentialRepo = new OAuthCredentialRepo(localCredentialService, {
     onCorruptOAuthSessionCleared: async (providers) => {
@@ -210,102 +213,103 @@ export function createRemoteWorkspaceServiceCollection(params: {
   // desktop-attached remote 的 Agent 运行在远端，但 app-global 设置权威仍在
   // desktop shared Host。通过窄化的 runtime-preferences 请求原路返回，避免远端读取自己的 setting。
   const { onError } = params.runtimePreferencesBridge;
-  params.connectionServices.zcodeAgentService.onDynamicSessionRuntimePreferencesRequest()(
-    (request) => {
-      const startedAt = Date.now();
-      const requestContext = {
-        event: "zcode_protocol.runtime_preferences.host_request_received",
-        module: "desktop.host.remote_workspace",
-        requestId: request.requestId,
-        scope: request.scope,
-        sessionId: request.sessionId,
+  let disposed = false;
+  let disposal: Promise<void> | undefined;
+  const runtimePreferencesEvent =
+    params.connectionServices.zcodeAgentService.onDynamicSessionRuntimePreferencesRequest();
+  const runtimePreferencesSubscription = runtimePreferencesEvent((request) => {
+    if (disposed) return;
+    const startedAt = Date.now();
+    const requestContext = {
+      event: "zcode_protocol.runtime_preferences.host_request_received",
+      module: "desktop.host.remote_workspace",
+      requestId: request.requestId,
+      scope: request.scope,
+      sessionId: request.sessionId,
+    };
+    // 诊断：Agent 侧超时只能说明没有拿到响应；这里记录 Host 是否收到请求，
+    // 用“收到但无 response”区分 transport 丢包和设置读取卡住。
+    runtimePreferencesLogger.info(
+      undefined,
+      "runtime preferences host request received",
+      requestContext,
+    );
+    void (async () => {
+      const trackStage = <T>(stage: string, promise: Promise<T>): Promise<T> => {
+        const stageStartedAt = Date.now();
+        return promise.then(
+          (value) => {
+            runtimePreferencesLogger.debug(undefined, "runtime preferences host stage completed", {
+              ...requestContext,
+              durationMs: Math.max(0, Date.now() - stageStartedAt),
+              stage,
+            });
+            return value;
+          },
+          (error: unknown) => {
+            runtimePreferencesLogger.warn(undefined, "runtime preferences host stage failed", {
+              ...requestContext,
+              durationMs: Math.max(0, Date.now() - stageStartedAt),
+              error: error instanceof Error ? error.message : String(error),
+              stage,
+            });
+            throw error;
+          },
+        );
       };
-      // 诊断：Agent 侧超时只能说明没有拿到响应；这里记录 Host 是否收到请求，
-      // 用“收到但无 response”区分 transport 丢包和设置读取卡住。
-      runtimePreferencesLogger.info(
-        undefined,
-        "runtime preferences host request received",
-        requestContext,
-      );
-      void (async () => {
-        const trackStage = <T>(stage: string, promise: Promise<T>): Promise<T> => {
-          const stageStartedAt = Date.now();
-          return promise.then(
-            (value) => {
-              runtimePreferencesLogger.debug(
-                undefined,
-                "runtime preferences host stage completed",
-                {
-                  ...requestContext,
-                  durationMs: Math.max(0, Date.now() - stageStartedAt),
-                  stage,
-                },
-              );
-              return value;
-            },
-            (error: unknown) => {
-              runtimePreferencesLogger.warn(undefined, "runtime preferences host stage failed", {
-                ...requestContext,
-                durationMs: Math.max(0, Date.now() - stageStartedAt),
-                error: error instanceof Error ? error.message : String(error),
-                stage,
-              });
-              throw error;
-            },
-          );
+      let resolution:
+        | { status: "resolved"; preferences: ZCodeSessionRuntimePreferencesResult }
+        | { status: "failed"; message: string };
+      try {
+        // 与本地 Host 同源：固定预算不依赖配置网关，远程/手机偏好响应不再串行等待网络。
+        const settings = await trackStage("settings", localSettingService.get());
+        const modelContextBudgetStrategy = DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY;
+        resolution = {
+          status: "resolved",
+          preferences: {
+            askUserQuestionAutoResolutionEnabled:
+              settings.askUserQuestionAutoResolutionEnabled !== false,
+            nativeSearchEnhancementsEnabled: settings.nativeSearchEnhancementsEnabled !== false,
+            memoryEnabled: settings.memoryEnabled === true,
+            modelContextBudgetStrategy,
+            // remote workspace 与本地 Host 保持同一 scope 边界，首次执行不得再次等待 client config。
+            ...(request.scope === "user-execution" && settings.integratedTerminalShell
+              ? { integratedTerminalShell: settings.integratedTerminalShell }
+              : {}),
+          },
         };
-        let resolution:
-          | { status: "resolved"; preferences: ZCodeSessionRuntimePreferencesResult }
-          | { status: "failed"; message: string };
-        try {
-          // 与本地 Host 同源：固定预算不依赖配置网关，远程/手机偏好响应不再串行等待网络。
-          const settings = await trackStage("settings", localSettingService.get());
-          const modelContextBudgetStrategy = DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY;
-          resolution = {
-            status: "resolved",
-            preferences: {
-              askUserQuestionAutoResolutionEnabled:
-                settings.askUserQuestionAutoResolutionEnabled !== false,
-              nativeSearchEnhancementsEnabled: settings.nativeSearchEnhancementsEnabled !== false,
-              memoryEnabled: settings.memoryEnabled === true,
-              modelContextBudgetStrategy,
-              // remote workspace 与本地 Host 保持同一 scope 边界，首次执行不得再次等待 client config。
-              ...(request.scope === "user-execution" && settings.integratedTerminalShell
-                ? { integratedTerminalShell: settings.integratedTerminalShell }
-                : {}),
-            },
-          };
-        } catch (error) {
-          resolution = {
-            status: "failed",
-            message: error instanceof Error ? error.message : String(error),
-          };
-          runtimePreferencesLogger.warn(undefined, "runtime preferences host resolution failed", {
-            ...requestContext,
-            durationMs: Math.max(0, Date.now() - startedAt),
-            error: resolution.message,
-          });
-        }
-        // 只把设置读取失败编码为 -32603；发送失败交给最终 onError 记录，不能重试同一请求。
-        await params.connectionServices.zcodeAgentService.respondSessionRuntimePreferences({
-          requestId: request.requestId,
-          resolution,
-        });
-        runtimePreferencesLogger.info(undefined, "runtime preferences host response sent", {
+      } catch (error) {
+        resolution = {
+          status: "failed",
+          message: error instanceof Error ? error.message : String(error),
+        };
+        runtimePreferencesLogger.warn(undefined, "runtime preferences host resolution failed", {
           ...requestContext,
           durationMs: Math.max(0, Date.now() - startedAt),
-          resolutionStatus: resolution.status,
+          error: resolution.message,
         });
-      })().catch((error: unknown) => {
-        runtimePreferencesLogger.warn(undefined, "runtime preferences host response failed", {
-          ...requestContext,
-          durationMs: Math.max(0, Date.now() - startedAt),
-          error: error instanceof Error ? error.message : String(error),
-        });
-        onError(error);
+      }
+      // 设置成功/失败都可能晚于连接回收；关闭 fence 后不能再向已释放远端发送一次 RPC。
+      if (disposed) return;
+      // 只把设置读取失败编码为 -32603；发送失败交给最终 onError 记录，不能重试同一请求。
+      await params.connectionServices.zcodeAgentService.respondSessionRuntimePreferences({
+        requestId: request.requestId,
+        resolution,
       });
-    },
-  );
+      runtimePreferencesLogger.info(undefined, "runtime preferences host response sent", {
+        ...requestContext,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        resolutionStatus: resolution.status,
+      });
+    })().catch((error: unknown) => {
+      runtimePreferencesLogger.warn(undefined, "runtime preferences host response failed", {
+        ...requestContext,
+        durationMs: Math.max(0, Date.now() - startedAt),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      onError(error);
+    });
+  });
 
   // Web 手机远控进入 SSH task 时只连到 remote workspace host，
   // 没有桌面 renderer 那层 `baseServices + remoteServices` 合并。
@@ -367,9 +371,33 @@ export function createRemoteWorkspaceServiceCollection(params: {
     )
     .register(IPromptAttachmentTransferService, params.promptAttachmentTransferService);
   // 手机连接远端 attachment 时仍投影窗口 Local Host 的身份，不为远端工作区另建登录 owner。
-  const enterpriseIdentity = params.sourceServices?.getOptional(IEnterpriseIdentityService);
+  const enterpriseIdentity = params.sourceServices.getOptional(IEnterpriseIdentityService);
   if (enterpriseIdentity) services.register(IEnterpriseIdentityService, enterpriseIdentity);
-  registerHostApiNetworkTransportForDispose(services, hostApiNetworkTransport);
   registerRemoteProviderProvisioningExecutor(services, remoteProviderProvisioningService);
-  return services;
+  return {
+    services,
+    disposeAndWait() {
+      if (disposal) return disposal;
+      disposed = true;
+      // 先缓存 completion 再执行 cleanup；并发和失败后的重复 dispose 共用同一结果。
+      disposal = Promise.resolve().then(async () => {
+        const errors: unknown[] = [];
+        try {
+          runtimePreferencesSubscription.dispose();
+        } catch (error) {
+          errors.push(error);
+        }
+        try {
+          await hostApiNetworkTransport.disposeAndWait();
+        } catch (error) {
+          errors.push(error);
+        }
+        if (errors.length === 1) throw errors[0];
+        if (errors.length > 1) {
+          throw new AggregateError(errors, "Remote workspace view cleanup failed");
+        }
+      });
+      return disposal;
+    },
+  };
 }

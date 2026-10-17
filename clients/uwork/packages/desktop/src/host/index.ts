@@ -1617,7 +1617,8 @@ async function createWindowRemoteConnectionHandle(params: {
   signal: AbortSignal;
 }): Promise<WindowRemoteConnectionHandle<ServiceCollection, HostRemoteConnectionCapabilities>> {
   if (!activeServices) throw new Error("Local Host services are not initialized.");
-  const clientConfigService = activeServices.get(IClientConfigService);
+  const sourceServices = activeServices;
+  const clientConfigService = sourceServices.get(IClientConfigService);
   if (params.signal.aborted) {
     throw new Error("远程连接已取消");
   }
@@ -1661,11 +1662,10 @@ async function createWindowRemoteConnectionHandle(params: {
         logger.warn("remote prompt attachment janitor failed", error),
     },
   );
-  const services = createRemoteWorkspaceServiceCollection({
+  const remoteWorkspace = createRemoteWorkspaceServiceCollection({
     clientConfigService,
     connectionServices: backendConnection.services,
-    sourceServices: activeServices ?? undefined,
-    parentPort,
+    sourceServices,
     createRemotePromptAttachmentSessionService: (service) =>
       createRemotePromptAttachmentSessionService(service, {
         materializePromptAttachments,
@@ -1684,7 +1684,8 @@ async function createWindowRemoteConnectionHandle(params: {
     },
   });
 
-  let disposed = false;
+  const { services } = remoteWorkspace;
+  let disposal: Promise<void> | undefined;
   // 远端 workspace 的 CLI 与 MCP 样本走与本地同一条路径：远端 zcode-server → 本地 Host → main。
   // 订阅寿命等于这份远端 services 的寿命：由 connection handle 持有，registry 释放 entry
   // （WSL idle 回收、最后一个 logical session 关闭、掉线后的 session 清理）时随 dispose 一起收口。
@@ -1722,15 +1723,32 @@ async function createWindowRemoteConnectionHandle(params: {
       closeListeners.add(listener);
       return { dispose: () => closeListeners.delete(listener) };
     },
-    async dispose() {
-      if (disposed) {
-        return;
-      }
-      disposed = true;
+    dispose() {
+      if (disposal) return disposal;
       closeListeners.clear();
-      resourceTelemetry.dispose();
-      await disposeServiceResourcesAndWait(services);
-      await disposeHostRemoteConnection(connection);
+      // 同步关闭偏好 fence，不能等 telemetry 的第一个 await 后才让旧回调失效。
+      const ownedDisposal = remoteWorkspace.disposeAndWait();
+      // services 混有本机借用的身份与远端 RPC proxy，不能按本地资源 duck type 调 private dispose。
+      // 每个 owner 只回收自己创建的资源；任一步失败仍继续关闭 stdio，让远端 server 自行收口。
+      disposal = Promise.resolve().then(async () => {
+        const errors: unknown[] = [];
+        for (const cleanup of [
+          () => resourceTelemetry.dispose(),
+          () => ownedDisposal,
+          () => disposeHostRemoteConnection(connection),
+        ]) {
+          try {
+            await cleanup();
+          } catch (error) {
+            errors.push(error);
+          }
+        }
+        if (errors.length === 1) throw errors[0];
+        if (errors.length > 1) {
+          throw new AggregateError(errors, "Remote workspace connection cleanup failed");
+        }
+      });
+      return disposal;
     },
   };
 }
