@@ -2756,7 +2756,10 @@ export function createLocalServices(options: {
       }),
     )
     .register(IMemoryService, createMemoryService())
-    .register(ISettingsSyncService, createSettingsSyncService({ settingService }))
+    .register(
+      ISettingsSyncService,
+      createSettingsSyncService({ settingService, backendSession: enterpriseBackendSession }),
+    )
     .register(
       IFeedbackService,
       createFeedbackService({

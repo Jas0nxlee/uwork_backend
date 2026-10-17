@@ -40,12 +40,21 @@ import { CommandFileParser } from "../commands/commandFileParser.js";
 import type { ISettingService } from "../setting/setting.js";
 import { createServiceLogger } from "../logger/serviceLogger.js";
 import { walkSkillMarkdownPaths } from "../skills/skillDiscoveryWalk.js";
+import type { UWorkBackendSession } from "../enterprise-identity/backendSessionContract.js";
 import type { ISettingsSyncService } from "./settingsSync.js";
+import {
+  copyManagedSkillDirectory,
+  isSkillAccessError,
+  skillIO,
+  withSettingsSyncSkillAccess,
+  type SettingsSyncSkillAccess,
+} from "./settingsSyncSkillAccess.js";
 
 const log = createServiceLogger("settings-sync");
 
 interface SettingsSyncServiceDependencies {
   settingService: ISettingService;
+  backendSession?: UWorkBackendSession;
 }
 
 type SkillImportScope = "user" | "workspace";
@@ -426,7 +435,8 @@ function getWorkspaceZcodeSkillRoot(workspacePath: string): string {
 }
 
 function getUserZcodeSkillRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "skills");
+  // 导入与当前 SkillsService 必须共用 storage root，否则 UI 成功后仍不可见。
+  return join(getUworkUserStorageRoot(), "skills");
 }
 
 function getWorkspaceZcodeCommandRoot(workspacePath: string): string {
@@ -554,9 +564,14 @@ async function importSkillDirectory(
   sourcePath: string,
   targetPath: string,
   importMode: SettingsSyncImportMode,
+  access?: SettingsSyncSkillAccess,
 ): Promise<void> {
   if (importMode === "symlink") {
-    await createDirectorySymlink(sourcePath, targetPath);
+    await skillIO(access, () => createDirectorySymlink(sourcePath, targetPath));
+    return;
+  }
+  if (access) {
+    await copyManagedSkillDirectory(sourcePath, targetPath, access);
     return;
   }
   await cp(sourcePath, targetPath, {
@@ -742,14 +757,38 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function collectSkillMarkdownPaths(rootPath: string): Promise<string[]> {
+function skillPathExists(path: string, access?: SettingsSyncSkillAccess): Promise<boolean> {
+  if (!access) return exists(path);
+  return access.io(async () => {
+    try {
+      await lstat(path);
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      throw error;
+    }
+  });
+}
+
+async function collectSkillMarkdownPaths(
+  rootPath: string,
+  access?: SettingsSyncSkillAccess,
+): Promise<string[]> {
   // 复用共享的有界遍历（排除 node_modules 等内容目录、限制深度、软链去重），
   // 与桌面端技能扫描保持一致，避免设置同步在巨型目录上卡死。
-  const discovered = new Set<string>();
-  for await (const skillPath of walkSkillMarkdownPaths(rootPath)) {
-    discovered.add(skillPath);
-  }
-  return [...discovered].sort((left, right) => left.localeCompare(right));
+  return skillIO(access, async () => {
+    const discovered = new Set<string>();
+    for await (const skillPath of walkSkillMarkdownPaths(rootPath, {
+      onError: access
+        ? (_path, error) => {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+          }
+        : undefined,
+    })) {
+      discovered.add(skillPath);
+    }
+    return [...discovered].sort((left, right) => left.localeCompare(right));
+  });
 }
 
 async function collectCommandMarkdownPaths(rootPath: string): Promise<string[]> {
@@ -893,26 +932,39 @@ function readSkillMetadataFromMarkdown(
   };
 }
 
-async function readSkillMetadata(skillPath: string): Promise<{ name: string; version?: string }> {
+async function readSkillMetadata(
+  skillPath: string,
+  access?: SettingsSyncSkillAccess,
+): Promise<{ name: string; version?: string }> {
   const fallbackName = basename(dirname(skillPath));
-  try {
-    return readSkillMetadataFromMarkdown(await readFile(skillPath, "utf-8"), fallbackName);
-  } catch {
-    return { name: fallbackName };
-  }
+  return skillIO(access, async () => {
+    try {
+      return readSkillMetadataFromMarkdown(await readFile(skillPath, "utf-8"), fallbackName);
+    } catch (error) {
+      // fallback 只处理原始 FS 错误；外层 io 的撤权/owner 异常必须继续向上传递。
+      if (access && (error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      return { name: fallbackName };
+    }
+  });
 }
 
-async function readSkillNameKey(skillPath: string): Promise<string> {
-  return normalizeSkillNameKey((await readSkillMetadata(skillPath)).name);
+async function readSkillNameKey(
+  skillPath: string,
+  access?: SettingsSyncSkillAccess,
+): Promise<string> {
+  return normalizeSkillNameKey((await readSkillMetadata(skillPath, access)).name);
 }
 
-async function collectExistingSkillNameKeys(rootPath: string): Promise<Set<string>> {
+async function collectExistingSkillNameKeys(
+  rootPath: string,
+  access?: SettingsSyncSkillAccess,
+): Promise<Set<string>> {
   const nameKeys = new Set<string>();
-  if (!(await exists(rootPath))) {
+  if (!(await skillPathExists(rootPath, access))) {
     return nameKeys;
   }
-  for (const skillPath of await collectSkillMarkdownPaths(rootPath)) {
-    nameKeys.add(await readSkillNameKey(skillPath));
+  for (const skillPath of await collectSkillMarkdownPaths(rootPath, access)) {
+    nameKeys.add(await readSkillNameKey(skillPath, access));
   }
   return nameKeys;
 }
@@ -1174,22 +1226,25 @@ async function collectConfiguredPluginIds(configPath: string): Promise<Set<strin
 async function isSkillImportCandidateImportable(
   candidate: SkillImportCandidate,
   existingNameKeysByTargetRoot: Map<string, Set<string>>,
+  access?: SettingsSyncSkillAccess,
 ): Promise<boolean> {
   return (
-    (await getSkillImportCandidateSkipReason(candidate, existingNameKeysByTargetRoot)) === undefined
+    (await getSkillImportCandidateSkipReason(candidate, existingNameKeysByTargetRoot, access)) ===
+    undefined
   );
 }
 
 async function getSkillImportCandidateSkipReason(
   candidate: SkillImportCandidate,
   existingNameKeysByTargetRoot: Map<string, Set<string>>,
+  access?: SettingsSyncSkillAccess,
 ): Promise<SettingsSyncSkillSkipReason | undefined> {
-  if (await exists(candidate.targetPath)) {
+  if (await skillPathExists(candidate.targetPath, access)) {
     return "targetExists";
   }
   let existingNameKeys = existingNameKeysByTargetRoot.get(candidate.targetRoot);
   if (!existingNameKeys) {
-    existingNameKeys = await collectExistingSkillNameKeys(candidate.targetRoot);
+    existingNameKeys = await collectExistingSkillNameKeys(candidate.targetRoot, access);
     existingNameKeysByTargetRoot.set(candidate.targetRoot, existingNameKeys);
   }
   return existingNameKeys.has(candidate.nameKey) ? "sameNameExists" : undefined;
@@ -1289,6 +1344,7 @@ async function isMcpImportCandidateImportable(
 
 async function buildSourceRootSummaries(
   candidates: SkillImportCandidate[],
+  access?: SettingsSyncSkillAccess,
 ): Promise<SettingsSyncSourceRootSummary[]> {
   const existingNameKeysByTargetRoot = new Map<string, Set<string>>();
   const grouped = new Map<string, SkillImportCandidate[]>();
@@ -1309,6 +1365,7 @@ async function buildSourceRootSummaries(
       const skipReason = await getSkillImportCandidateSkipReason(
         candidate,
         existingNameKeysByTargetRoot,
+        access,
       );
       const importable = skipReason === undefined;
       if (importable) {
@@ -1497,14 +1554,15 @@ async function buildMcpSourceRootSummaries(
 
 async function collectSkillImportCandidates(
   workspacePath?: string,
+  access?: SettingsSyncSkillAccess,
 ): Promise<SkillImportCandidate[]> {
   const candidates: SkillImportCandidate[] = [];
   const seenSourcePaths = new Set<string>();
   for (const root of getExternalSkillRoots(workspacePath)) {
-    if (!(await exists(root.rootPath))) {
+    if (!(await skillPathExists(root.rootPath, access))) {
       continue;
     }
-    for (const skillPath of await collectSkillMarkdownPaths(root.rootPath)) {
+    for (const skillPath of await collectSkillMarkdownPaths(root.rootPath, access)) {
       if (seenSourcePaths.has(skillPath)) {
         continue;
       }
@@ -1514,7 +1572,7 @@ async function collectSkillImportCandidates(
       if (!targetRoot) {
         continue;
       }
-      const skillMetadata = await readSkillMetadata(skillPath);
+      const skillMetadata = await readSkillMetadata(skillPath, access);
       candidates.push({
         agent: root.agent,
         name: skillMetadata.name,
@@ -1641,8 +1699,11 @@ async function collectMcpImportCandidates(workspacePath?: string): Promise<McpIm
   return candidates;
 }
 
-async function buildSkillsDiscovery(workspacePath?: string): Promise<SettingsSyncDiscoveryResult> {
-  const candidates = await collectSkillImportCandidates(workspacePath);
+async function buildSkillsDiscovery(
+  workspacePath?: string,
+  access?: SettingsSyncSkillAccess,
+): Promise<SettingsSyncDiscoveryResult> {
+  const candidates = await collectSkillImportCandidates(workspacePath, access);
   const agents: SettingsSyncDiscoveryResult["agents"] = [];
   for (const { agent } of SUPPORTED_SKILL_AGENT_SOURCES) {
     const agentCandidates = candidates.filter((candidate) => candidate.agent === agent);
@@ -1650,11 +1711,11 @@ async function buildSkillsDiscovery(workspacePath?: string): Promise<SettingsSyn
     const sourcePaths = [
       ...new Set(agentCandidates.map((candidate) => candidate.sourceRootPath)),
     ].sort((left, right) => left.localeCompare(right));
-    const sourceRoots = await buildSourceRootSummaries(agentCandidates);
+    const sourceRoots = await buildSourceRootSummaries(agentCandidates, access);
     let importableCount = 0;
     const existingNameKeysByTargetRoot = new Map<string, Set<string>>();
     for (const candidate of agentCandidates) {
-      if (await isSkillImportCandidateImportable(candidate, existingNameKeysByTargetRoot)) {
+      if (await isSkillImportCandidateImportable(candidate, existingNameKeysByTargetRoot, access)) {
         importableCount += 1;
       }
     }
@@ -1814,9 +1875,10 @@ async function importSkillsForAgent(
   targetScope?: SettingsSyncSourceScope,
   importMode: SettingsSyncImportMode = "symlink",
   skillPaths?: string[],
+  access?: SettingsSyncSkillAccess,
 ): Promise<SettingsSyncTaskImportResult> {
   const selectedSkillPaths = skillPaths ? new Set(skillPaths) : null;
-  const candidates = (await collectSkillImportCandidates(workspacePath)).filter(
+  const candidates = (await collectSkillImportCandidates(workspacePath, access)).filter(
     (candidate) =>
       candidate.agent === agent &&
       (!sourceScope || candidate.sourceRootScope === sourceScope) &&
@@ -1852,6 +1914,7 @@ async function importSkillsForAgent(
     const skipReason = await getSkillImportCandidateSkipReason(
       targetCandidate,
       existingNameKeysByTargetRoot,
+      access,
     );
     if (skipReason) {
       skippedCount += 1;
@@ -1866,8 +1929,13 @@ async function importSkillsForAgent(
       continue;
     }
     try {
-      await mkdir(dirname(targetCandidate.targetPath), { recursive: true });
-      await importSkillDirectory(candidate.sourcePath, targetCandidate.targetPath, importMode);
+      await skillIO(access, () => mkdir(dirname(targetCandidate.targetPath), { recursive: true }));
+      await importSkillDirectory(
+        candidate.sourcePath,
+        targetCandidate.targetPath,
+        importMode,
+        access,
+      );
       importedCount += 1;
       const existingNameKeys = existingNameKeysByTargetRoot.get(targetCandidate.targetRoot);
       if (existingNameKeys) {
@@ -1880,7 +1948,8 @@ async function importSkillsForAgent(
         status: "imported",
         ...(candidate.version ? { version: candidate.version } : {}),
       });
-    } catch {
+    } catch (error) {
+      if (isSkillAccessError(error)) throw error;
       failedCount += 1;
       skillResults.push({
         name: candidate.name,
@@ -2300,17 +2369,20 @@ export function createSettingsSyncService(
     },
 
     async detect(request): Promise<SettingsSyncDiscoveryResult> {
-      if (shouldScanSkills(request)) {
-        return buildSkillsDiscovery(request.workspacePath);
+      const captured = structuredClone(request);
+      if (shouldScanSkills(captured)) {
+        return withSettingsSyncSkillAccess(dependencies.backendSession, (access) =>
+          buildSkillsDiscovery(captured.workspacePath, access),
+        );
       }
-      if (shouldScanCommands(request)) {
-        return buildCommandsDiscovery(request.workspacePath);
+      if (shouldScanCommands(captured)) {
+        return buildCommandsDiscovery(captured.workspacePath);
       }
-      if (shouldScanPlugins(request)) {
-        return buildPluginsDiscovery(request.workspacePath);
+      if (shouldScanPlugins(captured)) {
+        return buildPluginsDiscovery(captured.workspacePath);
       }
-      if (shouldScanMcpServers(request)) {
-        return buildMcpDiscovery(request.workspacePath);
+      if (shouldScanMcpServers(captured)) {
+        return buildMcpDiscovery(captured.workspacePath);
       }
       return buildEmptyDiscoveryResult();
     },
@@ -2320,74 +2392,85 @@ export function createSettingsSyncService(
       workspaceIdentity?: string;
       selections: SettingsSyncSelection[];
     }): Promise<SettingsSyncImportResult> {
-      const taskResults: SettingsSyncTaskImportResult[] = [];
-      for (const selection of request.selections) {
-        if (selection.category === "skills") {
-          taskResults.push(
-            await importSkillsForAgent(
-              request.workspacePath,
-              selection.agent,
-              selection.sourceScope,
-              selection.targetScope,
-              selection.importMode,
-              selection.skillPaths,
-            ),
-          );
-          continue;
+      const captured = structuredClone({
+        workspacePath: request.workspacePath,
+        workspaceIdentity: request.workspaceIdentity,
+        selections: request.selections,
+      });
+      const work = async (access?: SettingsSyncSkillAccess): Promise<SettingsSyncImportResult> => {
+        const taskResults: SettingsSyncTaskImportResult[] = [];
+        for (const selection of captured.selections) {
+          if (selection.category === "skills") {
+            taskResults.push(
+              await importSkillsForAgent(
+                captured.workspacePath,
+                selection.agent,
+                selection.sourceScope,
+                selection.targetScope,
+                selection.importMode,
+                selection.skillPaths,
+                access,
+              ),
+            );
+            continue;
+          }
+          if (selection.category === "commands") {
+            taskResults.push(
+              await importCommandsForAgent(
+                captured.workspacePath,
+                selection.agent,
+                selection.sourceScope,
+                selection.targetScope,
+                selection.importMode,
+                selection.commandPaths,
+              ),
+            );
+            continue;
+          }
+          if (selection.category === "plugins") {
+            taskResults.push(
+              await importPluginsForAgent(
+                captured.workspacePath,
+                selection.agent,
+                selection.sourceScope,
+                selection.targetScope,
+                selection.importMode,
+                selection.pluginPaths,
+              ),
+            );
+            continue;
+          }
+          if (selection.category === "mcpServers") {
+            taskResults.push(
+              await importMcpServersForAgent(
+                captured.workspacePath,
+                selection.agent,
+                selection.sourceScope,
+                selection.targetScope,
+                selection.mcpServerPaths,
+              ),
+            );
+            continue;
+          }
+          taskResults.push({
+            agent: selection.agent,
+            category: selection.category,
+            status: "skipped",
+            importedCount: 0,
+            skippedCount: 1,
+            failedCount: 0,
+          });
         }
-        if (selection.category === "commands") {
-          taskResults.push(
-            await importCommandsForAgent(
-              request.workspacePath,
-              selection.agent,
-              selection.sourceScope,
-              selection.targetScope,
-              selection.importMode,
-              selection.commandPaths,
-            ),
-          );
-          continue;
-        }
-        if (selection.category === "plugins") {
-          taskResults.push(
-            await importPluginsForAgent(
-              request.workspacePath,
-              selection.agent,
-              selection.sourceScope,
-              selection.targetScope,
-              selection.importMode,
-              selection.pluginPaths,
-            ),
-          );
-          continue;
-        }
-        if (selection.category === "mcpServers") {
-          taskResults.push(
-            await importMcpServersForAgent(
-              request.workspacePath,
-              selection.agent,
-              selection.sourceScope,
-              selection.targetScope,
-              selection.mcpServerPaths,
-            ),
-          );
-          continue;
-        }
-        taskResults.push({
-          agent: selection.agent,
-          category: selection.category,
-          status: "skipped",
-          importedCount: 0,
-          skippedCount: 1,
-          failedCount: 0,
-        });
-      }
-      return {
-        successCount: taskResults.reduce((sum, result) => sum + result.importedCount, 0),
-        skippedCount: taskResults.reduce((sum, result) => sum + result.skippedCount, 0),
-        failedCount: taskResults.reduce((sum, result) => sum + result.failedCount, 0),
-        taskResults,
+        return {
+          successCount: taskResults.reduce((sum, result) => sum + result.importedCount, 0),
+          skippedCount: taskResults.reduce((sum, result) => sum + result.skippedCount, 0),
+          failedCount: taskResults.reduce((sum, result) => sum + result.failedCount, 0),
+          taskResults,
+        };
       };
+      return captured.selections.some((selection) => selection.category === "skills")
+        ? withSettingsSyncSkillAccess(dependencies.backendSession, work)
+        : work();
     },
 
     async getFirstRunPromptState() {
