@@ -3,6 +3,10 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { gunzip } from "node:zlib";
+import {
+  projectNativeTraceLifecycle,
+  projectNativeTraceRequestLifecycle,
+} from "./native-configuration-capture.mjs";
 
 const unzip = promisify(gunzip);
 const MAX_TRACE_BYTES = 1024 * 1024;
@@ -19,7 +23,10 @@ const fields = new Set([
 ]);
 
 /** Test-only OTLP receiver; never stores headers, raw payload, or user content. */
-export function createNativeTraceCapture(client) {
+export function createNativeTraceCapture(
+  client,
+  { lifecycleWitness = false } = {},
+) {
   const require = createRequire(join(client, "packages/desktop/package.json"));
   const exporterPath = require.resolve(
     "@opentelemetry/exporter-trace-otlp-proto",
@@ -31,9 +38,26 @@ export function createNativeTraceCapture(client) {
   const requestType =
     root.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest;
   const batches = [];
+  const finalizedRequests = new WeakSet();
   return {
     batches,
-    async capture(input, encoding) {
+    ...(lifecycleWitness === true
+      ? {
+          finishRequest(batch, completion) {
+            if (!batches.includes(batch) || finalizedRequests.has(batch))
+              return;
+            finalizedRequests.add(batch);
+            batch.requestLifecycle = projectNativeTraceRequestLifecycle({
+              requestStartedAtMs: batch.requestLifecycle.requestStartedAtMs,
+              bodyEndedAtMs: batch.requestLifecycle.bodyEndedAtMs,
+              responseFinishedAtMs: completion.responseFinishedAtMs,
+              downstreamFinished: completion.downstreamFinished,
+              closedBeforeFinish: completion.closedBeforeFinish,
+            });
+          },
+        }
+      : {}),
+    async capture(input, encoding, timing) {
       if (input.length > MAX_TRACE_BYTES)
         throw Error("Trace batch is too large");
       if (encoding && encoding !== "identity" && encoding !== "gzip")
@@ -74,6 +98,9 @@ export function createNativeTraceCapture(client) {
                     : [];
                 }),
               ),
+              ...(lifecycleWitness === true
+                ? { lifecycle: projectNativeTraceLifecycle(span) }
+                : {}),
             });
           }
         }
@@ -84,6 +111,17 @@ export function createNativeTraceCapture(client) {
         sha256: createHash("sha256").update(input).digest("hex"),
         rendererSpans: spans,
         otherSpanCount,
+        ...(lifecycleWitness === true
+          ? {
+              requestLifecycle: projectNativeTraceRequestLifecycle({
+                requestStartedAtMs: timing?.requestStartedAtMs,
+                bodyEndedAtMs: timing?.bodyEndedAtMs,
+                responseFinishedAtMs: null,
+                downstreamFinished: false,
+                closedBeforeFinish: false,
+              }),
+            }
+          : {}),
       };
       batches.push(batch);
       return batch;

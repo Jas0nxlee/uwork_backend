@@ -21,6 +21,11 @@ import { bootstrap } from "../../src/identity.ts";
 import { copyNativeOutSnapshot } from "./native-out-snapshot.mjs";
 import { copyNativeAdminSnapshot } from "./native-admin-snapshot.mjs";
 import { createNativeTraceCapture } from "./native-trace-capture.mjs";
+import {
+  MAX_NATIVE_CONFIGURATION_BYTES,
+  createNativeConfigurationCapture,
+  isNativeConfigurationWitnessEnabled,
+} from "./native-configuration-capture.mjs";
 const fixtureName =
   process.env.UWORK_NATIVE_FIXTURE_NAME ?? "client-native-enterprise-20261017";
 if (!/^client-native-[a-z0-9-]+$/.test(fixtureName))
@@ -33,6 +38,10 @@ if (dynamicWorkflowMode !== undefined && dynamicWorkflowMode !== "alwaysOn")
 const experienceMode = process.env.UWORK_NATIVE_CLIENT_EXPERIENCE;
 if (experienceMode !== undefined && experienceMode !== "enabled")
   throw Error("Invalid Native client experience fixture mode");
+const configurationWitnessEnabled = isNativeConfigurationWitnessEnabled(
+  experienceMode,
+  process.env.UWORK_NATIVE_CONFIGURATION_WITNESS,
+);
 const exec = promisify(execFile),
   evidence = "evidence/" + fixtureName;
 await mkdir(evidence, { recursive: true, mode: 0o700 });
@@ -131,7 +140,12 @@ const traffic = [];
 let enterpriseAsset, denyPolicy, enterpriseExpert, expertDenyPolicy;
 const modelRequests = [];
 const traceCapture = experienceMode
-  ? createNativeTraceCapture(client)
+  ? createNativeTraceCapture(client, {
+      lifecycleWitness: configurationWitnessEnabled,
+    })
+  : undefined;
+const configurationCapture = configurationWitnessEnabled
+  ? createNativeConfigurationCapture({ enabled: true })
   : undefined;
 let workflowHoldSecond = false;
 const workflowPendingReplies = new Set(),
@@ -149,12 +163,47 @@ const messageText = (message) =>
       ? message.content.map((part) => part.text ?? "").join("")
       : "";
 const upstream = httpServer(async (req, res) => {
+  const traceRequestStartedAtMs =
+    configurationWitnessEnabled && req.url === "/v1/traces"
+      ? Date.now()
+      : undefined;
+  let traceBodyEndedAtMs;
+  if (traceRequestStartedAtMs !== undefined)
+    req.once("end", () => {
+      traceBodyEndedAtMs = Date.now();
+    });
   const chunks = [];
   for await (const b of req) chunks.push(b);
   const bytes = Buffer.concat(chunks);
   if (traceCapture && req.url === "/v1/traces") {
     try {
-      await traceCapture.capture(bytes, req.headers["content-encoding"]);
+      const batch = await traceCapture.capture(
+        bytes,
+        req.headers["content-encoding"],
+        configurationWitnessEnabled
+          ? {
+              requestStartedAtMs: traceRequestStartedAtMs,
+              bodyEndedAtMs: traceBodyEndedAtMs,
+            }
+          : undefined,
+      );
+      if (configurationWitnessEnabled) {
+        res.once("finish", () =>
+          traceCapture.finishRequest(batch, {
+            responseFinishedAtMs: Date.now(),
+            downstreamFinished: res.writableFinished,
+            closedBeforeFinish: false,
+          }),
+        );
+        res.once("close", () => {
+          if (!res.writableFinished)
+            traceCapture.finishRequest(batch, {
+              responseFinishedAtMs: null,
+              downstreamFinished: false,
+              closedBeforeFinish: true,
+            });
+        });
+      }
       res.writeHead(200, { "content-type": "application/x-protobuf" }).end();
     } catch {
       res.writeHead(400).end();
@@ -317,10 +366,135 @@ const upstream = httpServer(async (req, res) => {
 await new Promise((r) => upstream.listen(0, "127.0.0.1", r));
 let configurationPaused = false;
 const configurationReplies = new Set();
+// Raw response bytes exist only in this bounded, owned request closure.
+function observeConfigurationResponse(req, res, save) {
+  const requestStartedAtMs = Date.now();
+  const clientRemoteAddress = req.socket.remoteAddress;
+  const clientRemotePort = req.socket.remotePort;
+  let replyStatus = null,
+    upstreamEndedAtMs = null,
+    responseFinishedAtMs = null;
+  let upstreamEnded = false,
+    downstreamFinished = false,
+    closedBeforeFinish = false;
+  let bodyBytes = 0,
+    chunks = [],
+    outcome = "complete",
+    finished = false,
+    reply;
+  const stop = () => {
+    chunks = [];
+    reply?.off("data", onData);
+    reply?.off("end", onEnd);
+    reply?.off("aborted", onAborted);
+    reply?.off("error", onError);
+  };
+  const complete = () => {
+    if (finished) return;
+    finished = true;
+    let body;
+    if (
+      outcome === "complete" &&
+      replyStatus === 200 &&
+      upstreamEnded &&
+      downstreamFinished &&
+      !closedBeforeFinish
+    ) {
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      } catch {
+        outcome = "invalid_json";
+      }
+    }
+    save({
+      requestStartedAtMs,
+      upstreamEndedAtMs,
+      responseFinishedAtMs,
+      observedAtMs: Date.now(),
+      upstreamEnded,
+      downstreamFinished,
+      closedBeforeFinish,
+      clientRemoteAddress,
+      clientRemotePort,
+      replyStatus,
+      bodyBytes,
+      outcome,
+      body,
+    });
+    stop();
+  };
+  const onData = (chunk) => {
+    try {
+      if (!Buffer.isBuffer(chunk)) {
+        outcome = "upstream_error";
+        chunks = [];
+        return;
+      }
+      bodyBytes = Math.min(
+        MAX_NATIVE_CONFIGURATION_BYTES + 1,
+        bodyBytes + chunk.length,
+      );
+      if (bodyBytes > MAX_NATIVE_CONFIGURATION_BYTES) {
+        outcome = "body_limit";
+        chunks = [];
+      } else if (outcome === "complete") chunks.push(chunk);
+    } catch {
+      outcome = "upstream_error";
+      chunks = [];
+    }
+  };
+  const onEnd = () => {
+    upstreamEnded = true;
+    upstreamEndedAtMs = Date.now();
+  };
+  const onAborted = () => {
+    outcome = "upstream_aborted";
+    complete();
+  };
+  const onError = () => {
+    outcome = "upstream_error";
+    complete();
+  };
+  res.once("finish", () => {
+    downstreamFinished = res.writableFinished;
+    responseFinishedAtMs = downstreamFinished ? Date.now() : null;
+    complete();
+  });
+  res.once("close", () => {
+    if (!res.writableFinished) {
+      closedBeforeFinish = true;
+      outcome = "downstream_closed";
+      complete();
+    }
+  });
+  return {
+    observe(value) {
+      if (finished) return;
+      reply = value;
+      replyStatus = reply.statusCode ?? null;
+      reply.on("data", onData);
+      reply.once("end", onEnd);
+      reply.once("aborted", onAborted);
+      reply.once("error", onError);
+    },
+    upstreamFailed() {
+      outcome = "upstream_error";
+      complete();
+    },
+  };
+}
 const proxy = httpsServer(
   { key: await readFile(key), cert: await readFile(cert) },
   (req, res) => {
     if (adminSnapshot?.serve(req, res)) return;
+    const configurationReceipt =
+      req.method === "GET" &&
+      req.url?.split(/[?#]/u, 1)[0] === "/api/client/configuration"
+        ? configurationCapture?.reserve()
+        : undefined;
+    const configurationWitness = configurationReceipt
+      ? observeConfigurationResponse(req, res, configurationReceipt)
+      : undefined;
     const target = httpRequest(
       backendOrigin + (req.url ?? "/"),
       { method: req.method, headers: req.headers },
@@ -331,6 +505,7 @@ const proxy = httpsServer(
             reply.destroy();
             return;
           }
+          configurationWitness?.observe(reply);
           res.writeHead(reply.statusCode ?? 500, reply.headers);
           reply.pipe(res);
         };
@@ -343,6 +518,7 @@ const proxy = httpsServer(
       },
     );
     target.on("error", () => {
+      configurationWitness?.upstreamFailed();
       if (!res.destroyed && !res.headersSent) res.writeHead(502).end();
     });
     res.on("close", () => target.destroy());
@@ -909,6 +1085,7 @@ async function saveExperienceProof(name) {
         traffic,
         modelRequests,
         rendererTraceBatches: traceCapture?.batches,
+        ...(configurationCapture?.snapshot() ?? {}),
         ledger: usage.items.map((row) => ({
           id: row.id,
           status: row.status,
@@ -955,6 +1132,7 @@ async function close() {
         traffic,
         modelRequests,
         ...(traceCapture ? { rendererTraceBatches: traceCapture.batches } : {}),
+        ...(configurationCapture?.snapshot() ?? {}),
         ...(dynamicWorkflowMode === "alwaysOn" ? { workflowFacts } : {}),
       },
       null,
