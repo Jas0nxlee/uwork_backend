@@ -29,20 +29,20 @@
 
 此表不要求无穷输入笛卡尔积。每项需要对应的实际允许、拒绝/更新、异步边界和清理证据。测试脚本存在、方法返回 200 或目录文件存在不能单独勾完成。
 
-| ID  | 原缺口                                         | 当前新增证据                                                                                                                                                    | 剩余工作                                                                                |
-| --- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| G01 | 跨企业/issuer 资产缓存和当前交互身份           | **完成 HTTP/Host/打包 CLI 层**：2 项、279 次 HTTP、4 个 CLI；A→B→A 当前版本、旧下载迟到、双 issuer、冷恢复、禁用/恢复及退出                                     | Native 组织选择界面不由此替代                                                           |
-| G02 | 资产正文进入实际会话、子任务及恢复             | **指定 Host/CLI 切片完成**：专家/Native Skill，新增正式 V4 动态工作流 10 项；actor 正文 v1→v2、撤权、原 owner、同 run 冷恢复零已完成模型重跑                    | Native workflow UI、跨 session 及未公开 expert persona 不由此替代                       |
-| G03 | 损坏/并发/崩溃缓存贯穿实际 Host+CLI            | **已列五类故障完成**：原 3 项315 HTTP/9CLI，加真实双 Host、部分 stage SIGKILL 两项131 HTTP/4CLI；当前新 CLI 再验证                                              | 本机 macOS 结果不替代 Windows/Linux 的安装/进程语义                                     |
-| G04 | Native 菜单/欢迎/risk 动态发布与身份变化       | **指定菜单切片完成**：草稿/发布、禁用隐藏、名字/顺序/既有页面、退出、旧可见菜单迟到点击拒绝；补实际自定义 HTTPS 页面导航                                        | 原生企业选择/身份切换迟到响应仍单列；真实企微排除                                       |
-| G05 | 助理渠道与真实本地自动化入口                   | **指定 Native/Host/Main 切片完成**：创建/run-now/绑定原 task；完整 Main 自然到期和完整重启继续原任务，撤权后真实模型调用/账本增量 0                             | Main 已派发输入后才模型拒绝，不称 scheduler 未派发；agents/全局作用域与移动云助手仍单列 |
-| G06 | 个人模型/技能/本机 MCP 的生产入口开关          | **指定 Host/CLI/Native 切片完成**：个人模型、用户/项目 Skill、原生 MCP 设置连接/撤权；原生技能先选后撤权零写、恢复导入立即可见、再次拒读文件保留                | 个人技能删除/开关等其余管理动作及更广身份切换 UI 仍需逐入口测试；外部 MCP 排除          |
-| G07 | 正式 CLI builtin Read/Write/Bash/WebFetch 出口 | **指定 Host/CLI 切片完成**：原5项真实副作用及批准/Hook/yolo后撤权；补公共HTTPS正文→提取→后继模型，同runtime移除域名后拒绝且0目标网络帧                          | Native 工具 UI 与各平台限制分别验收，不能推广为任意网站或带身份页面成功                 |
-| G08 | 分享文件完整允许/撤权出口                      | **完成指定 Host/service 切片**：5 项新测试+26 回归，299 次 HTTP；生产文件源 stat/read→自动 manifest/hash→实际 multipart→confirm，并测 prepare/upload 后撤 files | Native 分享 UI、正式外部分享及组织协作独立保留；不回滚已发生的分享/上传副作用           |
+| ID  | 原缺口                                         | 当前新增证据                                                                                                                                                    | 剩余工作                                                                                                             |
+| --- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| G01 | 跨企业/issuer 资产缓存和当前交互身份           | **完成 HTTP/Host/打包 CLI 层**：2 项、279 次 HTTP、4 个 CLI；A→B→A 当前版本、旧下载迟到、双 issuer、冷恢复、禁用/恢复及退出                                     | Native 组织选择界面不由此替代                                                                                        |
+| G02 | 资产正文进入实际会话、子任务及恢复             | **指定 Host/CLI 切片完成**：专家/Native Skill，新增正式 V4 动态工作流 10 项；actor 正文 v1→v2、撤权、原 owner、同 run 冷恢复零已完成模型重跑                    | Native workflow 保存/取消/同 run 冷恢复及父结果通知已追加；生产安装包灰度、跨 session 及未公开 expert persona 仍保留 |
+| G03 | 损坏/并发/崩溃缓存贯穿实际 Host+CLI            | **已列五类故障完成**：原 3 项315 HTTP/9CLI，加真实双 Host、部分 stage SIGKILL 两项131 HTTP/4CLI；当前新 CLI 再验证                                              | 本机 macOS 结果不替代 Windows/Linux 的安装/进程语义                                                                  |
+| G04 | Native 菜单/欢迎/risk 动态发布与身份变化       | **指定菜单切片完成**：草稿/发布、禁用隐藏、名字/顺序/既有页面、退出、旧可见菜单迟到点击拒绝；补实际自定义 HTTPS 页面导航                                        | 原生企业选择/身份切换迟到响应仍单列；真实企微排除                                                                    |
+| G05 | 助理渠道与真实本地自动化入口                   | **指定 Native/Host/Main 切片完成**：创建/run-now/绑定原 task；完整 Main 自然到期和完整重启继续原任务，撤权后真实模型调用/账本增量 0                             | Main 已派发输入后才模型拒绝，不称 scheduler 未派发；agents/全局作用域与移动云助手仍单列                              |
+| G06 | 个人模型/技能/本机 MCP 的生产入口开关          | **指定 Host/CLI/Native 切片完成**：个人模型、用户/项目 Skill、原生 MCP 设置连接/撤权；原生技能先选后撤权零写、恢复导入立即可见、再次拒读文件保留                | Native 技能开关、删除确认/取消及撤权已补测；复制/移除以 source FS 证据为限，更广身份切换 UI 单列；外部 MCP 排除      |
+| G07 | 正式 CLI builtin Read/Write/Bash/WebFetch 出口 | **指定 Host/CLI 切片完成**：原5项真实副作用及批准/Hook/yolo后撤权；补公共HTTPS正文→提取→后继模型，同runtime移除域名后拒绝且0目标网络帧                          | Native 工具 UI 与各平台限制分别验收，不能推广为任意网站或带身份页面成功                                              |
+| G08 | 分享文件完整允许/撤权出口                      | **完成指定 Host/service 切片**：5 项新测试+26 回归，299 次 HTTP；生产文件源 stat/read→自动 manifest/hash→实际 multipart→confirm，并测 prepare/upload 后撤 files | Native 分享 UI、正式外部分享及组织协作独立保留；不回滚已发生的分享/上传副作用                                        |
 
 ## 新增实测的具体边界
 
-Native 使用独立 HOME、数据根、真实后台文件 DB/TLS、自有 CA 和 production Electron/Main/Host/staged CLI。只通过实际 DOM 输入、点击和原生目录选择器操作；未注入 React 状态或替换业务响应。身份初始会话来自真实 email 登录 API，写入生产加密存储后由原身份 owner 恢复，**不是真实企微扫码**。
+Native 使用独立 HOME、数据根、真实后台文件 DB/TLS、自有 CA 和 production Electron/Main/Host/staged CLI。通过实际 DOM 输入、点击、可用的原生选择器及正式启动参数操作，锁屏后的系统选择器未验收；未注入 React 状态或替换业务响应。身份初始会话来自真实 email 登录 API，写入生产加密存储后由原身份 owner 恢复，**不是真实企微扫码**。
 
 16 个 Native 有名检查、13 次本机受控供应商请求均有对应账本 settled；其中 2 次是另一成员的初始化对照，9 次为三组 Skill 主调用/后继调用/标题，2 次为自动化允许调用。关闭 local 后的自动化尝试及退出后的发送均未增加供应商或账本。自动化 UI 记录的“已运行”统计接受次数，不能把拒绝的模型调用算成功。模型 IO 证明当前 Skill 版本正文进入请求；目录和缓存存在不被当作执行证明。
 
@@ -86,9 +86,9 @@ Agent 子任务实测为父模型工具调用→子 SSE→父继续→标题 JSO
 
 此前候选为 `0d9588624db3368787cbbd86c3d27a92b327e1d169614f1b1162f7e61895454c`：Root相关23项和独立production Host默认任务/绑定自动化1项，共24个不重复真实用例通过。Native同产物专家允许/后台撤权/重启原task复测也通过；Core29（含任务读取4）及Host/UI15定向通过。格式后正式ordered重建仍为同一字节SHA，证据不混用中间fd6或原8663产物。当时仍未完成的 Native 设置、Main scheduler 与动态工作流，现已按下节指定范围补验；分享/身份界面、managed 远端和平台验收仍保留。
 
-## a684 新产物与原生导入收尾
+## a684 阶段产物与原生导入收尾
 
-当前正式 CLI/source 与 Desktop staged 均为 `a684e40751e1f9bf7e8e7e3710f8518001451ec33d74964e5502a297a1d23d0c`。工作流直接入口的文件权限、准备/VM、转录和正文回放缺口均已修复；每次 actor 模型请求仍绑定原 run，私有模型 open 携带首次 invocation 的不透明 owner proof，Host 在构建请求前比较，不向 Renderer、模型正文、read/close 或 VM 增加该字段。独立 source 探针已证有效 A→B 窗口派发前拒绝；不是仅在输出后发现身份变化。
+该阶段正式 CLI/source 与 Desktop staged 均为 `a684e40751e1f9bf7e8e7e3710f8518001451ec33d74964e5502a297a1d23d0c`。工作流直接入口的文件权限、准备/VM、转录和正文回放缺口均已修复；每次 actor 模型请求仍绑定原 run，私有模型 open 携带首次 invocation 的不透明 owner proof，Host 在构建请求前比较，不向 Renderer、模型正文、read/close 或 VM 增加该字段。独立 source 探针已证有效 A→B 窗口派发前拒绝；不是仅在输出后发现身份变化。
 
 - 正式 G02 10/10：1,699 HTTP、54 本机供应商/54 settled，18 CLI、30 端口、10 临时目录全部清理。模型 Create/Amend/Resume 未分类 capability 及未公开 expert selector 仍按实际拒绝记录，不能冒称新增支持。
 - 私有 stdio 5/5：187 HTTP、7 供应商/7 账本（5 settled、2 取消 uncertain）。另 Root 23/23 实际回归覆盖专家、身份、缓存故障/崩溃、个人技能/MCP、Builtin、副作用、子任务和一次公开 HTTPS；含一项夹具准备超时清理检查。各自历史证据先归档，未拿旧候选结果冒充新候选。
@@ -98,4 +98,17 @@ Agent 子任务实测为父模型工具调用→子 SSE→父继续→标题 JSO
 
 技能导入收尾只重建 Desktop，最终 Main `15610678767611a3efeefaacafc84a0749df7818aed9c70fdfbb995e9c20b899`、Host `29ed78eadf5f9529ad4909502aa777e8ecaec27f0c543fa8fa90bb0e041312b5`；Renderer 文案收尾后 Main/Host/CLI 不变。完整 enterprise-policy 最终 Core 106、Host 197 通过，专项工作流 22、技能导入 runner 39（含分组）、UI 提示 9 均通过；后台 250/250。类型、lint、定向正确版本格式和架构检查通过，客户端 114 既有 warning、0 error。
 
-Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入口的证据，不伪造 OAuth 用户或服务。个人技能其他管理入口、Native workflow UI、managed 远端/手机、正式分享/组织协作和 Windows/Linux/macOS 安装包仍保留。远端模型/命令探针曾被工具自动安全审查以可能网络安全风险拦截，已停止并保留历史证据；后续仅独立 File/System 元数据夹具，不重试被拦动作。CI 所在 GitHub 远端当前为空，公开发布代码不在既有授权内；未 push/触发发布。主后台保持运行，只读业务表哈希不变，相邻客户端仓库干净。原 T13c6/T13d/U02/U03/U04/U05 仍不因上述局部完成而关闭。
+Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入口的证据，不伪造 OAuth 用户或服务。个人技能开关/删除和 Native workflow UI 的后续指定补测见下一节；managed 远端/手机、正式分享/组织协作和 Windows/Linux/macOS 安装包仍保留。远端模型/命令探针曾被工具自动安全审查以可能网络安全风险拦截，已停止并保留历史证据；后续仅独立 File/System 元数据夹具，不重试被拦动作。CI 所在 GitHub 远端当前为空，公开发布代码不在既有授权内；未 push/触发发布。主后台保持运行，只读业务表哈希不变，相邻客户端仓库干净。原 T13c6/T13d/U02/U03/U04/U05 仍不因上述局部完成而关闭。
+
+## 755438 当前产物与 Native 追加验收
+
+正式 CLI 与 staged 当前为 `755438930a2f893a12a2dd339c4b281d06413412ddf3774fd8633f1c33fd63fa`；Main `5170a79a4cd71def9f9420ca16fe0652d0f94fc53a5abe955364cee8f93a1f75`，Host `d717e06c3a76255109aaf4e200b02c215f2c285f12a9947d153934321c116cc6`。这些结果不把旧候选的全部用例冒称在新候选上重跑。
+
+- G06 个人技能管理：修复实际 Native 开关绕过权限的问题，将六个公开方法归到既有 scope/队列，包含异步等待、当前身份、文件和个人/危险技能权限。Native 允许→撤权开关零写、恢复后启用、删除确认期间撤权拒绝、取消保留及允许后删除均通过；新开关具有技能名 AX。详见 [管理报告](client-native-skill-management-test-2026-10-17.md)。复制/移除及队列 race 有真实 FS source 证据，不能冒称所有 Native 入口完成。
+- RendererReady：原 Native 第二实例目录请求长期 cached，实际原因是 UI 没有调用已有 ready 通知。原 Hook 的平台监听建立后通知，StrictMode 清理取消旧 microtask；没有新增缓存或重试。新 Main 同运行中接收正式 `--open-workspace`，实际项目和 composer 均切换且仅路由一次；原生系统选择器仍受锁屏阻断。
+- G02 Native workflow：正式 out 的未打包 Electron 沿原 dev alwaysOn 路径完成 SaveWorkflow 原批准、Run、Cancel、原会话冷恢复同一 run。旧限额组保留 9 条账本、1 uncertain 与两次父通知 402；新独占组通过真实 API 设足够的测试额度，第一 ask 未重跑，最终同 run 结果进入父模型请求并在 UI 新增消息。新组 10 supplier/10 ledger（9 settled、1 uncertain），0 次 402，详见 [新工作流报告](client-native-workflow-label-test-2026-10-17.md)。生产安装包尚无已接通的灰度来源，不由 dev 验收替代。
+- 模型名称：后台已有 name 被客户端丢弃，现由原私有 Gateway→Provider 同锁整体替换，与候选 ID/owner 一致，再由 ModelSelection 投影；没有改变执行 ID。Native 初名、后台同 ID 改名、实际“重新读取”、selector/composer 新名和两次冷启动前后对话均通过。公开 writer 拒私有 map、远端 Source 去除/Target 写前拒绝；该 strict schema 需要 CLI 与桌面一起迁移。详见 [名称与文件提示报告](client-native-model-label-test-2026-10-17.md)。
+- 新模型名称源码经独立审查：79 相关回归、UI/实际 HTTP 2 项通过，HTTP 13 阶段含换 owner、缺名称与 401/403/402 清空/重启，0 生成。完整 enterprise-policy 为 Core 106、Host 274；类型/严格测试类型/格式/架构通过，最终 Lint 113 既有 warning、0 error，不把重叠的测试数量相加。
+- 新 CLI 实际代表性回归为 25 个命名检查：child/expert/personal 9，workflow 10，skills stdio 合同 1，私有 relay 5。前组 57 supplier/57 settled；workflow/relay 为 62 supplier/62 ledger（60 settled、2 uncertain）。两组来源明确，旧证据已归档，实际 CLI/端口/根均清理。Native 名称组另有 6 supplier/6 settled（含初始化对照 2），17 已知 PID/4 端口/数据根/两阶段 BH 均清理。
+
+当前日志又发现旧 desktop context prompt、client-scenes 与 help 配置请求 404，正在追踪实际 owner 和现有合同，不能凭对话正常声称全部配置链路已通过。Native 组织切换/分享、生产工作流灰度、managed 远端/手机、跨平台发行与上述未解配置仍保留。主后台只读复核 health 200、原 PID 37266、9 张业务表哈希不变，外部客户端 checkout 干净；真实企微、外部 MCP、网盘和付费模型未参与。
