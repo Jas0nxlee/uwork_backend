@@ -1,0 +1,103 @@
+{
+  "defaults": {
+    "scenes": {
+      "draftSuggestions": [],
+      "scheduledTemplates": [],
+      "offPeakTemplates": []
+    },
+    "help": {
+      "communityUrls": { "zh-CN": null, "en-US": null },
+      "feedback": { "mode": "disabled", "url": null }
+    },
+    "desktop": {
+      "desktopContextPrompt": { "enabled": false },
+      "rendererActionTrace": {
+        "enabled": false,
+        "sampleRatio": 0,
+        "enabledGroups": []
+      }
+    },
+    "plugin-store": { "order": null }
+  },
+  "published": {
+    "scenes": {
+      "draftSuggestions": [
+        {
+          "id": "controlled-draft",
+          "title": { "cn": "受控推荐", "en": "Owned suggestion" },
+          "prompt": { "cn": "说明当前任务", "en": "Explain the current task" },
+          "icon": "sparkles",
+          "actions": ["NAVIGATE:AUTOMATIONS"]
+        }
+      ],
+      "scheduledTemplates": [
+        {
+          "id": "controlled-schedule",
+          "title": { "cn": "工作日整理" },
+          "prompt": { "cn": "整理本次自有项目" },
+          "cronExpr": "0 9 * * 1-5"
+        }
+      ],
+      "offPeakTemplates": [
+        {
+          "id": "controlled-idle",
+          "title": { "cn": "自有整理" },
+          "prompt": { "cn": "整理自有资料" },
+          "description": { "cn": "仅提供模板，不授予执行权限" }
+        }
+      ]
+    },
+    "help": {
+      "communityUrls": {
+        "zh-CN": "https://help.example.test/zh",
+        "en-US": null
+      },
+      "feedback": {
+        "mode": "external",
+        "url": "https://help.example.test/feedback"
+      }
+    },
+    "desktop": {
+      "desktopContextPrompt": { "enabled": true },
+      "rendererActionTrace": {
+        "enabled": true,
+        "sampleRatio": 0.1,
+        "enabledGroups": ["core", "workbench"]
+      }
+    },
+    "plugin-store": {
+      "order": {
+        "code": {
+          "categoryOrder": ["controlled-category"],
+          "pluginOrder": { "controlled-category": ["owned-plugin@fixture"] }
+        }
+      }
+    }
+  },
+  "cron": {
+    "accepted": [
+      "0 * * * *",
+      "15 9 * * *",
+      "0 9 * * 1-5",
+      "0 9 * * 0,2,6",
+      "30 8 1 * *",
+      "*/15 * * * *",
+      "5 */2 * * *",
+      "0 9 */3 * *"
+    ],
+    "rejected": [
+      "* * * * *",
+      "0 9 * * 1-4",
+      "0 9 * * 5,1",
+      "0 9 * * 1#1",
+      "0 0 9 * * *",
+      "0 9 1 3 *",
+      "0 9 1 */2 *",
+      "00 9 * * *",
+      "60 9 * * *",
+      "0 24 * * *",
+      "0 9 0 * *",
+      "*/60 * * * *"
+    ]
+  }
+}

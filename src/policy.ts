@@ -5,6 +5,10 @@ import type { Db } from "./db.js";
 import { authenticate, inScope, requirePermission } from "./access.js";
 import { audit } from "./events.js";
 import {
+  clientExperienceDefaults,
+  clientExperienceSchemas,
+} from "./client-experience.js";
+import {
   fail,
   id,
   now,
@@ -63,6 +67,7 @@ const ipRange = z
     }
   }, "IP 或 CIDR 格式错误");
 export const configurationSchemas = {
+  ...clientExperienceSchemas,
   menus: z
     .object({ items: z.array(menu).max(50) })
     .strict()
@@ -126,8 +131,13 @@ export const configKind = z.enum([
   "personal",
   "network",
   "security",
+  "scenes",
+  "help",
+  "desktop",
+  "plugin-store",
 ]);
 export const defaults: Record<ConfigKind, unknown> = {
+  ...clientExperienceDefaults,
   menus: {
     items: [
       {

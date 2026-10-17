@@ -17,4 +17,4 @@
 
 另外，Help 本地 ENOENT 属测试夹具布局问题。未打包 Main 从 `app.getAppPath()/../../config/default.json` 读取；旧 fixture 只拷 out 而未拷该资源。正式 electron-builder 已把 `clients/uwork/config/default.json` 放入 `resources/config/default.json`，packaged resolver 对应它，不据夹具失配报告正式包丢资源。后续夹具改为 owned `root/runtime/app` 与 `root/config/default.json`，保留真实 isPackaged/getAppPath 并核对正式源/目标 SHA；禁止写共享 `repo/data/config`。
 
-产品路径待明确：补充自有后台发布和管理合同，或保留本地能力并明确停止旧远端控制面，或将本轮限为记录缺口。已请求这一产品偏好，独立的组织切换、聚合筛选和终端凭据 UI 实测继续进行。当前尚未改变产品读取者，不能将缺口标为修复。
+用户已选择补充自有后台配置和管理页面。当前按 [自有控制面规格](../SPEC-client-experience.md) 增加四类现有发布配置，并分层实现客户端接线；本轮不是停止推荐/帮助功能。独立的组织切换、聚合筛选和终端凭据 UI 切片已完成，夹具公开资源布局也已修复。原有真实 404 证据保留，直到新产物实际接通和复测后才能将控制面缺口标为修复。
