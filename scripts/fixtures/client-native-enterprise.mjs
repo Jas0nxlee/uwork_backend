@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto";
-import { readFile, writeFile, mkdir, symlink, rm } from "node:fs/promises";
+import { randomBytes, createHash } from "node:crypto";
+import { readFile, writeFile, mkdir, symlink, rm, cp } from "node:fs/promises";
 import { createServer as httpServer, request as httpRequest } from "node:http";
 import { createServer as httpsServer } from "node:https";
 import { createServer as netServer } from "node:net";
@@ -285,7 +285,7 @@ await api(p + "/limits", "PUT", {
   amount: 150000,
 });
 const bobPassword = randomBytes(24).toString("hex");
-const bob = await api(p + "/members", "POST", {
+await api(p + "/members", "POST", {
   email: "journey-b@example.test",
   name: "企业用户乙",
   password: bobPassword,
@@ -392,9 +392,36 @@ await writeFile(
 );
 await writeFile(
   join(appRoot, "entry.cjs"),
-  `const {app}=require('electron');app.setAsDefaultProtocolClient=()=>false;import(${JSON.stringify(pathToFileURL(join(client, "packages/desktop/out/main/index.js")).href)});`,
+  `require('./env-guard.cjs');const {app}=require('electron');app.setAsDefaultProtocolClient=()=>false;import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
 );
-for (const name of ["out", "bundled-agents", "node_modules"])
+// 未打包的 Main 会搜索开发环境文件；拷贝正式产物到隔离根，不能借源目录启动。
+await cp(join(client, "packages/desktop/out"), join(appRoot, "out"), {
+  recursive: true,
+});
+const mainHash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const mainEntrySha256 = mainHash(
+  await readFile(join(appRoot, "out/main/index.js")),
+);
+if (
+  mainEntrySha256 !==
+  mainHash(await readFile(join(client, "packages/desktop/out/main/index.js")))
+)
+  throw Error("Copied production Main differs from source artifact");
+await writeFile(
+  join(appRoot, "env-guard.cjs"),
+  `const fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),url=require('node:url');
+const roots=${JSON.stringify([process.cwd(), client])};
+const report=${JSON.stringify(join(process.cwd(), evidence, "runtime-env-guard.json"))};
+const state={active:true,pid:process.pid,blockedSourceEnvironmentReads:0};
+const record=()=>fs.writeFileSync(report,JSON.stringify(state),{mode:0o600});
+const blocked=file=>{try{const p=file instanceof URL?url.fileURLToPath(file):typeof file==='string'?path.resolve(file):'';return roots.includes(path.dirname(p))&&path.basename(p).startsWith('.env')}catch{return false}};
+const refuse=()=>{state.blockedSourceEnvironmentReads++;record();return Object.assign(Error('Native fixture excludes source environment files'),{code:'ENOENT'})};
+for(const [obj,key]of [[fs,'readFileSync'],[fsp,'readFile']]){const original=obj[key];obj[key]=function(file,...args){if(blocked(file)){const error=refuse();if(key==='readFile')return Promise.reject(error);throw error}return Reflect.apply(original,this,[file,...args])}};
+const exists=fs.existsSync;fs.existsSync=function(file){if(blocked(file)){state.blockedSourceEnvironmentReads++;record();return false}return Reflect.apply(exists,this,[file])};
+require('node:module').syncBuiltinESMExports();record();`,
+  { mode: 0o600 },
+);
+for (const name of ["bundled-agents", "node_modules"])
   await symlink(
     join(client, name === "node_modules" ? name : "packages/desktop/" + name),
     join(appRoot, name),
@@ -411,6 +438,8 @@ const meta = {
   cert,
   home,
   modelId: model.id,
+  mainEntrySha256,
+  copiedProductionMain: true,
   supplierOrigin: `http://127.0.0.1:${upstream.address().port}`,
   tenantId: owner.tenantId,
   memberId: member.id,
@@ -547,6 +576,7 @@ async function launch() {
           "config/provider/zcode-builtin.json",
         ),
         ZCODE_ENV: "production",
+        ZCODE_BASE_URL: origin,
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
