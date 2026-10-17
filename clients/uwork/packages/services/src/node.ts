@@ -1762,6 +1762,8 @@ export function createLocalServices(options: {
   const ucasGatewayService = createUcasGatewayService({
     store: ucasGatewayStore,
     readIdentitySession: async () => (await enterpriseIdentitySessionStore.read()).session,
+    // 网关复用同一身份owner的即时撤销代际，持久化Token不能允许退出后的迟到写入。
+    readIdentityAuthority: () => readEnterpriseAuthority(),
     resolveBackend: async () => {
       if (options.serviceAuthorityMode !== "desktop-local") return "ucas";
       const config = await loadWeComIdentityConfig(

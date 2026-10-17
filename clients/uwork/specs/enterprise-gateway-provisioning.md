@@ -8,6 +8,35 @@
 
 本切片覆盖身份、模型与用量。资产/菜单/Host 安全的完整终端应用另需通过后端 HostConfigurationPorts 合同接入各自现有所有者，不能把快照获取写成已完成所有终端 enforcement。真实扫码与三平台安装仍需逐组织验收。
 
+## 自有后端当前身份与迟到结果（2026-10-17）
+
+真实HTTPS/磁盘联动发现：models响应已在服务端计算但延迟发送时退出，旧同步仍将已吊销device写入Provider并返回ready；usage晚回包也能返回旧身份视图，applyModels直接沿用缓存模型清单而未读当前身份。
+
+- EnterpriseIdentityService仍唯一拥有generation/revision/session/AbortSignal。Gateway仅持有单次操作的私有authority引用，不创建第二份身份或授权缓存。Node注入现有readEnterpriseAuthority端口；managed=uwork时缺少端口、session不符、issuer/组织/用户不符或端口失效均拒绝，不宽松降级。旧UCAS协议保持原流程。
+- 每次sync/refreshUsage/refreshModels/applyModels绑定开始时的当前owner。等待identity/config/网络/Provider后、发起新的副作用前和发布视图前都复查authority及持久session；退出/换身份/issuer变更/销毁使旧操作失效。HTTP合并owner AbortSignal与已有超时，迟到成功和迟到错误都不能复活ready或覆盖新身份投影。
+- 同一用户/组织退出再登录也产生新generation/token；不能仅比较profile ID复用旧目录。managed模型快路径必须复查原投影lease及issuer origin，失效时走同一sync重取当前目录；refreshUsage/refreshModels不得把新owner的局部结果混入旧user/key/endpoint/models投影。
+- applyModels是写命令：缓存endpoint/available只是投影，不能代替当前owner。退出后不先调用getView也必须拒写；跨身份缓存先清理或走同一sync重新获取，不能拿前一组织清单写入当前Provider。
+- ProviderRuntime仍为文件唯一写者，Gateway通过现有私有Symbol端口admit写入。写者已接受的文件事务没有分布式回滚保证；本切片拒绝admission之前已经失效的owner，并拒绝失效后的结果提交和后续请求。真正模型执行继续由Host/后端每次准入，磁盘上历史key不构成授权。
+- 验收使用公开email交互session和device API，加密SharedIdentitySessionStore仅作明确合成登录初始化桥，真实adapter.restore/logout/Gateway/ProviderRuntime/NodeApiClient/Host网络与当前后端全部走实际TCP。`profile.provider=wecom`仅为旧schema枚举，不调用任何企微授权/provider。
+
+```mermaid
+sequenceDiagram
+  participant Id as EnterpriseIdentityService唯一身份owner
+  participant Gw as UcasGatewayService单次操作
+  participant Api as 自有后端HTTPS
+  participant Pr as ProviderRuntime唯一文件写者
+  Gw->>Id: 读取私有authority + persisted session
+  Gw->>Api: 绑定issuer/owner signal的目录或用量请求
+  Id->>Id: logout/切身份，递增generation并abort
+  Api-->>Gw: 原请求迟到响应
+  Gw->>Id: 复查同一generation/revision/session
+  Id-->>Gw: 已失效
+  Gw-->>Gw: 丢弃结果，清除旧身份敏感投影
+  Note over Gw,Pr: 失效时不admit新的Provider写入、不返回ready
+```
+
+实际平台安装/真实扫码/复杂供应商能力与外部MCP/网盘不由此合成桥验收。原始RED与GREEN另存后端仓evidence/client-live-20261017-gateway，不提交凭据或owned测试数据。
+
 ## 背景与目标
 
 企业微信登录此前只提供姓名展示，模型 Key 与网关地址需要手工填写。本能力让已认证的 UWork 桌面客户端复用现有 ucas-proxy（control-plane）后台接口：

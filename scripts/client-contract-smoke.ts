@@ -6,9 +6,7 @@ import { createApp } from "../src/app.js";
 import { bootstrap } from "../src/identity.js";
 
 test("actual UWork identity and gateway adapters negotiate the self-owned backend", async (t) => {
-  const root = resolve(
-    process.env.UWORK_CLIENT_PATH ?? "../uwork_backend-client",
-  );
+  const root = resolve(process.env.UWORK_CLIENT_PATH ?? "clients/uwork");
   let failModels = false;
   let failProvisioning = false;
   const { createUWorkIdentityAdapter } = await import(
@@ -19,6 +17,22 @@ test("actual UWork identity and gateway adapters negotiate the self-owned backen
   const { createUcasGatewayService } = await import(
     pathToFileURL(
       `${root}/packages/services/src/ucas-gateway/ucasGatewayService.ts`,
+    ).href
+  );
+  const { createEnterpriseIdentityService, disposeEnterpriseIdentityService } =
+    await import(
+      pathToFileURL(
+        `${root}/packages/services/src/enterprise-identity/enterpriseIdentityService.ts`,
+      ).href
+    );
+  const { createLocalIdentitySessionStore } = await import(
+    pathToFileURL(
+      `${root}/packages/services/src/enterprise-identity/identitySessionStore.ts`,
+    ).href
+  );
+  const { readEnterpriseIdentityAuthority } = await import(
+    pathToFileURL(
+      `${root}/packages/services/src/enterprise-identity/identityServiceLifecycle.ts`,
     ).href
   );
   const app = await createApp({
@@ -115,6 +129,28 @@ test("actual UWork identity and gateway adapters negotiate the self-owned backen
     (await adapter.restore(session, signal)).profile.tenantId,
     tenantId,
   );
+  // 旧协议fixture也复用真正身份owner，不能用持久Token或手造generation代替私有准入。
+  const privateCredentials = new Map<string, string>();
+  const credentials = {
+    async load(key: string) {
+      return privateCredentials.get(key) ?? null;
+    },
+    async save(key: string, value: string) {
+      privateCredentials.set(key, value);
+    },
+    async delete(key: string) {
+      privateCredentials.delete(key);
+    },
+  };
+  const identityStore = createLocalIdentitySessionStore(credentials);
+  await identityStore.write(session, 0, () => true);
+  const identityOwner = createEnterpriseIdentityService({
+    credentials,
+    adapter,
+    sessionStore: identityStore,
+  });
+  t.after(() => disposeEnterpriseIdentityService(identityOwner));
+  assert.equal((await identityOwner.restoreSession()).status, "authenticated");
   let providerToken = "";
   let providerModels: readonly string[] = [];
   const service = createUcasGatewayService({
@@ -125,8 +161,9 @@ test("actual UWork identity and gateway adapters negotiate the self-owned backen
       async write() {},
     },
     async readIdentitySession() {
-      return session;
+      return (await identityStore.read()).session;
     },
+    readIdentityAuthority: () => readEnterpriseIdentityAuthority(identityOwner),
     async resolveApiBaseUrl() {
       return "https://fixture.example.test";
     },

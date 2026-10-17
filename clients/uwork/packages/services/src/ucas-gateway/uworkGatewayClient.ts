@@ -22,7 +22,9 @@ export function createUWorkGatewayClient(options: UcasGatewayClientOptions): Uca
       response = await fetchImpl(new URL(path, options.apiBaseUrl), {
         method,
         redirect: "error",
-        signal: AbortSignal.timeout(options.timeoutMs ?? 20000),
+        signal: options.signal
+          ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs ?? 20000)])
+          : AbortSignal.timeout(options.timeoutMs ?? 20000),
         headers: {
           authorization: `Bearer ${options.token}`,
           ...(body === undefined ? {} : { "content-type": "application/json" }),

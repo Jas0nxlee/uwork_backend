@@ -1,10 +1,7 @@
 import { Emitter } from "@zcode/rpc";
 import {
   ucasGatewayModelsSchema,
-  ucasGatewaySyncResultSchema,
   ucasGatewayViewSchema,
-  type EnterpriseIdentitySession,
-  type UcasGatewayEndpoint,
   type UcasGatewayError,
   type UcasGatewaySyncResult,
   type UcasGatewaySubscription,
@@ -12,24 +9,30 @@ import {
   type UcasGatewayView,
 } from "@zcode/shared";
 import type { IUcasGatewayService, UcasGatewayProvisioningTarget } from "./contract.js";
-import {
-  UcasGatewayRequestError,
-  createUcasGatewayClient,
-  type UcasGatewayClient,
-} from "./ucasGatewayClient.js";
+import { UcasGatewayRequestError, type UcasGatewayClient } from "./ucasGatewayClient.js";
 import type { UcasGatewayStore } from "./ucasGatewayStore.js";
-import { createUWorkGatewayClient } from "./uworkGatewayClient.js";
+import {
+  createGatewayIdentityScope,
+  createScopedGatewayClient,
+  isGatewayProjectionCurrent,
+  type GatewayIdentityScope,
+  type GatewayIdentitySource,
+} from "./gatewayIdentityScope.js";
 import { createServiceLogger } from "../logger/serviceLogger.js";
+import {
+  resolveGatewayEndpoint as resolveEndpoint,
+  ensureGatewayKey as ensureKey,
+  readGatewayPlanModels as readPlanModels,
+} from "./gatewayProvisioningReads.js";
+import {
+  uncommittedGatewayResult,
+  committedGatewayResult,
+  readyGatewayProjection,
+  emptyGatewayProjection,
+} from "./gatewayViewProjection.js";
 
-/** 企业账号在本机没有 Key 时自动创建的网关 Key 别名（服务端上限 13 字符）。 */
-const GATEWAY_KEY_ALIAS = "UWork";
-
-export interface UcasGatewayServiceOptions {
+export interface UcasGatewayServiceOptions extends GatewayIdentitySource {
   readonly store: UcasGatewayStore;
-  readonly readIdentitySession: () => Promise<EnterpriseIdentitySession | null>;
-  /** 企业认证服务根地址；同时承载网关 API。 */
-  readonly resolveApiBaseUrl: () => Promise<string | undefined>;
-  readonly resolveBackend?: () => Promise<"ucas" | "uwork">;
   readonly provisioning: UcasGatewayProvisioningTarget;
   readonly fetchImpl?: typeof fetch;
   readonly timeoutMs?: number;
@@ -47,6 +50,7 @@ export function createUcasGatewayService(
   let hydrated = false;
   let syncTask: Promise<UcasGatewaySyncResult> | null = null;
   let usageSerial = 0;
+  let projectedScope: GatewayIdentityScope | null = null;
   let view: UcasGatewayView = {
     revision: 0,
     status: "signed-out",
@@ -63,7 +67,10 @@ export function createUcasGatewayService(
 
   const publish = (next: Omit<UcasGatewayView, "revision">): void => {
     if (disposed) return;
-    const parsed = ucasGatewayViewSchema.safeParse({ ...next, revision: view.revision + 1 });
+    const parsed = ucasGatewayViewSchema.safeParse({
+      ...next,
+      revision: view.revision + 1,
+    });
     if (!parsed.success) {
       // 视图是不可信外部数据的投影；不合格的字段宁可丢弃也不能进入 Renderer。
       log.warn(undefined, "UCAS gateway view was rejected by its schema");
@@ -103,89 +110,58 @@ export function createUcasGatewayService(
     }
     return diagnostic("failed", "unexpected");
   };
-  const signedOutResult = (): UcasGatewaySyncResult => ({
-    view: structuredClone(view),
-    committed: false,
-    apiKeyApplied: false,
-    apiKeyReused: false,
-    providerHasApiKey: false,
-    modelsAdded: 0,
-    modelsSkipped: 0,
-  });
-  /**
-   * 只使用公网 HTTPS 入口。服务端同时下发 `llm_base_url_internal`（明文 http、仅校园网可达），
-   * 需要统一走 TLS 且不把内网地址带进客户端，因此既不探测也不写入 Provider 配置。
-   */
-  const resolveEndpoint = (endpoints: { publicBaseUrl: string }): UcasGatewayEndpoint => ({
-    baseUrl: endpoints.publicBaseUrl,
-    publicBaseUrl: endpoints.publicBaseUrl,
-    internalBaseUrl: null,
-    source: "public",
-  });
-  const ensureKey = async (
-    client: UcasGatewayClient,
-  ): Promise<{ key: UcasGatewayView["key"]; apiKey: string; reused: boolean }> => {
-    if (client.issueDeviceCredential)
-      return { ...(await client.issueDeviceCredential()), reused: false };
-    const keys = await client.listKeys();
-    const active = keys.find((item) => item.status === "active") ?? keys[0];
-    if (active) {
-      const apiKey = await client.revealKey(active.id);
-      return { key: active, apiKey, reused: true };
-    }
-    const generated = await client.generateKey(GATEWAY_KEY_ALIAS);
-    return { key: generated.key, apiKey: generated.apiKey, reused: false };
-  };
-  const readPlanModels = async (
-    client: UcasGatewayClient,
-    endpoint: UcasGatewayEndpoint,
-    apiKey: string,
-  ): Promise<{ ids: readonly string[]; unrestricted: boolean; hasSubscription: boolean }> => {
-    const plan = await client.readPlanModels();
-    if (plan.models.length > 0) {
-      return {
-        ids: plan.models,
-        unrestricted: plan.unrestricted,
-        hasSubscription: plan.hasSubscription,
-      };
-    }
-    // 套餐不限模型时回退到协议级 `/models`；读取失败不阻断 Key 与端点配置。
-    try {
-      const ids = await client.listEndpointModels(endpoint.baseUrl, apiKey);
-      return { ids, unrestricted: plan.unrestricted, hasSubscription: plan.hasSubscription };
-    } catch {
-      return { ids: [], unrestricted: plan.unrestricted, hasSubscription: plan.hasSubscription };
-    }
+  const signedOutResult = () => uncommittedGatewayResult(view);
+  const clearIdentityProjection = (invalidScope?: GatewayIdentityScope) => {
+    // 旧操作不能清掉新owner已提交的视图；失效投影才移除全部身份派生数据。
+    if (
+      projectedScope?.managed &&
+      projectedScope.isCurrent() &&
+      projectedScope.signal !== invalidScope?.signal
+    )
+      return;
+    const managed = projectedScope?.managed || invalidScope?.managed;
+    projectedScope = null;
+    publish(
+      emptyGatewayProjection(
+        view,
+        options.readIdentityAuthority?.()?.session ? "idle" : "signed-out",
+        !!managed,
+      ),
+    );
   };
   const runSync = async (reason: string): Promise<UcasGatewaySyncResult> => {
     await hydrate();
     const session = await options.readIdentitySession();
     if (!session) {
-      publish({ ...view, status: "signed-out", error: null });
+      projectedScope = null;
+      clearIdentityProjection();
       return signedOutResult();
     }
     const apiBaseUrl = await options.resolveApiBaseUrl();
     if (!apiBaseUrl) {
-      publish({ ...view, status: "idle", configured: false, error: "unconfigured" });
+      publish({
+        ...view,
+        status: "idle",
+        configured: false,
+        error: "unconfigured",
+      });
       return signedOutResult();
     }
     publish({ ...view, status: "syncing", configured: true, error: null });
-    const client = (
-      (await options.resolveBackend?.()) === "uwork"
-        ? createUWorkGatewayClient
-        : createUcasGatewayClient
-    )({
-      apiBaseUrl,
-      token: session.token,
-      issuerOrigin: session.issuerOrigin,
-      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-      ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-    });
+    const backend = (await options.resolveBackend?.()) ?? "ucas";
+    let scope: GatewayIdentityScope | undefined;
     try {
+      scope = createGatewayIdentityScope(options, session, apiBaseUrl, backend, () => disposed);
+      await scope.assertCurrent();
+      const client = createScopedGatewayClient(options, session, apiBaseUrl, backend, scope);
       const user = await client.readProfile();
+      await scope.assertCurrent();
       const keyInfo = await ensureKey(client);
+      await scope.assertCurrent();
       const endpoint = resolveEndpoint(await client.readGatewayEndpoints());
+      await scope.assertCurrent();
       const plan = await readPlanModels(client, endpoint, keyInfo.apiKey);
+      await scope.assertCurrent();
       const applied = await options.provisioning.apply({
         baseUrl: endpoint.baseUrl,
         apiKey: keyInfo.apiKey,
@@ -194,11 +170,13 @@ export function createUcasGatewayService(
           : {}),
         modelIds: plan.ids,
       });
+      await scope.assertCurrent();
       // Provider 确认写入后才吊销旧凭据，查询/写入失败不能破坏原本可用的配置。
       if (client.retireDeviceCredential && view.key && view.key.id !== keyInfo.key?.id)
         await client
           .retireDeviceCredential(view.key.id)
           .catch(() => log.warn(undefined, "Previous device credential could not be retired"));
+      await scope.assertCurrent();
       // 套餐读取失败不阻断已完成的关键配置：视图字段要求可变数组，显式拷贝一次。
       const subscriptions: UcasGatewaySubscription[] = [
         ...(await client.readSubscriptions().catch(() => [])),
@@ -209,6 +187,7 @@ export function createUcasGatewayService(
           metric: view.usage?.metric ?? "requests",
         })
         .catch(() => null);
+      await scope.assertCurrent();
       const lastSyncedAt = now();
       await options.store
         .write({
@@ -220,41 +199,32 @@ export function createUcasGatewayService(
           lastSyncedAt,
         })
         .catch(() => log.warn(undefined, "UCAS gateway state was not persisted"));
-      publish({
-        ...view,
-        status: "ready",
-        configured: true,
-        user,
-        endpoint,
-        key: keyInfo.key,
-        subscriptions,
-        usage,
-        models: ucasGatewayModelsSchema.parse({
-          available: [...plan.ids],
-          unrestricted: plan.unrestricted,
-          hasSubscription: plan.hasSubscription,
-          appliedCount: plan.ids.length,
-          pendingCount: 0,
-        }),
-        lastSyncedAt,
-        error: null,
-      });
+      await scope.assertCurrent();
+      projectedScope = scope;
+      publish(
+        readyGatewayProjection(
+          view,
+          { user, endpoint, key: keyInfo.key, subscriptions, usage, lastSyncedAt },
+          plan,
+        ),
+      );
       log.info(undefined, "UCAS gateway provisioning synced", {
         reason,
         endpoint: endpoint.source,
         authMode: keyInfo.reused ? "reused" : "generated",
       });
-      return ucasGatewaySyncResultSchema.parse({
-        view: structuredClone(view),
-        committed: true,
-        apiKeyApplied: applied.apiKeyApplied,
-        apiKeyReused: keyInfo.reused,
-        providerHasApiKey: applied.hasApiKey,
-        modelsAdded: applied.modelsAdded,
-        modelsSkipped: applied.modelsSkipped,
-      });
+      return committedGatewayResult(view, applied, keyInfo.reused);
     } catch (error) {
-      publish({ ...view, status: "error", configured: true, error: errorCode(error) });
+      if (backend === "uwork" && (!scope || !scope.isCurrent())) {
+        clearIdentityProjection(scope);
+        return signedOutResult();
+      }
+      publish({
+        ...view,
+        status: "error",
+        configured: true,
+        error: errorCode(error),
+      });
       return signedOutResult();
     }
   };
@@ -271,31 +241,37 @@ export function createUcasGatewayService(
     return task;
   };
   const withSession = async (
-    operation: (client: UcasGatewayClient) => Promise<void>,
+    operation: (client: UcasGatewayClient, scope: GatewayIdentityScope) => Promise<void>,
     isCurrent: () => boolean = () => true,
   ): Promise<UcasGatewayView> => {
     await hydrate();
     const session = await options.readIdentitySession();
     const apiBaseUrl = session ? await options.resolveApiBaseUrl() : undefined;
-    if (!session || !apiBaseUrl) return structuredClone(view);
-    const client = (
-      (await options.resolveBackend?.()) === "uwork"
-        ? createUWorkGatewayClient
-        : createUcasGatewayClient
-    )({
-      apiBaseUrl,
-      token: session.token,
-      issuerOrigin: session.issuerOrigin,
-      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-      ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-    });
+    if (!session || !apiBaseUrl) {
+      if (!session) {
+        projectedScope = null;
+        clearIdentityProjection();
+      }
+      return structuredClone(view);
+    }
+    const backend = (await options.resolveBackend?.()) ?? "ucas";
+    let scope: GatewayIdentityScope | undefined;
     try {
-      await operation(client);
+      scope = createGatewayIdentityScope(options, session, apiBaseUrl, backend, () => disposed);
+      await scope.assertCurrent();
+      if (
+        scope.managed &&
+        !(await isGatewayProjectionCurrent(projectedScope, view.endpoint?.baseUrl, apiBaseUrl))
+      )
+        clearIdentityProjection(scope);
+      const client = createScopedGatewayClient(options, session, apiBaseUrl, backend, scope);
+      await operation(client, scope);
+      await scope.assertCurrent();
       if (!isCurrent()) return structuredClone(view);
       if (view.error !== null) publish({ ...view, error: null });
     } catch (error) {
-      // 过期请求的失败同样不能覆盖用户当前的选择（例如连点周期后旧请求超时）。
-      if (isCurrent()) publish({ ...view, error: errorCode(error) });
+      if (backend === "uwork" && (!scope || !scope.isCurrent())) clearIdentityProjection(scope);
+      else if (isCurrent()) publish({ ...view, error: errorCode(error) });
     }
     return structuredClone(view);
   };
@@ -305,17 +281,18 @@ export function createUcasGatewayService(
     async getView() {
       await hydrate();
       const session = await options.readIdentitySession();
+      if (
+        projectedScope?.managed &&
+        !(await isGatewayProjectionCurrent(
+          projectedScope,
+          view.endpoint?.baseUrl,
+          await options.resolveApiBaseUrl(),
+        ))
+      )
+        clearIdentityProjection(projectedScope);
       if (!session && view.status !== "signed-out") {
-        publish({
-          ...view,
-          status: "signed-out",
-          user: null,
-          key: null,
-          subscriptions: [],
-          usage: null,
-          models: null,
-          error: null,
-        });
+        projectedScope = null;
+        publish(emptyGatewayProjection(view, "signed-out"));
       } else if (session && view.status === "signed-out") {
         publish({
           ...view,
@@ -333,22 +310,28 @@ export function createUcasGatewayService(
       // 只接受最后一次请求的结果，避免旧周期数据把新选择覆盖回去（界面表现为来回闪动）。
       const serial = ++usageSerial;
       return withSession(
-        async (client) => {
+        async (client, scope) => {
           const usage = await client.readUsage(request);
+          await scope.assertCurrent();
           if (serial !== usageSerial) return;
-          publish({ ...view, status: view.status === "signed-out" ? "ready" : view.status, usage });
+          publish({
+            ...view,
+            status: view.status === "signed-out" ? "ready" : view.status,
+            usage,
+          });
         },
         () => serial === usageSerial,
       );
     },
     async refreshModels() {
-      return withSession(async (client) => {
+      return withSession(async (client, scope) => {
         await hydrate();
         const endpoint = view.endpoint;
-        if (!endpoint) return;
+        if (!endpoint && !scope.managed) return;
         const plan = await client.readPlanModels();
         const local = new Set(await options.provisioning.listModels());
         const pending = plan.models.filter((modelId) => !local.has(modelId));
+        await scope.assertCurrent();
         publish({
           ...view,
           models: ucasGatewayModelsSchema.parse({
@@ -363,28 +346,51 @@ export function createUcasGatewayService(
     },
     async applyModels() {
       await hydrate();
-      const endpoint = view.endpoint;
-      const ids = view.models?.available ?? [];
-      if (!endpoint || ids.length === 0) return serializeSync("models");
-      const applied = await options.provisioning.apply({
-        baseUrl: endpoint.baseUrl,
-        modelIds: ids,
-      });
-      publish({
-        ...view,
-        models: view.models
-          ? { ...view.models, appliedCount: ids.length, pendingCount: 0 }
-          : view.models,
-      });
-      return ucasGatewaySyncResultSchema.parse({
-        view: structuredClone(view),
-        committed: true,
-        apiKeyApplied: false,
-        apiKeyReused: false,
-        providerHasApiKey: applied.hasApiKey,
-        modelsAdded: applied.modelsAdded,
-        modelsSkipped: applied.modelsSkipped,
-      });
+      const session = await options.readIdentitySession();
+      if (!session) {
+        projectedScope = null;
+        clearIdentityProjection();
+        return signedOutResult();
+      }
+      const apiBaseUrl = await options.resolveApiBaseUrl();
+      if (!apiBaseUrl) return signedOutResult();
+      const backend = (await options.resolveBackend?.()) ?? "ucas";
+      let scope: GatewayIdentityScope | undefined;
+      try {
+        scope = createGatewayIdentityScope(options, session, apiBaseUrl, backend, () => disposed);
+        await scope.assertCurrent();
+        const endpoint = view.endpoint,
+          ids = view.models?.available ?? [];
+        const currentProjection =
+          !scope.managed ||
+          (await isGatewayProjectionCurrent(projectedScope, endpoint?.baseUrl, apiBaseUrl));
+        // 模型缓存是投影，不是写权限；换用户/组织后重新走同一同步owner获取目录。
+        if (
+          !endpoint ||
+          !currentProjection ||
+          ids.length === 0 ||
+          (scope.managed &&
+            (view.user?.id !== session.profile.id || view.user.orgId !== session.profile.tenantId))
+        )
+          return serializeSync("models");
+        const applied = await options.provisioning.apply({
+          baseUrl: endpoint.baseUrl,
+          modelIds: ids,
+        });
+        await scope.assertCurrent();
+        projectedScope = scope;
+        publish({
+          ...view,
+          models: view.models
+            ? { ...view.models, appliedCount: ids.length, pendingCount: 0 }
+            : view.models,
+        });
+        return committedGatewayResult(view, applied, false, true);
+      } catch (error) {
+        if (backend === "uwork" && (!scope || !scope.isCurrent())) clearIdentityProjection(scope);
+        else publish({ ...view, error: errorCode(error) });
+        return signedOutResult();
+      }
     },
     replaceApiKey() {
       return serializeSync("replace-key");

@@ -131,6 +131,8 @@ export interface UcasGatewayClientOptions {
   readonly issuerOrigin?: string;
   readonly fetchImpl?: typeof fetch;
   readonly timeoutMs?: number;
+  /** 自有协议复用Host身份owner的取消信号，不作为公开RPC参数。 */
+  readonly signal?: AbortSignal;
 }
 
 export interface UcasGatewayClient {
