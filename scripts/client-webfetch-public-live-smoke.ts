@@ -21,8 +21,6 @@ type Stage = {
 };
 const evidenceDirectory = resolve("evidence/client-webfetch-public-20261017");
 const target = "https://example.com/";
-const expectedCliSha =
-  "8663d7207b3701afe3df50f894fe63c881d8b177a24932fd272203d010af6eba";
 const processingMarker =
   "G07_PUBLIC_BODY_CONFIRMED: Example Domain documentation";
 const hash = (value: string | Buffer) =>
@@ -48,8 +46,16 @@ test(
     const cliPath = resolve(
       "clients/uwork/packages/desktop/bundled-agents/darwin-arm64/glm/zcode.cjs",
     );
+    const sourceCliPath = resolve(
+      "clients/uwork/apps/zcode-cli/packages/cli/dist/zcode.cjs",
+    );
     const cliSha = hash(await readFile(cliPath));
-    assert.equal(cliSha, expectedCliSha, "use the already verified staged CLI");
+    // 验当前候选产物一致且运行中不变；历史 SHA 是证据，不是下一次修复的行为合同。
+    assert.equal(
+      hash(await readFile(sourceCliPath)),
+      cliSha,
+      "source and staged CLI must match",
+    );
     let stage: Stage | undefined;
     const observations: Row[] = [];
     const f = await liveFixture(t, "webfetch-public", true, {
@@ -239,6 +245,12 @@ test(
     if (positivePassed)
       f.check(
         "real-public-HTTPS-WebFetch-body-reaches-processing-and-own-next-main-tool-result",
+      );
+    for (const path of [sourceCliPath, cliPath])
+      assert.equal(
+        hash(await readFile(path)),
+        cliSha,
+        "CLI must remain frozen during the test",
       );
     await mkdir(evidenceDirectory, { recursive: true });
     await writeFile(

@@ -2,7 +2,7 @@
 
 2026-10-17。驱动 `scripts/client-webfetch-public-live-smoke.ts` 沿用真实联测 fixture 的独立临时后端、HTTP 配置发布、私有 Host model relay 和正式 staged CLI。仅本机受控供应商返回真正 WebFetch 工具调用及正文提取响应，不访问真实付费模型。
 
-使用当前 source/staged 一致的 CLI SHA256 `8663d7207b3701afe3df50f894fe63c881d8b177a24932fd272203d010af6eba`，不重建或修改产品、既有 builtin smoke、共享 fixture。每次运行只创建一个 CLI/session。
+每次记录当前 source/staged 一致的 CLI SHA256，并在结束时再次核对两份产物均未变化；不把首轮历史 SHA 固定为下一次修复后的预期值。首轮产物为 `8663d7207b3701afe3df50f894fe63c881d8b177a24932fd272203d010af6eba`。驱动不重建或修改产品、既有 builtin smoke、共享 fixture，每次运行只创建一个 CLI/session。
 
 一个有界场景包含两个阶段：
 
