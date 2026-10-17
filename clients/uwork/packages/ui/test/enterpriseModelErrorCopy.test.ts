@@ -5,6 +5,13 @@ import { enterpriseModelErrorMessageId } from "../src/lib/enterpriseModelErrorCo
 test("personal model policy denial has actionable localized copy without matching arbitrary text", () => {
   assert.equal(
     enterpriseModelErrorMessageId({
+      code: "enterprise_personal_agents_denied",
+      message: "blocked",
+    }),
+    "chat.error.enterprisePersonalAgentsDenied",
+  );
+  assert.equal(
+    enterpriseModelErrorMessageId({
       code: "MODEL_ERROR",
       message: "enterprise_personal_models_denied",
     }),

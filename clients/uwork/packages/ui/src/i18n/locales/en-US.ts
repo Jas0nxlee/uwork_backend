@@ -5537,6 +5537,8 @@ const enUS: Record<string, string> = {
   "chat.error.copyFull.copied": "Full error details copied",
   "chat.error.copyFailed": "Failed to copy error details: {error}",
   "chat.error.expandDetails": "Show details",
+  "chat.error.enterprisePersonalAgentsDenied":
+    "Personal agents are not permitted by your enterprise. Use an enterprise expert or contact an administrator.",
   "chat.error.enterprisePersonalModelsDenied":
     "Personal models are not permitted by your enterprise. Select an enterprise model or contact an administrator.",
   "chat.error.enterpriseSessionChanged":

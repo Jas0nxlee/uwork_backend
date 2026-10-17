@@ -33,7 +33,7 @@ const denied = (code: string): ZCodeEnterpriseToolAuthorizationResult => ({ allo
 function evaluate(
   request: ZCodeEnterpriseToolAuthorizationParams,
   security: z.infer<typeof securitySchema>,
-  personal: { models: boolean; connectors: boolean } | undefined,
+  personal: { models: boolean; skills?: boolean; connectors: boolean } | undefined,
   backendOrigin: string,
 ): ZCodeEnterpriseToolAuthorizationResult {
   const { permission, sideEffectScope } = request.capability;
@@ -59,6 +59,12 @@ function evaluate(
   }
   if (permission === "personal_connector" && personal?.connectors !== true)
     return denied("enterprise_personal_connectors_denied");
+  // 已解析的个人子智能体提示词与本地技能一样，不能借 Agent 的会话能力绕过个人开关。
+  if (permission === "personal_agent") {
+    if (personal?.skills !== true) return denied("enterprise_personal_agents_denied");
+    if (!security.allowFilesystem) return denied("enterprise_filesystem_denied");
+    if (!security.dangerousSkills) return denied("enterprise_personal_agents_denied");
+  }
   const native =
     request.phase === "native_execution" ||
     request.toolName === "Bash" ||
@@ -78,6 +84,7 @@ function evaluate(
       "edit",
       "filesystem",
       "skill",
+      "personal_agent",
       "listSavedWorkflows",
       "listWorkflowRuns",
       "getWorkflowRun",
@@ -158,7 +165,13 @@ export function createUWorkToolAuthorizationResolver(
                 allowed: z.literal(true),
                 tenantId: z.string(),
                 security: securitySchema,
-                personal: z.object({ models: z.boolean(), connectors: z.boolean() }).optional(),
+                personal: z
+                  .object({
+                    models: z.boolean(),
+                    skills: z.boolean().optional(),
+                    connectors: z.boolean(),
+                  })
+                  .optional(),
               })
               .safeParse(response.body);
             if (!parsed.success || parsed.data.tenantId !== scope.tenantId)
@@ -170,7 +183,9 @@ export function createUWorkToolAuthorizationResolver(
               scope.origin,
             );
             return decision.allowed &&
-              (["model_request", "personal_connector"].includes(request.capability.permission) ||
+              (["model_request", "personal_connector", "personal_agent"].includes(
+                request.capability.permission,
+              ) ||
                 request.toolName === "McpDispatch")
               ? { ...decision, ownerKey: scope.ownerKey }
               : decision;

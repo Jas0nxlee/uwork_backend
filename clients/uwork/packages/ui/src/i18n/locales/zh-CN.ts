@@ -5310,6 +5310,8 @@ const zhCN: Record<string, string> = {
   "chat.error.enterpriseServiceUnavailable": "企业模型服务暂不可用，请稍后重试。",
   "chat.error.enterpriseResponseBlocked": "企业模型响应未通过安全校验，请联系管理员。",
   "chat.error.enterprisePersonalModelsDenied": "企业未允许个人模型，请选择企业模型或联系管理员。",
+  "chat.error.enterprisePersonalAgentsDenied":
+    "企业未允许个人子智能体，请使用企业专家或联系管理员。",
   "chat.error.collapseDetails": "收起详情",
   "chat.error.feedback": "反馈问题",
   "chat.error.feedbackOpened": "已打开反馈，并自动带上报错现场",

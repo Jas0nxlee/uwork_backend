@@ -42,6 +42,7 @@ function fixture() {
   let requests = 0;
   let duringFetch: (() => void) | undefined;
   let status = 200;
+  let personal: { models: boolean; skills?: boolean; connectors: boolean } | undefined;
   let security = {
     allowShell: false,
     allowFilesystem: false,
@@ -65,7 +66,7 @@ function fixture() {
       duringFetch?.();
       return Response.json(
         status === 200
-          ? { tenantId: "tenant", allowed: true, security }
+          ? { tenantId: "tenant", allowed: true, security, ...(personal ? { personal } : {}) }
           : { error: { code: "CONTROLLED_REJECTION" } },
         { status },
       );
@@ -80,6 +81,9 @@ function fixture() {
       config = undefined;
     },
     policy: (patch: Partial<typeof security>) => (security = { ...security, ...patch }),
+    personal: (value: typeof personal) => {
+      personal = value;
+    },
     during: (fn: () => void) => (duringFetch = fn),
     reject: (value: number) => (status = value),
     logout: () => {
@@ -87,6 +91,38 @@ function fixture() {
     },
   };
 }
+
+test("resolved personal agent prompts require current personal, filesystem and dangerous allowances", async () => {
+  const f = fixture();
+  const candidate: ZCodeEnterpriseToolAuthorizationParams = {
+    ...request,
+    toolName: "PersonalAgentProfileLoad",
+    input: {},
+    capability: {
+      permission: "personal_agent",
+      readOnly: true,
+      destructive: false,
+      sideEffectScope: "none",
+    },
+  };
+  f.policy({ allowFilesystem: true, dangerousSkills: true });
+  assert.equal((await f.resolver.authorize(candidate)).code, "enterprise_personal_agents_denied");
+  f.personal({ models: false, skills: true, connectors: false });
+  const allowed = await f.resolver.authorize(candidate);
+  assert.equal(allowed.allowed, true);
+  assert.equal(typeof allowed.ownerKey, "string");
+  f.personal({ models: false, skills: false, connectors: false });
+  assert.equal((await f.resolver.authorize(candidate)).code, "enterprise_personal_agents_denied");
+  f.personal({ models: false, skills: true, connectors: false });
+  f.policy({ allowFilesystem: false });
+  assert.equal((await f.resolver.authorize(candidate)).code, "enterprise_filesystem_denied");
+  f.policy({ allowFilesystem: true, dangerousSkills: false });
+  assert.equal((await f.resolver.authorize(candidate)).code, "enterprise_personal_agents_denied");
+  f.personal({ models: false, connectors: false });
+  assert.equal((await f.resolver.authorize(candidate)).allowed, false);
+  f.configure({ backend: "ucas" });
+  assert.deepEqual(await f.resolver.authorize(candidate), { allowed: true, code: "not_managed" });
+});
 
 test("the Host evaluates current security even for a declared read-only tool", async () => {
   const f = fixture();

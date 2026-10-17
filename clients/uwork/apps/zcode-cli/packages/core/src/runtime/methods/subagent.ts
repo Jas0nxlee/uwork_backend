@@ -38,6 +38,10 @@ import {
 import { mirrorSubagentToolEvent } from "../../subagent/tool-event-mirror.js";
 import { isBuiltInExploreAgentProfile } from "../../subagent/profile.js";
 import {
+  authorizePersonalAgentProfile,
+  withPersonalAgentModelAuthorization,
+} from "../../subagent/enterprise-profile-authorization.js";
+import {
   buildSubagentChildDisallowRules,
   filterSubagentChildToolNames,
 } from "../../subagent/tool-policy.js";
@@ -92,6 +96,19 @@ export function createDefaultSubagentPort(
     },
     runExploreAgent: async (request, options) => {
       request.reportActivity?.();
+      const personalAuthorization = {
+        authorization: this.permissionService.enterpriseAuthorization,
+        profile: { name: request.profile.name, source: request.profile.source },
+        sessionId: this.sessionId,
+        workspacePath: request.workspaceRoot,
+        workspaceIdentity: this.config.memory?.workspaceIdentity,
+        workingDirectory: request.workingDirectory,
+        traceContext: request.traceContext,
+        signal: options?.signal,
+      };
+      // 解析后的 user/project 目标可能来自 fuzzy 或 resume；必须先准入，
+      // 再读取个人 prompt/memory/MCP，不能依赖最初加载 profile 时的旧许可。
+      const personalAdmission = await authorizePersonalAgentProfile(personalAuthorization);
       const builtInExplore = isBuiltInExploreAgentProfile(request.profile);
       const agentsMdInstructions =
         request.profile.injectAgentsMd !== false
@@ -195,13 +212,19 @@ export function createDefaultSubagentPort(
           { recoverable: true },
         );
       }
-      const childModel = baseChildModelFactory({ selection: childSelection });
+      const guardChildModel = (model: Model) =>
+        withPersonalAgentModelAuthorization(model, {
+          ...personalAuthorization,
+          expectedOwnerKey: personalAdmission?.ownerKey,
+          expectedManaged: personalAdmission ? personalAdmission.code !== "not_managed" : undefined,
+        });
+      const childModel = guardChildModel(baseChildModelFactory({ selection: childSelection }));
       const childModelFactory: NonNullable<AgentRuntimeDeps["modelFactory"]> = (target) =>
         target.selection.providerId === childSelection.providerId &&
         target.selection.modelId === childSelection.modelId &&
         target.selection.options?.reasoningLevel === childSelection.options?.reasoningLevel
           ? childModel
-          : baseChildModelFactory(target);
+          : guardChildModel(baseChildModelFactory(target));
       const parentToolCallId = traceStringAttribute(request.traceContext, "parentToolCallId");
       // 对外交互端口（permission broker + provider runtime headers）：与 dwf actor、legacy
       // workflow child 共用同一条派生，路由身份统一落到本 runtime 的会话。

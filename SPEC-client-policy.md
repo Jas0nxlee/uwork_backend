@@ -9,6 +9,8 @@ Host 执行裁决：`/api/client/authorize` 先检查有效订阅、席位、IP 
 全新配置的默认值只是读取投影；未保存草稿时发布返回 409 DRAFT_NOT_FOUND，不生成发布回执、历史或审计。保存后发布必须原子更新当前版本及历史，过期 revision 继续返回冲突。
 验收：草稿不生效，发布版本递增，成员覆盖只能收紧；运行入口执行网络/分享/渠道策略。空 IP 允许，单独 127.0.0.1 禁止全部。
 命令：npm test；npm run build。策略矩阵、CIDR 和发布冲突测试。
+
+未审核的个人/项目/插件子智能体指令属于个人提示词文件。受管客户端使用同一次 execution 的 personal.skills、dangerousSkills 和 allowFilesystem 三项准入；已解析 profile 在个人内容消费前及每次子模型请求入口通过现私有端口重查 personal_agent。此项不新增后端权限字段或身份缓存。企业专家仍使用已审核资产的私有逐次加载入口；个人配置不得以同名回退或自报 enterprise/built-in 来源绕过限制。旧的已准入历史不被擦除，已派发请求不承诺追溯撤销。
 边界：路径/命令本地 enforcement 依赖 UWork Host 适配，快照下发不等于终端执行已验收。
 
 分享准入扩展：`action=share` 的响应额外返回同一次裁决读取的已发布 `sharing`（publish/collaborate/files/wechat/wecom）；草稿不进入响应，旧 `allowed` 语义不变。终端公网分享（包括依赖公网服务的“私有链接”）必须使用 `target=internet`，仅 publish=internet 可通过；无组织隔离合同的公网链接不能视为 organization 分享。新 Host 消费者严格校验字段，并在实际写出口前重查，不用投影缓存授权。
