@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { X, Save, Trash2, Plus } from "lucide-react";
-import { api, type Row } from "./api";
+import type { Row } from "./api";
+import { createConfigurationSession } from "./configurationSession.js";
+import {
+  ClientExperienceFields,
+  clientExperienceProblem,
+  isClientExperienceKind,
+  prepareClientExperienceData,
+} from "./clientExperienceFields.js";
 
 export interface Field {
   key: string;
@@ -342,114 +349,154 @@ export function ValueEditor({
     />
   );
 }
-export function Configuration({
+const configurationTabs = [
+  ["menus", "菜单"],
+  ["new-chat", "新对话"],
+  ["assistants", "助理渠道"],
+  ["sharing", "分享协作"],
+  ["personal", "个人资产"],
+  ["security", "安全基线"],
+  ["network", "IP 白名单"],
+  ["scenes", "场景模板"],
+  ["help", "帮助与反馈"],
+  ["desktop", "桌面行为"],
+  ["plugin-store", "插件排序"],
+] as const;
+
+function ScopedConfiguration({
   base,
+  kind,
   notify,
 }: {
   base: string;
-  notify: (s: string) => void;
+  kind: string;
+  notify(message: string): void;
 }) {
-  const [kind, setKind] = useState("menus"),
-    [data, setData] = useState<unknown>(null),
-    [revision, setRevision] = useState(0),
-    [version, setVersion] = useState(0),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  async function load(selected = kind) {
-    try {
-      const r = await api<{
-        draft: unknown;
-        revision: number;
-        version: number;
-      }>(`${base}/configurations/${selected}`);
-      setData(r.draft);
-      setRevision(r.revision);
-      setVersion(r.version);
-      setError("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
-    }
-  }
-  useEffect(() => {
-    void load(kind);
-  }, [kind, base]);
-  async function action(action: "save" | "publish" | "discard") {
-    setBusy(true);
-    try {
-      if (action === "save")
-        await api(`${base}/configurations/${kind}`, "PUT", { revision, data });
-      if (action === "publish")
-        await api(`${base}/configurations/${kind}/publish`, "POST", {
-          revision,
-        });
-      if (action === "discard")
-        await api(`${base}/configurations/${kind}/draft`, "DELETE");
-      await load();
-      notify(
-        action === "publish"
-          ? "配置已发布"
-          : action === "save"
-            ? "草稿已保存"
-            : "已恢复已发布配置",
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "操作失败");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const [session] = useState(() =>
+    createConfigurationSession({
+      base,
+      kind,
+      notify,
+      prepare: (value) => prepareClientExperienceData(kind, value),
+    }),
+  );
+  const state = useSyncExternalStore(
+    session.subscribe,
+    session.getSnapshot,
+    session.getSnapshot,
+  );
+  useEffect(() => session.activate(), [session]);
+  const ready = state.status === "ready";
+  const disabled = !ready || state.busy;
+  const problem = ready ? clientExperienceProblem(kind, state.data) : "";
   return (
-    <>
-      <div className="tabs">
-        {[
-          ["menus", "菜单"],
-          ["new-chat", "新对话"],
-          ["assistants", "助理渠道"],
-          ["sharing", "分享协作"],
-          ["personal", "个人资产"],
-          ["security", "安全基线"],
-          ["network", "IP 白名单"],
-        ].map(([k, l]) => (
-          <button
-            className={kind === k ? "active" : ""}
-            key={k}
-            onClick={() => setKind(k)}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
+    <section aria-label="当前配置">
       <div className="section-heading">
         <span>
-          发布版本 {version} · 草稿修订 {revision}
+          {ready
+            ? `发布版本 ${state.version} · 草稿修订 ${state.revision}`
+            : "当前配置尚未加载"}
         </span>
         <div className="actions">
-          <button disabled={busy} onClick={() => void action("discard")}>
+          <button
+            type="button"
+            disabled={state.busy}
+            onClick={() => void session.reload()}
+          >
+            重新加载
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => void session.action("discard")}
+          >
             放弃草稿
           </button>
-          <button disabled={busy} onClick={() => void action("save")}>
+          <button
+            type="button"
+            disabled={disabled || !!problem}
+            onClick={() => void session.action("save")}
+          >
             <Save size={16} />
             保存草稿
           </button>
           <button
+            type="button"
             className="primary"
-            disabled={busy || revision === 0}
-            onClick={() => void action("publish")}
+            disabled={disabled || !!problem || state.revision === 0}
+            onClick={() => void session.action("publish")}
           >
             发布
           </button>
         </div>
       </div>
-      {error && (
-        <p className="error" role="alert">
-          {error}
+      {state.status === "loading" && (
+        <p role="status">正在加载当前组织的配置，暂时无法编辑或提交。</p>
+      )}
+      {state.error && (
+        <p className="error configuration-error" role="alert">
+          {state.error}
         </p>
       )}
-      {data !== null && (
-        <div className="configuration">
-          <ValueEditor value={data} onChange={setData} />
-        </div>
+      {problem && (
+        <p className="error configuration-error" role="alert">
+          请检查以下字段后保存：{"\n"}
+          {problem}
+        </p>
       )}
+      {ready && (
+        <fieldset
+          className="policy-fieldset configuration"
+          disabled={state.busy}
+        >
+          <p className="field-description">
+            保存草稿不会影响客户端；发布使用已保存的草稿修订，修改后请先保存。
+          </p>
+          {isClientExperienceKind(kind) ? (
+            <ClientExperienceFields
+              key={state.revision}
+              kind={kind}
+              value={state.data}
+              onChange={session.edit}
+            />
+          ) : (
+            <ValueEditor value={state.data} onChange={session.edit} />
+          )}
+        </fieldset>
+      )}
+    </section>
+  );
+}
+export function Configuration({
+  base,
+  notify,
+}: {
+  base: string;
+  notify(message: string): void;
+}) {
+  const [kind, setKind] = useState<string>("menus");
+  return (
+    <>
+      <div className="tabs" aria-label="客户端配置类型">
+        {configurationTabs.map(([key, label]) => (
+          <button
+            type="button"
+            aria-pressed={kind === key}
+            className={kind === key ? "active" : ""}
+            key={key}
+            onClick={() => setKind(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {/* key在render时撤掉旧表单，不能等effect才清旧tenant/kind的可写草稿。 */}
+      <ScopedConfiguration
+        key={JSON.stringify([base, kind])}
+        base={base}
+        kind={kind}
+        notify={notify}
+      />
     </>
   );
 }

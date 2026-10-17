@@ -551,6 +551,103 @@ tbody tr:hover {
 .configuration {
   max-width: 980px;
 }
+.configuration-error {
+  white-space: pre-line;
+}
+.experience-editor {
+  display: grid;
+  gap: 20px;
+}
+.experience-section,
+.template-card,
+.locale-fields,
+.ordered-ids,
+.choice-group {
+  min-width: 0;
+  border: 1px solid #dce3df;
+  border-radius: 5px;
+  padding: 16px;
+  margin: 0;
+}
+.experience-section {
+  background: white;
+  display: grid;
+  gap: 16px;
+}
+.experience-section h2,
+.experience-section h3,
+.experience-section h4 {
+  margin: 0;
+  font-size: 15px;
+}
+.experience-section h3,
+.experience-section h4 {
+  font-size: 14px;
+}
+.experience-section > button,
+.ordered-ids > button {
+  justify-self: start;
+}
+.template-card,
+.ordered-ids,
+.link-setting {
+  display: grid;
+  gap: 14px;
+}
+.template-card legend,
+.locale-fields legend,
+.ordered-ids legend {
+  padding: 0 5px;
+  overflow-wrap: anywhere;
+}
+.template-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.experience-editor label,
+.experience-editor small {
+  min-width: 0;
+}
+.experience-editor small,
+.field-description {
+  color: #65736d;
+  line-height: 1.7;
+  font-size: 12px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.inline-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.inline-check input {
+  flex: 0 0 auto;
+  width: auto;
+}
+.choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.order-row,
+.add-order-category {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.order-row input,
+.add-order-category label {
+  flex: 1;
+  min-width: 0;
+}
+.row-number {
+  flex: 0 0 1.5em;
+  color: #65736d;
+}
 .value-grid,
 .form-grid {
   display: grid;
@@ -797,6 +894,17 @@ dialog footer {
   }
   .configuration .value-grid {
     gap: 16px;
+  }
+  .experience-section,
+  .template-card,
+  .locale-fields,
+  .ordered-ids,
+  .choice-group {
+    padding: 12px;
+  }
+  .add-order-category {
+    align-items: stretch;
+    flex-direction: column;
   }
   .row-actions {
     justify-content: start;
