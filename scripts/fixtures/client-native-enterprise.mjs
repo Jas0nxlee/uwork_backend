@@ -1,5 +1,13 @@
 import { randomBytes, createHash } from "node:crypto";
-import { readFile, writeFile, mkdir, symlink, rm } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import {
+  copyFile,
+  readFile,
+  writeFile,
+  mkdir,
+  symlink,
+  rm,
+} from "node:fs/promises";
 import { createServer as httpServer, request as httpRequest } from "node:http";
 import { createServer as httpsServer } from "node:https";
 import { createServer as netServer } from "node:net";
@@ -34,13 +42,41 @@ const runtime = {
 const root = join(process.cwd(), "data/" + fixtureName),
   client = join(process.cwd(), "clients/uwork"),
   home = join(root, "data"),
-  appRoot = join(root, "app"),
+  runtimeRoot = join(root, "runtime"),
+  appRoot = join(runtimeRoot, "app"),
+  helpConfigDir = join(root, "config"),
   credentialSecret = randomBytes(32).toString("hex");
 await mkdir(join(process.cwd(), "data"), { recursive: true });
 // 固定命名的复现夹具只能认领新目录，不能覆盖仍在运行或已存在的测试资料。
 await mkdir(root, { mode: 0o700 });
-for (const p of [home, appRoot])
+for (const p of [home, appRoot, helpConfigDir])
   await mkdir(p, { recursive: true, mode: 0o700 });
+const helpConfigSource = join(client, "config/default.json"),
+  helpConfigPath = join(helpConfigDir, "default.json");
+await copyFile(helpConfigSource, helpConfigPath, fsConstants.COPYFILE_EXCL);
+const [helpConfigSourceBytes, helpConfigTargetBytes] = await Promise.all([
+  readFile(helpConfigSource),
+  readFile(helpConfigPath),
+]);
+const helpLocalConfig = {
+  source: helpConfigSource,
+  destination: helpConfigPath,
+  bytes: helpConfigTargetBytes.length,
+  sourceSha256: createHash("sha256")
+    .update(helpConfigSourceBytes)
+    .digest("hex"),
+  targetSha256: createHash("sha256")
+    .update(helpConfigTargetBytes)
+    .digest("hex"),
+  exclusiveCopy: true,
+};
+if (helpLocalConfig.sourceSha256 !== helpLocalConfig.targetSha256)
+  throw Error("Native Help public config snapshot differs from its source");
+await writeFile(
+  join(evidence, "help-local-config-artifact.json"),
+  JSON.stringify(helpLocalConfig, null, 2),
+  { mode: 0o600 },
+);
 const workflowWorkspacePath = join(root, "project-input");
 if (dynamicWorkflowMode === "alwaysOn")
   await mkdir(workflowWorkspacePath, { mode: 0o700 });
@@ -282,13 +318,17 @@ const app = await createApp({
   allowPrivateUpstreams: true,
   worker: true,
 });
-app.addHook("onResponse", async (req, reply) =>
+app.addHook("onResponse", async (req, reply) => {
+  const routeTemplate = req.routeOptions.url ?? null;
+  const pathOnly = req.raw.url?.split(/[?#]/u, 1)[0];
   traffic.push({
     method: req.method,
-    path: req.routeOptions.url,
+    path: routeTemplate,
+    routeTemplate,
+    pathname: pathOnly?.startsWith("/") ? pathOnly : null,
     status: reply.statusCode,
-  }),
-);
+  });
+});
 const password = randomBytes(24).toString("hex");
 const owner = await bootstrap(app.services.db, {
   name: "客户端联动测试",
@@ -510,12 +550,12 @@ await writeFile(
 );
 await writeFile(
   join(appRoot, "entry.cjs"),
-  `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
+  `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,appPath:app.getAppPath(),helpFallbackPath:require('node:path').join(app.getAppPath(),'../../config/default.json'),dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
 );
 // 未打包的 Main 会搜索开发环境文件；拷贝正式产物到隔离根，不能借源目录启动。
 const outSnapshot = await copyNativeOutSnapshot({
   source: join(client, "packages/desktop/out"),
-  ownedRoot: root,
+  ownedRoot: runtimeRoot,
 });
 await writeFile(
   join(evidence, "native-out-snapshot.json"),
@@ -558,7 +598,9 @@ const meta = {
   root,
   origin,
   backendOrigin,
+  runtimeRoot,
   appRoot,
+  helpLocalConfig,
   cert,
   home,
   modelId: model.id,
