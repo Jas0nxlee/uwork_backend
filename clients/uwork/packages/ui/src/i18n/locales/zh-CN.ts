@@ -2273,7 +2273,8 @@ const zhCN: Record<string, string> = {
   "settings.modelProviderDescription": "管理自定义模型供应商，配置后可在聊天时选择使用。",
   "settings.modelProvider.add": "添加供应商",
   "settings.modelProvider.createCustomProvider": "创建自定义供应商",
-  "settings.modelProvider.templateCreateFailed": "创建供应商失败：个人供应商配置格式无效",
+  // 同一失败入口也承接企业权限拒绝，不能把所有错误都误诊为配置格式问题。
+  "settings.modelProvider.templateCreateFailed": "创建供应商失败，请检查配置或企业权限后重试。",
   "settings.modelProvider.templateCreateRetry": "重试",
   "settings.modelProvider.edit": "编辑",
   "settings.modelProvider.editModel": "编辑模型配置",
@@ -5308,6 +5309,7 @@ const zhCN: Record<string, string> = {
   "chat.error.enterpriseSessionChanged": "企业登录状态已变化，请重新登录后重试。",
   "chat.error.enterpriseServiceUnavailable": "企业模型服务暂不可用，请稍后重试。",
   "chat.error.enterpriseResponseBlocked": "企业模型响应未通过安全校验，请联系管理员。",
+  "chat.error.enterprisePersonalModelsDenied": "企业未允许个人模型，请选择企业模型或联系管理员。",
   "chat.error.collapseDetails": "收起详情",
   "chat.error.feedback": "反馈问题",
   "chat.error.feedbackOpened": "已打开反馈，并自动带上报错现场",

@@ -10,6 +10,8 @@ export function enterpriseModelErrorMessageId(error: {
     enterprise_policy_unavailable: "chat.error.enterpriseServiceUnavailable",
     enterprise_model_relay_unavailable: "chat.error.enterpriseServiceUnavailable",
     enterprise_model_unavailable: "chat.error.enterpriseServiceUnavailable",
+    // 后台撤销个人模型权限后，既有会话也应展示可操作提示，而非直接暴露内部码。
+    enterprise_personal_models_denied: "chat.error.enterprisePersonalModelsDenied",
     enterprise_response_private: "chat.error.enterpriseResponseBlocked",
   };
   const read = (value: string) => (Object.hasOwn(messages, value) ? messages[value] : undefined);

@@ -2422,7 +2422,7 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.add": "Add provider",
   "settings.modelProvider.createCustomProvider": "Create custom provider",
   "settings.modelProvider.templateCreateFailed":
-    "Failed to create provider: invalid personal provider configuration",
+    "Failed to create provider. Check the configuration or enterprise permissions and try again.",
   "settings.modelProvider.templateCreateRetry": "Retry",
   "settings.modelProvider.edit": "Edit",
   "settings.modelProvider.editModel": "Edit model settings",
@@ -5537,6 +5537,8 @@ const enUS: Record<string, string> = {
   "chat.error.copyFull.copied": "Full error details copied",
   "chat.error.copyFailed": "Failed to copy error details: {error}",
   "chat.error.expandDetails": "Show details",
+  "chat.error.enterprisePersonalModelsDenied":
+    "Personal models are not permitted by your enterprise. Select an enterprise model or contact an administrator.",
   "chat.error.enterpriseSessionChanged":
     "Your enterprise login has changed. Sign in again and retry.",
   "chat.error.enterpriseServiceUnavailable":
