@@ -78,6 +78,7 @@ async function fixture(chunks: Buffer[], status = 200) {
     },
   };
   const fetch = createEnterpriseSessionFetch({
+    getOwnerKey: () => "a".repeat(64),
     relay,
     sessionId: "controlled",
     workspacePath: "/controlled",
@@ -146,6 +147,7 @@ test("private protocol cancels a pending open without waiting for streamId", asy
     }),
   });
   const relayFetch = createEnterpriseSessionFetch({
+    getOwnerKey: () => "a".repeat(64),
     relay: port,
     sessionId: "controlled",
     workspacePath: "/controlled",
@@ -192,6 +194,7 @@ test("late open after abort is closed and cannot expose a Response", async () =>
     },
   };
   const fetch = createEnterpriseSessionFetch({
+    getOwnerKey: () => "a".repeat(64),
     relay,
     sessionId: "controlled",
     workspacePath: "/controlled",
@@ -235,7 +238,8 @@ test("actual SDK JSON generation uses private relay and does not contact configu
   });
   assert.equal(result.text, "private result");
   assert.equal(result.usage.totalTokens, 3);
-  assert.deepEqual(Object.keys(f.calls[0]!).sort(), ["body", "kind", "url"]);
+  assert.deepEqual(Object.keys(f.calls[0]!).sort(), ["body", "kind", "ownerKey", "url"]);
+  assert.equal(f.calls[0]!.ownerKey, "a".repeat(64));
   const body = JSON.parse(String(f.calls[0]!.body));
   assert.equal(body.max_tokens, 8);
 });

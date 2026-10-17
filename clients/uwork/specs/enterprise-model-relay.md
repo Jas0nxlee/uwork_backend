@@ -1,5 +1,7 @@
 # 企业模型私有会话转发
 
+私有模型 open 的不透明 ownerKey 必须与本次 backend-session scope 一致，比较先于 openModelStream 和请求构造。仅在回包/读取时验证身份不能阻止旧输入已发给另一个有效成员；因此主/子/侧调用和 workflow actor 统一复用模型首个授权的原 owner 证明，不在 Host open 时重新捕获成新 owner。缺失/非法证明 fail-closed；read/close 的既有流绑定和清理保持不变。Host 与 CLI 需同版发布，不为旧端自动放宽。
+
 受管 UWork 模型只保存 `enterprise-session` 访问模式、后端地址和公开模型能力，不申请、下载、持久化 device API key。既有 enterprise-identity 是身份唯一所有者，Provider、CLI、Renderer 均不持有会话 token；legacy UCAS 与个人供应商继续原凭据合同。后台从认证会话解析租户/成员，不信任自报 userId。
 
 ```mermaid

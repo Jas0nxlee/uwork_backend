@@ -1,5 +1,7 @@
 # 企业会话模型的 CLI 私有传输
 
+私有 `open` 必须携带 64 位十六进制 `ownerKey`，取自既有模型调用第一次 Host 准入的 ALS 绑定。ModelDispatchGuard 只提供同步只读 getter；session fetch 在请求准备之后读取原绑定，缺失时拒绝，不能重新捕获当前新身份。Host 在同一个 backendSession.run scope 内、构造/派发请求之前比较该证明与 scope.ownerKey，打开流之后和每次 read 继续检查当前身份。缺失/非法证明及旧端版本组合明确 fail-closed，不降级。read/close 不改；该字段不进入公共 HTTP/V4、模型消息、VM、header 或持久化，也不增加身份/允许缓存。
+
 2026-10-17 用户约束：登录和模型凭据属于 Host/后端，CLI、Renderer 只提交模型 ID、上下文和请求参数，不能获得企业身份会话、device token 或供应商 Key。个人 API-key 与 legacy UCAS 行为保持现有边界。
 
 `enterprise-session` 是显式 Provider access 模式。CLI 不尝试读取 Key 或回退直连；缺少受信 Host relay 即在创建模型时拒绝。CLI 继续使用同一 AI SDK、参数 maps、重试/取消/计量处理；只有 HTTP transport 被替换为私有 Host RPC。
@@ -10,7 +12,7 @@ sequenceDiagram
   participant P as 私有 RPC Port
   participant H as Host 身份/stream owner
   participant B as 后端模型网关
-  C->>P: open(url, JSON body; runtime/workspace/session)
+  C->>P: open(url, JSON body, ownerKey; runtime/workspace/session)
   P->>H: interactionEnterpriseModelRequest
   H->>B: 按当前身份鉴权；凭据仅在 Host 内存
   H-->>C: streamId, HTTP status, contentType

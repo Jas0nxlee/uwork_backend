@@ -658,17 +658,17 @@ export class ZCodeProtocolAgentServer {
       case zcodeProtocolMethods.skillsReferenceCatalog:
         return await getSkillReferenceCatalog(this.context, request.params, request.trace);
       case zcodeProtocolMethods.workflowsList:
-        return await listSavedWorkflowsOp(this.context, request.params);
+        return await listSavedWorkflowsOp(this.context, request.params, request.trace);
       case zcodeProtocolMethods.workflowsGet:
-        return await getSavedWorkflowOp(this.context, request.params);
+        return await getSavedWorkflowOp(this.context, request.params, request.trace);
       case zcodeProtocolMethods.workflowsUpdateMeta:
-        return await updateSavedWorkflowMetaOp(this.context, request.params);
+        return await updateSavedWorkflowMetaOp(this.context, request.params, request.trace);
       case zcodeProtocolMethods.workflowsDelete:
-        return await deleteSavedWorkflowOp(this.context, request.params);
+        return await deleteSavedWorkflowOp(this.context, request.params, request.trace);
       case zcodeProtocolMethods.workflowsRuns:
-        return await listSavedWorkflowRunsOp(this.context, request.params);
+        return await listSavedWorkflowRunsOp(this.context, request.params, request.trace);
       case zcodeProtocolMethods.workflowsMove:
-        return await moveSavedWorkflowOp(this.context, request.params);
+        return await moveSavedWorkflowOp(this.context, request.params, request.trace);
       case zcodeProtocolMethods.pluginsResolveSuggestedReference:
         return await this.withPluginOperationSignal(request, (signal) =>
           resolveSuggestedPluginReference(this.context, request.params, signal),

@@ -75,9 +75,20 @@ export function createEnterpriseModelRelay(options: {
         try {
           const result = await options.backendSession.run(
             async (scope) => {
+              if (
+                !/^[a-f0-9]{64}$/.test(request.ownerKey ?? "") ||
+                request.ownerKey !== scope.ownerKey
+              )
+                throw new UWorkBackendSessionError("enterprise_identity_changed");
               if (request.url !== `${scope.origin}/v1/chat/completions` || !scope.openModelStream)
                 throw new UWorkBackendSessionError("enterprise_model_target_invalid");
               const stream = await scope.openModelStream(request.body, controller.signal);
+              try {
+                await scope.assertCurrent();
+              } catch (error) {
+                stream.close();
+                throw error;
+              }
               if (disposed || controller.signal.aborted) {
                 stream.close();
                 throw new Error("closed");

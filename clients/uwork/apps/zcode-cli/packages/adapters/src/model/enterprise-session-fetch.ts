@@ -8,7 +8,7 @@ type Context = Omit<EnterpriseModelRelayRequest, "request">;
 
 /** 将SDK HTTP语义桥接到私有Host；原始字节交SDK解码，不转发任何鉴权头。 */
 export function createEnterpriseSessionFetch(
-  input: Context & { relay: EnterpriseModelRelayPort },
+  input: Context & { relay: EnterpriseModelRelayPort; getOwnerKey: () => string | undefined },
 ): typeof fetch {
   return async (url, init) => {
     const request = new Request(url, init);
@@ -21,6 +21,9 @@ export function createEnterpriseSessionFetch(
       throw new Error("enterprise_model_request_invalid");
     const parentSignal = init?.signal ?? (url instanceof Request ? url.signal : undefined);
     parentSignal?.throwIfAborted();
+    // 只读模型调用最初的私有 owner；缺失不能改为在 open 时认领当前新身份。
+    const ownerKey = input.getOwnerKey();
+    if (!/^[a-f0-9]{64}$/.test(ownerKey ?? "")) throw new Error("enterprise_model_owner_required");
     const controller = new AbortController();
     let streamId: string | undefined;
     let closed = false;
@@ -57,7 +60,10 @@ export function createEnterpriseSessionFetch(
     };
     parentSignal?.addEventListener("abort", abort, { once: true });
     try {
-      const opened = await perform({ kind: "open", url: request.url, body }, controller.signal);
+      const opened = await perform(
+        { kind: "open", url: request.url, body, ownerKey: ownerKey! },
+        controller.signal,
+      );
       streamId = opened.streamId;
       if (!streamId || opened.httpStatus === undefined || !opened.contentType)
         throw new Error("enterprise_model_response_invalid");

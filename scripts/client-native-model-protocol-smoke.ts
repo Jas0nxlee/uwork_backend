@@ -342,6 +342,10 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
   const { createEnterpriseModelRelay } = await source(
     "enterprise-model-relay/relay.ts",
   );
+  const ownerProof = await backend.run(
+    (scope: { ownerKey: string }) => scope.ownerKey,
+  );
+  assert.ok(ownerProof.managed);
   const hostRelay = createEnterpriseModelRelay({ backendSession: backend });
   const privateFrames: unknown[] = [];
   const runtimeOwner = {};
@@ -557,6 +561,7 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
         ).href
       );
       const enterpriseSessionFetch = createEnterpriseSessionFetch({
+        getOwnerKey: () => ownerProof.value,
         relay: {
           request: async (
             frame: { request: unknown },

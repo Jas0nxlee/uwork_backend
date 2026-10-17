@@ -83,6 +83,9 @@ async function fixture(t: import("node:test").TestContext, fetchImpl?: typeof fe
     readAuthority: () => ({ generation: 1, revision: 1, session, signal: controller.signal }),
     readPersistedSession: async () => ({ revision: 1, session }),
   });
+  const proof = await backendSession.run(async (scope) => scope.ownerKey);
+  assert.ok(proof.managed);
+  const ownerKey = proof.value;
   const relay = createEnterpriseModelRelay({ backendSession });
   const binding = { runtime: {}, workspaceKey: "workspace", sessionId: "conversation" };
   t.after(async () => {
@@ -90,7 +93,7 @@ async function fixture(t: import("node:test").TestContext, fetchImpl?: typeof fe
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
-  return { relay, binding, origin, requests, controller, token, requestSeen };
+  return { relay, binding, origin, requests, controller, token, requestSeen, ownerKey };
 }
 test("real TCP model relay keeps session private and preserves SSE bytes", async (t) => {
   const f = await fixture(t);
@@ -98,6 +101,7 @@ test("real TCP model relay keeps session private and preserves SSE bytes", async
     ...f.binding,
     request: {
       kind: "open",
+      ownerKey: f.ownerKey,
       url: `${f.origin}/v1/chat/completions`,
       body: '{"model":"synthetic"}',
     },
@@ -119,11 +123,32 @@ test("real TCP model relay keeps session private and preserves SSE bytes", async
   assert.match(Buffer.concat(parts).toString(), /\[DONE\]/);
   assert.equal(f.requests[0]?.authorization, `Bearer ${f.token}`);
 });
+
+test("private open rejects another valid owner proof before constructing or sending a backend request", async (t) => {
+  const f = await fixture(t);
+  const wrongOwner = (f.ownerKey.startsWith("a") ? "b" : "a") + f.ownerKey.slice(1);
+  const result = await f.relay.request({
+    ...f.binding,
+    request: {
+      kind: "open",
+      ownerKey: wrongOwner,
+      url: `${f.origin}/v1/chat/completions`,
+      body: '{"oldOwnerInput":"controlled"}',
+    },
+  });
+  assert.deepEqual(result, { status: "denied", code: "enterprise_identity_changed" });
+  assert.equal(f.requests.length, 0);
+});
 test("model stream handles cannot cross runtime or session and logout aborts a pending read", async (t) => {
   const f = await fixture(t);
   const open = await f.relay.request({
     ...f.binding,
-    request: { kind: "open", url: `${f.origin}/v1/chat/completions`, body: '{"hold":true}' },
+    request: {
+      kind: "open",
+      ownerKey: f.ownerKey,
+      url: `${f.origin}/v1/chat/completions`,
+      body: '{"hold":true}',
+    },
   });
   assert.ok(open.status === "ok" && open.streamId);
   assert.equal(
@@ -161,7 +186,12 @@ test("model relay rejects arbitrary targets before dispatch", async (t) => {
     "https://example.invalid/v1/chat/completions",
   ]) {
     assert.equal(
-      (await f.relay.request({ ...f.binding, request: { kind: "open", url, body: "{}" } })).status,
+      (
+        await f.relay.request({
+          ...f.binding,
+          request: { kind: "open", ownerKey: f.ownerKey, url, body: "{}" },
+        })
+      ).status,
       "denied",
     );
   }
@@ -173,7 +203,7 @@ test("relay preserves HTTP failures and rejects private tokens split across netw
   for (const body of ['{"http-error":true}', '{"echo-private":true}']) {
     const open = await f.relay.request({
       ...f.binding,
-      request: { kind: "open", url: `${f.origin}/v1/chat/completions`, body },
+      request: { kind: "open", ownerKey: f.ownerKey, url: `${f.origin}/v1/chat/completions`, body },
     });
     assert.ok(open.status === "ok" && open.streamId);
     const read = await f.relay.request({
@@ -198,6 +228,7 @@ test("relay enforces body/response bounds and only one pending read", async (t) 
         ...f.binding,
         request: {
           kind: "open",
+          ownerKey: f.ownerKey,
           url: `${f.origin}/v1/chat/completions`,
           body: "x".repeat(1024 * 1024 + 1),
         },
@@ -207,7 +238,12 @@ test("relay enforces body/response bounds and only one pending read", async (t) 
   );
   const open = await f.relay.request({
     ...f.binding,
-    request: { kind: "open", url: `${f.origin}/v1/chat/completions`, body: '{"hold":true}' },
+    request: {
+      kind: "open",
+      ownerKey: f.ownerKey,
+      url: `${f.origin}/v1/chat/completions`,
+      body: '{"hold":true}',
+    },
   });
   assert.ok(open.status === "ok" && open.streamId);
   await f.relay.request({ ...f.binding, request: { kind: "read", streamId: open.streamId } });
@@ -226,6 +262,7 @@ test("relay enforces body/response bounds and only one pending read", async (t) 
     ...f.binding,
     request: {
       kind: "open",
+      ownerKey: f.ownerKey,
       url: `${f.origin}/v1/chat/completions`,
       body: '{"oversized-response":true}',
     },
@@ -252,7 +289,12 @@ test("late cancellation of an open receipt closes only its bound stream", async 
     f.relay.request({
       ...f.binding,
       requestId,
-      request: { kind: "open", url: `${f.origin}/v1/chat/completions`, body: '{"hold":true}' },
+      request: {
+        kind: "open",
+        ownerKey: f.ownerKey,
+        url: `${f.origin}/v1/chat/completions`,
+        body: '{"hold":true}',
+      },
     });
   const first = await open("open-first"),
     second = await open("open-second");
@@ -281,7 +323,12 @@ test("model streams expire at the absolute five-minute deadline", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const opened = await f.relay.request({
     ...f.binding,
-    request: { kind: "open", url: `${f.origin}/v1/chat/completions`, body: '{"hold":true}' },
+    request: {
+      kind: "open",
+      ownerKey: f.ownerKey,
+      url: `${f.origin}/v1/chat/completions`,
+      body: '{"hold":true}',
+    },
   });
   assert.ok(opened.status === "ok" && opened.streamId);
   t.mock.timers.tick(300000);
@@ -300,6 +347,7 @@ test("cancel before headers uses the original open request and reclaims admissio
     requestId: "pending-open",
     request: {
       kind: "open",
+      ownerKey: f.ownerKey,
       url: `${f.origin}/v1/chat/completions`,
       body: '{"beforeheaders":true}',
     },
@@ -309,7 +357,12 @@ test("cancel before headers uses the original open request and reclaims admissio
   assert.equal((await opening).status, "denied");
   const next = await f.relay.request({
     ...f.binding,
-    request: { kind: "open", url: `${f.origin}/v1/chat/completions`, body: "{}" },
+    request: {
+      kind: "open",
+      ownerKey: f.ownerKey,
+      url: `${f.origin}/v1/chat/completions`,
+      body: "{}",
+    },
   });
   assert.equal(next.status, "ok");
 });
@@ -334,7 +387,12 @@ test("Host transport rechecks identity after asynchronous proxy preparation", as
   });
   const opening = f.relay.request({
     ...f.binding,
-    request: { kind: "open", url: `${f.origin}/v1/chat/completions`, body: "{}" },
+    request: {
+      kind: "open",
+      ownerKey: f.ownerKey,
+      url: `${f.origin}/v1/chat/completions`,
+      body: "{}",
+    },
   });
   await entered;
   f.controller.abort();
@@ -370,7 +428,12 @@ test("the real bridge reclaims open receipts cancelled after the RPC has complet
     workspace,
     requestId: "open-receipt",
     sessionId: "conversation",
-    request: { kind: "open", url: `${f.origin}/v1/chat/completions`, body: '{"hold":true}' },
+    request: {
+      kind: "open",
+      ownerKey: f.ownerKey,
+      url: `${f.origin}/v1/chat/completions`,
+      body: '{"hold":true}',
+    },
   });
   assert.ok(responses[0]?.status === "ok" && responses[0].streamId);
   bridge.cancel(client, workspace, {
@@ -395,6 +458,7 @@ test("nested tool arguments cannot leak Unicode-escaped tokens across delta boun
       ...f.binding,
       request: {
         kind: "open",
+        ownerKey: f.ownerKey,
         url: `${f.origin}/v1/chat/completions`,
         body: JSON.stringify({ [variant]: true }),
       },

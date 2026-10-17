@@ -521,6 +521,12 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       if (!runtime) throw new Error("UWork runtime is not initialized yet.");
       return runtime;
     };
+    const readWorkflowContent = async <T>(read: () => Promise<T>): Promise<T> => {
+      const admission = await getRuntime().createWorkflowAdmission({ traceContext });
+      const value = await read();
+      await admission.revalidate();
+      return value;
+    };
     let resumePrepared = false;
     const resolveDefaultShellSelection = (): ExecutionShellSelection =>
       resolveEffectiveBashShellSelection({
@@ -628,6 +634,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
           ...(options.enterpriseModelRelay
             ? {
                 enterpriseSessionFetch: createEnterpriseSessionFetch({
+                  getOwnerKey: () => runtimeAssetGuards?.model.getOwnerKey(),
                   relay: options.enterpriseModelRelay,
                   sessionId,
                   workspacePath: workingDirectory,
@@ -692,6 +699,8 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       dynamicWorkflowJournal === undefined
         ? undefined
         : createDynamicWorkflowRunService({
+            createExecutionAdmission: (signal) =>
+              getRuntime().createWorkflowAdmission({ traceContext, signal }),
             concurrency: workflowConcurrencyGovernor,
             createActorRuntime: ({
               persona,
@@ -1091,7 +1100,9 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       setModelIoFullRetentionEnabled: (enabled) =>
         modelAdapter.setModelIoFullRetentionEnabled(enabled),
       readToolResultArtifact: (uri) =>
-        artifactStore.readToolResultArtifact({ uri, trace: traceContext }),
+        readWorkflowContent(() =>
+          artifactStore.readToolResultArtifact({ uri, trace: traceContext }),
+        ),
       // wire/staging 全程是 decoded chunk；只有完整 checksum commit 后才在
       // CLI 进程内恢复既有 data-URL artifact 形态，保持 provider 读取链兼容。
       writePromptAttachment: async (input) => {
@@ -1222,12 +1233,14 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
               afterSequence?: number;
               limit?: number;
             }) =>
-              dynamicWorkflowRunPort.listEvents(input.runId, {
-                ...(input.afterSequence === undefined
-                  ? {}
-                  : { afterSequence: input.afterSequence }),
-                ...(input.limit === undefined ? {} : { limit: input.limit }),
-              }),
+              readWorkflowContent(() =>
+                dynamicWorkflowRunPort.listEvents(input.runId, {
+                  ...(input.afterSequence === undefined
+                    ? {}
+                    : { afterSequence: input.afterSequence }),
+                  ...(input.limit === undefined ? {} : { limit: input.limit }),
+                }),
+              ),
           }),
       // workflow run 的**用户面产物**读面。三条一起注册、
       // 一起缺席：它们是同一个 journal 读面的三个切片，部分在场只会让 UI 拿到一张有卡片
@@ -1240,25 +1253,29 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         ? {}
         : {
             listDynamicWorkflowRunArtifacts: async (input: { runId: string }) =>
-              dynamicWorkflowRunPort.listArtifacts!(input.runId),
+              readWorkflowContent(() => dynamicWorkflowRunPort.listArtifacts!(input.runId)),
             listDynamicWorkflowRunArtifactItems: async (input: {
               runId: string;
               artifactId: string;
               afterSequence?: number;
               limit: number;
             }) =>
-              dynamicWorkflowRunPort.listArtifactItems!(input.runId, input.artifactId, {
-                ...(input.afterSequence === undefined
-                  ? {}
-                  : { afterSequence: input.afterSequence }),
-                limit: input.limit,
-              }),
+              readWorkflowContent(() =>
+                dynamicWorkflowRunPort.listArtifactItems!(input.runId, input.artifactId, {
+                  ...(input.afterSequence === undefined
+                    ? {}
+                    : { afterSequence: input.afterSequence }),
+                  limit: input.limit,
+                }),
+              ),
             readDynamicWorkflowRunArtifact: async (input: {
               runId: string;
               artifactId: string;
               version: number;
             }) =>
-              dynamicWorkflowRunPort.readArtifact!(input.runId, input.artifactId, input.version),
+              readWorkflowContent(() =>
+                dynamicWorkflowRunPort.readArtifact!(input.runId, input.artifactId, input.version),
+              ),
           }),
       // workflow run 的工作区 transcript：两条一起
       // 注册、一起缺席，理由同产物的三条。
@@ -1268,18 +1285,20 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         ? {}
         : {
             listDynamicWorkflowRunWorkspaceNodes: async (input: { runId: string }) =>
-              dynamicWorkflowRunPort.listWorkspaceNodes!(input.runId),
+              readWorkflowContent(() => dynamicWorkflowRunPort.listWorkspaceNodes!(input.runId)),
             readDynamicWorkflowRunNodeResult: async (input: {
               runId: string;
               siteId: string;
               ordinal: number;
               maxBytes: number;
             }) =>
-              dynamicWorkflowRunPort.readWorkspaceNodeResult!(
-                input.runId,
-                input.siteId,
-                input.ordinal,
-                { maxBytes: input.maxBytes },
+              readWorkflowContent(() =>
+                dynamicWorkflowRunPort.readWorkspaceNodeResult!(
+                  input.runId,
+                  input.siteId,
+                  input.ordinal,
+                  { maxBytes: input.maxBytes },
+                ),
               ),
           }),
       // workflow run 的会话级生命周期读面（在飞计数 + 结算订阅）。消费者是宿主的 provider registry
@@ -1300,7 +1319,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         ? {}
         : {
             replayDynamicWorkflowRuns: async (input: { excludeRunIds: ReadonlySet<string> }) =>
-              dynamicWorkflowRunPort.replayProgressForSession!(input),
+              readWorkflowContent(() => dynamicWorkflowRunPort.replayProgressForSession!(input)),
           }),
       // dwf run 的恢复。能力缺席条件同上；此外
       // 端口的 resume 是可选成员（stub 端口不陪跑），方法缺席时本能力同样不注册——

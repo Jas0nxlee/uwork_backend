@@ -183,7 +183,7 @@ export function createUWorkToolAuthorizationResolver(
               scope.origin,
             );
             return decision.allowed &&
-              (["model_request", "personal_connector", "personal_agent"].includes(
+              (["model_request", "personal_connector", "personal_agent", "filesystem"].includes(
                 request.capability.permission,
               ) ||
                 request.toolName === "McpDispatch")

@@ -28,6 +28,7 @@ import {
 } from "@zcode/contracts";
 import { cloneMessageForFork, clonePartForFork } from "@zcode/core";
 import { WorkflowError, type ActorSessionSeed } from "@zcode/dynamic-workflow";
+import { withWorkflowIo, type WorkflowIoAdmission } from "./workflow-io-admission.js";
 
 /**
  * driver 侧需要的会话转录存取面：读一个会话的全部消息、写一条消息 / 一个 part。
@@ -51,8 +52,9 @@ export interface ActorTranscriptStore {
 export async function countActorTranscript(
   store: ActorTranscriptStore,
   sessionId: SessionId,
+  scope: WorkflowIoAdmission = {},
 ): Promise<number> {
-  return (await store.messages({ sessionID: sessionId })).length;
+  return (await withWorkflowIo(scope, () => store.messages({ sessionID: sessionId }))).length;
 }
 
 /**
@@ -76,16 +78,22 @@ export async function countActorTranscript(
  *
  * @returns 实际复制的条数；`undefined` 表示幂等跳过。
  */
-export async function seedActorTranscript(input: {
-  seed: ActorSessionSeed;
-  store: ActorTranscriptStore;
-  targetSessionId: SessionId;
-}): Promise<number | undefined> {
+export async function seedActorTranscript(
+  input: WorkflowIoAdmission & {
+    seed: ActorSessionSeed;
+    store: ActorTranscriptStore;
+    targetSessionId: SessionId;
+  },
+): Promise<number | undefined> {
   const { seed, store, targetSessionId } = input;
-  const existing = await store.messages({ sessionID: targetSessionId });
+  const existing = await withWorkflowIo(input, () =>
+    store.messages({ sessionID: targetSessionId }),
+  );
   if (existing.length >= seed.messageCount) return undefined;
 
-  const source = await store.messages({ sessionID: seed.sourceSessionId as SessionId });
+  const source = await withWorkflowIo(input, () =>
+    store.messages({ sessionID: seed.sourceSessionId as SessionId }),
+  );
   if (source.length < seed.messageCount) {
     throw new WorkflowError(
       "DriverError",
@@ -107,15 +115,17 @@ export async function seedActorTranscript(input: {
       nextMessageId,
     });
     messageIds.set(message.info.id, nextMessageId);
-    await store.saveMessage(cloned);
+    await withWorkflowIo(input, () => store.saveMessage(cloned));
     for (const [partIndex, part] of message.parts.entries()) {
-      await store.savePart(
-        clonePartForFork(part, {
-          forkedSessionId: targetSessionId,
-          messageIdMap: messageIds,
-          nextMessageId,
-          nextPartId: seededPartId(targetSessionId, index, partIndex),
-        }),
+      await withWorkflowIo(input, () =>
+        store.savePart(
+          clonePartForFork(part, {
+            forkedSessionId: targetSessionId,
+            messageIdMap: messageIds,
+            nextMessageId,
+            nextPartId: seededPartId(targetSessionId, index, partIndex),
+          }),
+        ),
       );
     }
   }

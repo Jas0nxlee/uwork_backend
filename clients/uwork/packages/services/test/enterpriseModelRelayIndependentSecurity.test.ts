@@ -74,13 +74,16 @@ async function fixture(t: TestContext) {
     }),
     readPersistedSession: async () => ({ revision: 1, session }),
   });
+  const proof = await backendSession.run(async (scope) => scope.ownerKey);
+  assert.ok(proof.managed);
+  const ownerKey = proof.value;
   const relay = createEnterpriseModelRelay({ backendSession });
   t.after(async () => {
     relay.dispose();
     server.closeAllConnections();
     await new Promise<void>((done) => server.close(() => done()));
   });
-  return { relay, origin, token, requests: () => requests };
+  return { relay, origin, token, requests: () => requests, ownerKey };
 }
 
 for (const mode of ["tool-json", "tool-split-escape"]) {
@@ -96,6 +99,7 @@ for (const mode of ["tool-json", "tool-split-escape"]) {
       traceId: mode,
       request: {
         kind: "open",
+        ownerKey: f.ownerKey,
         url: `${f.origin}/v1/chat/completions`,
         body: "{}",
       },
@@ -161,6 +165,7 @@ test("independent audit: all 32 cross-workspace streams are reclaimed by runtime
       ...binding,
       request: {
         kind: "open",
+        ownerKey: f.ownerKey,
         url: `${f.origin}/v1/chat/completions`,
         body: "{}",
       },
@@ -207,6 +212,7 @@ test("independent audit: all 32 cross-workspace streams are reclaimed by runtime
     sessionId: "other",
     request: {
       kind: "open",
+      ownerKey: f.ownerKey,
       url: `${f.origin}/v1/chat/completions`,
       body: "{}",
     },
@@ -249,6 +255,7 @@ test("independent audit: all 32 cross-workspace streams are reclaimed by runtime
     sessionId: "other",
     request: {
       kind: "open",
+      ownerKey: f.ownerKey,
       url: `${f.origin}/v1/chat/completions`,
       body: "{}",
     },
@@ -270,6 +277,7 @@ for (const mode of ["encoded-sse", "fragmented-sse"]) {
       traceId: mode,
       request: {
         kind: "open",
+        ownerKey: f.ownerKey,
         url: `${f.origin}/v1/chat/completions`,
         body: "{}",
       },
@@ -319,6 +327,7 @@ test("independent audit: escaped JSON errors cannot carry private session token 
     traceId: "encoded-error",
     request: {
       kind: "open",
+      ownerKey: f.ownerKey,
       url: `${f.origin}/v1/chat/completions`,
       body: "{}",
     },

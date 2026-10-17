@@ -25,7 +25,8 @@ import type {
   RunRecord,
 } from "@zcode/dynamic-workflow";
 import { TERMINAL_RUN_STATUSES } from "./dynamic-workflow-run-observation.js";
-import type { ActorTranscriptStore } from "./workflow-actor-transcript.js";
+import { countActorTranscript, type ActorTranscriptStore } from "./workflow-actor-transcript.js";
+import { isWorkflowAuthorizationError, type WorkflowIoAdmission } from "./workflow-io-admission.js";
 
 /**
  * 构建导入缓存所需的 journal 读面：三个读方法，全部按 runId。
@@ -107,7 +108,7 @@ function completedAsksHaveBoundaries(nodes: readonly NodeRecord[]): boolean {
  * 结构子集），所以 run service 的两个调用点直接把 `deps` 原样递进来——多一层改名映射，就多一处
  * 会漂移的接线，而漂移的症状是「转录面明明接上了却不做诚实性检查」这类静默降级。
  */
-interface AmendImportDeps {
+interface AmendImportDeps extends WorkflowIoAdmission {
   journal: ImportedCacheJournalReader;
   /**
    * 会话转录读面。在场时多做一道**源诚实性检查**（见 {@link honorsBoundary}）；缺席时
@@ -136,6 +137,7 @@ export async function buildImportedCache(
   deps: AmendImportDeps,
   predecessorRunId: string,
 ): Promise<BuildImportedCacheResult> {
+  await deps.admission?.revalidate(deps.executionSignal);
   const { actorTranscriptStore: transcripts, journal, logger } = deps;
 
   const run = journal.getRun(predecessorRunId);
@@ -150,8 +152,11 @@ export async function buildImportedCache(
 
   const actors = new Map<string, ImportedActorCandidate>();
   for (const record of namedUniqueActors(journal.listActors(predecessorRunId), logger)) {
+    await deps.admission?.revalidate(deps.executionSignal);
     const name = record.name!;
     const candidate = await buildActorCandidate({
+      admission: deps.admission,
+      executionSignal: deps.executionSignal,
       actor: record,
       journal,
       ...(logger === undefined ? {} : { logger }),
@@ -161,6 +166,7 @@ export async function buildImportedCache(
     });
     if (candidate !== undefined) actors.set(name, candidate);
   }
+  await deps.admission?.revalidate(deps.executionSignal);
 
   return {
     ok: true,
@@ -209,14 +215,16 @@ function namedUniqueActors(records: ActorRecord[], logger?: Logger): ActorRecord
  * 源会话被清理，全都只是「这个 actor 没有缓存」——journal 里没有缓存行就是没有，不撒谎。
  * 唯一会整体拒绝的是边界记账不可信，因为那会让**已收下的**候选截断到错误位置。
  */
-async function buildActorCandidate(input: {
-  actor: ActorRecord;
-  journal: ImportedCacheJournalReader;
-  logger?: Logger;
-  nodes: NodeRecord[];
-  predecessorRunId: string;
-  transcripts?: ActorTranscriptStore;
-}): Promise<ImportedActorCandidate | undefined> {
+async function buildActorCandidate(
+  input: WorkflowIoAdmission & {
+    actor: ActorRecord;
+    journal: ImportedCacheJournalReader;
+    logger?: Logger;
+    nodes: NodeRecord[];
+    predecessorRunId: string;
+    transcripts?: ActorTranscriptStore;
+  },
+): Promise<ImportedActorCandidate | undefined> {
   const { actor, journal, logger, nodes, predecessorRunId, transcripts } = input;
   const name = actor.name!;
 
@@ -247,7 +255,7 @@ async function buildActorCandidate(input: {
   const boundary = entries[entries.length - 1]!.messageBoundary;
   if (
     transcripts !== undefined &&
-    !(await honorsBoundary(transcripts, source.sessionId, boundary))
+    !(await honorsBoundary(transcripts, source.sessionId, boundary, input))
   ) {
     logger?.warn?.(
       "Dynamic workflow amend: transcript source shorter than boundary, import dropped",
@@ -357,11 +365,12 @@ async function honorsBoundary(
   transcripts: ActorTranscriptStore,
   sessionId: string,
   boundary: number,
+  scope: WorkflowIoAdmission,
 ): Promise<boolean> {
   try {
-    const messages = await transcripts.messages({ sessionID: sessionId as SessionId });
-    return messages.length >= boundary;
-  } catch {
+    return (await countActorTranscript(transcripts, sessionId as SessionId, scope)) >= boundary;
+  } catch (error) {
+    if (isWorkflowAuthorizationError(error) || scope.executionSignal?.aborted) throw error;
     return false;
   }
 }

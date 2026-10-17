@@ -19,6 +19,7 @@ export type ModelDispatchGuard = ((
   signal?: AbortSignal | null,
 ) => Promise<boolean>) & {
   scope(): <T>(operation: () => T) => T;
+  getOwnerKey(): string | undefined;
 };
 
 /** 唯一Host端口逐次裁决；这里不保存允许快照、身份或另一份Provider/MCP状态。 */
@@ -86,6 +87,10 @@ export function createRuntimeAssetGuards(context: RuntimeAssetContext) {
       scope: () => {
         const owner = {};
         return <T>(operation: () => T) => modelOwner.run(owner, operation);
+      },
+      getOwnerKey: () => {
+        const owner = modelOwner.getStore();
+        return owner?.managed === true ? owner.ownerKey : undefined;
       },
     },
   );

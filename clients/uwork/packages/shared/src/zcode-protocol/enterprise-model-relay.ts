@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zcodeWorkspaceRefSchema } from "../zcode-protocol-legacy-types.js";
 
-/** 只传正文和有界响应字节；鉴权头、登录 Token 和供应商 Key 不能进入该协议。 */
+/** 只传正文、有界响应字节和不透明 owner 证明；不传鉴权头、Token、供应商 Key 或可读身份资料。 */
 export const zcodeEnterpriseModelRequestParamsSchema = z
   .object({
     workspace: zcodeWorkspaceRefSchema,
@@ -11,6 +11,7 @@ export const zcodeEnterpriseModelRequestParamsSchema = z
       z
         .object({
           kind: z.literal("open"),
+          ownerKey: z.string().regex(/^[a-f0-9]{64}$/),
           url: z.string().min(1).max(4096),
           body: z
             .string()

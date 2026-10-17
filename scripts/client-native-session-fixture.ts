@@ -611,7 +611,10 @@ export async function liveFixture(
     requests,
     packaged: async (
       automaticSelection = false,
-      options: { resumeSessionId?: string } = {},
+      options: {
+        resumeSessionId?: string;
+        dynamicWorkflowEnabled?: boolean;
+      } = {},
     ) => {
       const { ZCodeProtocolClient } = await source(
         "zcode-agent/zcodeProtocolClient.ts",
@@ -929,6 +932,14 @@ export async function liveFixture(
           if (assertionError) throw assertionError;
         })());
       ownedCliCleanups.push(disposeAndWait);
+      // 灰度默认关闭；专项验收只经正式 Host→CLI 合同显式打开，不改生产配置。
+      if (options.dynamicWorkflowEnabled === true) {
+        await client.request(
+          shared.zcodeProtocolMethods.workspaceUpdateDynamicWorkflowPolicy,
+          { workspace, enabled: true },
+          shared.zcodeWorkspaceUpdateDynamicWorkflowPolicyResultSchema,
+        );
+      }
       const state = options.resumeSessionId
         ? await client.request(
             v4.V4_METHODS.conversationSubscribe,
@@ -950,6 +961,9 @@ export async function liveFixture(
               type: "createSession",
               payload: {
                 workspaceId: workspacePath,
+                ...(options.dynamicWorkflowEnabled === true
+                  ? { dynamicWorkflowEnabled: true }
+                  : {}),
                 ...(automaticSelection
                   ? {}
                   : {
@@ -974,10 +988,52 @@ export async function liveFixture(
       let currentRevision = options.resumeSessionId
         ? 0
         : state.revisionAtDecision;
+      const workflowCommand = (
+        command:
+          | {
+              type: "startSavedWorkflow";
+              payload: {
+                name: string;
+                scope?: "project" | "global";
+                args?: Row;
+              };
+            }
+          | {
+              type: "resumeWorkflowRun";
+              payload: { workId: string; name?: string };
+            }
+          | { type: "cancelBackgroundWork"; payload: { workId: string } },
+      ) =>
+        client.request(
+          v4.V4_METHODS.command,
+          {
+            commandId: randomBytes(16).toString("hex"),
+            clientId: "cancel-controlled",
+            sessionId,
+            ...command,
+            issuedAt: Date.now(),
+          },
+          v4.commandAckSchema,
+          { timeoutMs: 15000, lifecycle: "observation" },
+        );
       return {
         workspacePath,
         sessionId: sessionId as string,
         disposeAndWait,
+        workflow: {
+          startSaved: (input: {
+            name: string;
+            scope?: "project" | "global";
+            args?: Row;
+          }) => workflowCommand({ type: "startSavedWorkflow", payload: input }),
+          resume: (workId: string) =>
+            workflowCommand({ type: "resumeWorkflowRun", payload: { workId } }),
+          cancel: (workId: string) =>
+            workflowCommand({
+              type: "cancelBackgroundWork",
+              payload: { workId },
+            }),
+        },
         setMode: async (mode: "build" | "yolo") => {
           let receipt;
           for (let attempt = 0; attempt < 3; attempt++) {

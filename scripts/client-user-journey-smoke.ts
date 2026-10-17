@@ -532,10 +532,15 @@ async function journeyFixture(t: TestContext, name: string) {
       },
     });
     const generate = async (modelId: string, expected = 200) => {
+      const ownerProof = await backend.run(
+        (scope: { ownerKey: string }) => scope.ownerKey,
+      );
+      assert.ok(ownerProof.managed);
       const opened = await relay.request({
         ...binding,
         request: {
           kind: "open",
+          ownerKey: ownerProof.value,
           url: origin + "/v1/chat/completions",
           body: JSON.stringify({
             model: modelId,

@@ -52,15 +52,12 @@ async function fixture(t: TestContext) {
     });
   const raw = () => readFile(path, "utf8");
   const candidates = () =>
-    runtime.registryService
-      .getProvider("ucas")
-      ?.models.map((model) => model.modelId) ?? [];
+    runtime.registryService.getProvider("ucas")?.models.map((model) => model.modelId) ?? [];
   const replaceSnapshot = async (value: unknown, omit = false) => {
     const document = JSON.parse(await raw());
     const encoded = JSON.stringify(
       document,
-      (key, current) =>
-        key === "enterpriseModelIds" ? (omit ? undefined : value) : current,
+      (key, current) => (key === "enterpriseModelIds" ? (omit ? undefined : value) : current),
       2,
     );
     await writeFile(path, encoded, { mode: 0o600 });
@@ -112,10 +109,7 @@ test("independent catalog: missing null and empty snapshots never fall back to s
     await f.apply(["allowed-opaque"]);
     await f.replaceSnapshot(value, value === undefined);
     assert.deepEqual(f.candidates(), []);
-    assert.equal(
-      (await f.runtime.modelSelection.getView()).preferredSelection,
-      undefined,
-    );
+    assert.equal((await f.runtime.modelSelection.getView()).preferredSelection, undefined);
     assert.ok(
       (await f.raw()).includes("ucas-deepseek-flash"),
       "legacy membership is retained in storage rather than deleted",
@@ -213,13 +207,7 @@ test("independent catalog: a forged disk candidate cannot replace private-sessio
     password,
   });
   const origin = await app.listen({ host: "127.0.0.1", port: 0 });
-  async function api(
-    method: string,
-    path: string,
-    token = "",
-    body?: unknown,
-    expected = 200,
-  ) {
+  async function api(method: string, path: string, token = "", body?: unknown, expected = 200) {
     const response = await fetch(origin + path, {
       method,
       signal: AbortSignal.timeout(10000),
@@ -230,11 +218,7 @@ test("independent catalog: a forged disk candidate cannot replace private-sessio
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
-    assert.equal(
-      response.status,
-      expected,
-      "controlled backend setup or authorization result",
-    );
+    assert.equal(response.status, expected, "controlled backend setup or authorization result");
     return (await response.json()) as Row;
   }
   const ownerToken = String(
@@ -294,26 +278,10 @@ test("independent catalog: a forged disk candidate cannot replace private-sessio
     credentialId: credential.id,
     scope: { all: true },
   };
-  const allowed = await api(
-    "POST",
-    `${prefix}/models`,
-    ownerToken,
-    modelInput,
-    201,
-  );
-  const denied = await api(
-    "POST",
-    `${prefix}/models`,
-    ownerToken,
-    modelInput,
-    201,
-  );
+  const allowed = await api("POST", `${prefix}/models`, ownerToken, modelInput, 201);
+  const denied = await api("POST", `${prefix}/models`, ownerToken, modelInput, 201);
   const f = await fixture(t);
-  await f.apply(
-    [String(allowed.id), String(denied.id)],
-    undefined,
-    `${origin}/v1`,
-  );
+  await f.apply([String(allowed.id), String(denied.id)], undefined, `${origin}/v1`);
   await api("PUT", `${prefix}/models/${denied.id}`, ownerToken, {
     ...modelInput,
     scope: { members: [bob.id] },
@@ -347,6 +315,9 @@ test("independent catalog: a forged disk candidate cannot replace private-sessio
     }),
     readPersistedSession: async () => ({ revision: 1, session }),
   });
+  const proof = await backendSession.run(async (scope) => scope.ownerKey);
+  assert.ok(proof.managed);
+  const ownerKey = proof.value;
   relay = createEnterpriseModelRelay({ backendSession });
   const binding = {
     runtime: {},
@@ -358,6 +329,7 @@ test("independent catalog: a forged disk candidate cannot replace private-sessio
       ...binding,
       request: {
         kind: "open",
+        ownerKey,
         url: `${origin}/v1/chat/completions`,
         body: JSON.stringify({
           model: modelId,
@@ -404,9 +376,7 @@ test("independent catalog: a forged disk candidate cannot replace private-sessio
   assert.equal((forbidden.value.error as Row).code, "MODEL_DENIED");
   assert.equal(providerCalls, 1);
   assert.equal(
-    app.services.db.get<{ count: number }>(
-      "SELECT count(*) AS count FROM ledger",
-    )!.count,
+    app.services.db.get<{ count: number }>("SELECT count(*) AS count FROM ledger")!.count,
     1,
   );
 });

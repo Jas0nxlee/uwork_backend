@@ -7,6 +7,8 @@ export * from "./agent/index.js";
 
 // Context Builder
 export * from "./context/index.js";
+export { createWorkflowExecutionAdmission } from "./runtime/helpers/workflow-execution-authorization.js";
+export type { WorkflowAuthorizationContext } from "./runtime/helpers/workflow-execution-authorization.js";
 
 // Compact helpers
 export * from "./compact/index.js";

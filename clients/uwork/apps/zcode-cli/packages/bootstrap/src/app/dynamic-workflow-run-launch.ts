@@ -19,6 +19,7 @@ import {
   type DynamicWorkflowRunEvent,
   type DynamicWorkflowRunProgressPayload,
   type SessionId,
+  type WorkflowExecutionAdmission,
 } from "@zcode/contracts";
 import type { AgentRuntime } from "@zcode/core";
 import { parseModelPickerValue, type ModelSelection } from "@zcode/shared/model-selection";
@@ -64,6 +65,7 @@ export interface CompiledDynamicWorkflowScript {
 }
 
 interface LaunchDynamicWorkflowRunInput {
+  admission?: WorkflowExecutionAdmission;
   caps: Caps;
   compiled: CompiledDynamicWorkflowScript;
   cwd: string;
@@ -166,6 +168,8 @@ export function launchDynamicWorkflowRun(
   const sequenceCapture = createJournalSequenceCapture(deps.journal);
 
   const makeDriver = createAgentRuntimeWorkflowDriver({
+    admission: input.admission,
+    executionSignal: signal,
     journal: sequenceCapture.journal,
     emit: (event) => {
       // 事件扇出绝不能把 run 打挂：钩子是观察者，异常吞在此边界并记日志。
@@ -234,6 +238,7 @@ export function launchDynamicWorkflowRun(
       submitProfile,
       modelRequestAdmission,
     }) => {
+      await input.admission?.revalidate(signal);
       const runtime = deps.createActorRuntime({
         runId,
         sessionId,
@@ -279,6 +284,7 @@ export function launchDynamicWorkflowRun(
         runtime,
         sessionId,
       });
+      await input.admission?.revalidate(signal);
       if (attached === "rehydrated") return runtime;
       await persistActorSession({
         actor,
@@ -288,11 +294,14 @@ export function launchDynamicWorkflowRun(
         runtime,
         sessionId,
       });
+      await input.admission?.revalidate(signal);
       return runtime;
     },
   });
 
   return runWorkflowScript({
+    beforePrepare: () => input.admission?.revalidate(signal) ?? Promise.resolve(),
+    beforeSpawn: () => input.admission?.revalidate(signal) ?? Promise.resolve(),
     askSpecs: compiled.askSpecs,
     caps,
     // SEA 下必须换 spawn 策略，非 SEA 一律不传。

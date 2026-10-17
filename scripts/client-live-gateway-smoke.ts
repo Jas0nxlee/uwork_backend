@@ -412,11 +412,16 @@ async function liveFixture(t: TestContext, name: string) {
     assert.equal(config.api.baseUrl, origin + "/v1");
     assert.equal(config.access.type, "enterprise-session");
     assert.equal(config.access.apiKey, undefined);
+    const ownerProof = await backend.run(
+      (scope: { ownerKey: string }) => scope.ownerKey,
+    );
+    assert.ok(ownerProof.managed);
     const opened = await modelRelay.request({
       ...modelBinding,
       traceId: key,
       request: {
         kind: "open",
+        ownerKey: ownerProof.value,
         url: config.api.baseUrl + "/chat/completions",
         body: JSON.stringify({
           model: model.id,

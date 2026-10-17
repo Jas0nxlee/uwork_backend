@@ -12,11 +12,17 @@ test("model relay protocol only carries bounded bodies and response bytes", () =
     workspace: { workspaceKey: "/owned", workspacePath: "/owned" },
     request: {
       kind: "open",
+      ownerKey: "a".repeat(64),
       url: "https://backend.example.test/v1/chat/completions",
       body: '{"model":"managed","messages":[]}',
     },
   };
   assert.equal(params.safeParse(request).success, true);
+  for (const ownerKey of [undefined, "", "a".repeat(63), "A".repeat(64), "x".repeat(64)])
+    assert.equal(
+      params.safeParse({ ...request, request: { ...request.request, ownerKey } }).success,
+      false,
+    );
   for (const field of ["headers", "token", "apiKey", "userId"])
     assert.equal(
       params.safeParse({ ...request, request: { ...request.request, [field]: "forged" } }).success,

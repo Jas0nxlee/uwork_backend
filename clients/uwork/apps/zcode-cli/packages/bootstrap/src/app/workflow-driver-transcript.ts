@@ -17,6 +17,7 @@ import {
 } from "@zcode/dynamic-workflow";
 import { countActorTranscript, seedActorTranscript } from "./workflow-actor-transcript.js";
 import type { AgentRuntimeWorkflowDriverDeps, SessionState } from "./workflow-driver-types.js";
+import { withWorkflowIo, isWorkflowAuthorizationError } from "./workflow-io-admission.js";
 
 /**
  * 分歧 actor 的转录截断（amend-resume）：把源会话的前 N 条消息复制进刚铸的会话，再让 runtime
@@ -54,9 +55,15 @@ export async function seedActorSession(
         `transcript store (wiring error).`,
     );
   }
-  const copied = await seedActorTranscript({ seed, store, targetSessionId: sessionId });
+  const copied = await seedActorTranscript({
+    seed,
+    store,
+    targetSessionId: sessionId,
+    admission: deps.admission,
+    executionSignal: deps.executionSignal,
+  });
   if (copied === undefined && journaledSessionId !== undefined) return;
-  await runtime.resumeFromStore();
+  await withWorkflowIo(deps, () => runtime.resumeFromStore());
 }
 
 /** 数本会话已落库的消息条数；失败即放弃记账（边界缺席，而不是一个错的边界）。 */
@@ -68,8 +75,9 @@ export async function countSessionTranscript(
   const store = deps.actorTranscriptStore;
   if (store === undefined) return undefined;
   try {
-    return await countActorTranscript(store, state.sessionId);
+    return await countActorTranscript(store, state.sessionId, deps);
   } catch (error) {
+    if (isWorkflowAuthorizationError(error)) throw error;
     deps.logger?.warn?.("Dynamic workflow ask message boundary count failed", {
       errorMessage: error instanceof Error ? error.message : String(error),
       event: "dynamic_workflow.ask.message_boundary.count_failed",
