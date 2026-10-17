@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from "node:crypto";
-import { readFile, writeFile, mkdir, symlink, rm, cp } from "node:fs/promises";
+import { readFile, writeFile, mkdir, symlink, rm } from "node:fs/promises";
 import { createServer as httpServer, request as httpRequest } from "node:http";
 import { createServer as httpsServer } from "node:https";
 import { createServer as netServer } from "node:net";
@@ -10,10 +10,16 @@ import { pathToFileURL } from "node:url";
 import { createInterface } from "node:readline";
 import { createApp } from "../../src/app.ts";
 import { bootstrap } from "../../src/identity.ts";
+import { copyNativeOutSnapshot } from "./native-out-snapshot.mjs";
 const fixtureName =
   process.env.UWORK_NATIVE_FIXTURE_NAME ?? "client-native-enterprise-20261017";
 if (!/^client-native-[a-z0-9-]+$/.test(fixtureName))
   throw Error("Invalid fixture name");
+const dynamicWorkflowMode = process.env.UWORK_NATIVE_DYNAMIC_WORKFLOW_MODE;
+if (dynamicWorkflowMode !== undefined && dynamicWorkflowMode !== "alwaysOn")
+  throw Error(
+    "Only the existing alwaysOn workflow mode is supported by this fixture",
+  );
 const exec = promisify(execFile),
   evidence = "evidence/" + fixtureName;
 await mkdir(evidence, { recursive: true, mode: 0o700 });
@@ -35,6 +41,9 @@ await mkdir(join(process.cwd(), "data"), { recursive: true });
 await mkdir(root, { mode: 0o700 });
 for (const p of [home, appRoot])
   await mkdir(p, { recursive: true, mode: 0o700 });
+const workflowWorkspacePath = join(root, "project-input");
+if (dynamicWorkflowMode === "alwaysOn")
+  await mkdir(workflowWorkspacePath, { mode: 0o700 });
 const key = join(root, "tls.key"),
   cert = join(root, "tls.crt");
 await exec("openssl", [
@@ -60,6 +69,21 @@ let backendOrigin = "",
 const traffic = [];
 let enterpriseAsset, denyPolicy, enterpriseExpert, expertDenyPolicy;
 const modelRequests = [];
+let workflowHoldSecond = false;
+const workflowPendingReplies = new Set(),
+  workflowFacts = [];
+const workflowScript = [
+  'const worker = agent("NativeUiWorker", { system: "NATIVE_UI_WORKFLOW_ACTOR" });',
+  'const first = await worker.ask("NATIVE_UI_STEP_ONE");',
+  'const second = await worker.ask("NATIVE_UI_STEP_TWO");',
+  "return { first, second };",
+].join("\n");
+const messageText = (message) =>
+  typeof message?.content === "string"
+    ? message.content
+    : Array.isArray(message?.content)
+      ? message.content.map((part) => part.text ?? "").join("")
+      : "";
 const upstream = httpServer(async (req, res) => {
   let text = "";
   for await (const b of req) text += b;
@@ -76,6 +100,41 @@ const upstream = httpServer(async (req, res) => {
   const currentHasTool = body.messages
     .slice(lastUserIndex + 1)
     .some((m) => m.role === "tool");
+  const workflowActor =
+    dynamicWorkflowMode === "alwaysOn" &&
+    body.messages.some(
+      (m) =>
+        m.role === "system" &&
+        messageText(m).includes("NATIVE_UI_WORKFLOW_ACTOR"),
+    );
+  const workflowStep = messageText(currentUser).includes("NATIVE_UI_STEP_TWO")
+    ? 2
+    : 1;
+  const workflowSaveTurn =
+    dynamicWorkflowMode === "alwaysOn" &&
+    body.stream &&
+    !currentHasTool &&
+    messageText(currentUser).includes("NATIVE_UI_WORKFLOW_SAVE") &&
+    body.tools?.some((t) => t.function?.name === "SaveWorkflow");
+  if (workflowActor) {
+    const fact = { request: modelCalls, step: workflowStep, held: false };
+    workflowFacts.push(fact);
+    if (workflowStep === 2 && workflowHoldSecond) {
+      fact.held = true;
+      await new Promise((resolve) => {
+        const finish = () => {
+          workflowPendingReplies.delete(finish);
+          res.off("close", finish);
+          resolve();
+        };
+        workflowPendingReplies.add(finish);
+        res.once("close", finish);
+      });
+      fact.closedWhileHeld = res.destroyed;
+      if (res.destroyed) return;
+    }
+    fact.responseSent = true;
+  }
   const skillTurn =
     body.tools?.some((t) => t.function?.name === "Skill") &&
     !currentHasTool &&
@@ -86,25 +145,46 @@ const upstream = httpServer(async (req, res) => {
     !currentHasTool &&
     typeof currentUser?.content === "string" &&
     currentUser.content.includes("运行企业专家");
-  const toolTurn = skillTurn || expertTurn;
-  const call = {
-    index: 0,
-    id: (expertTurn ? "native-expert-" : "native-skill-") + modelCalls,
-    type: "function",
-    function: {
-      name: expertTurn ? "Agent" : "Skill",
-      arguments: JSON.stringify(
-        expertTurn
-          ? {
-              description: "Native enterprise expert",
-              prompt: "NATIVE_ENTERPRISE_EXPERT_CHILD",
-              subagent_type: enterpriseExpert?.name,
-            }
-          : { skill: "enterprise:" + enterpriseAsset?.id },
-      ),
-    },
-  };
-  const output = "原生企业资产联动完成。";
+  const toolTurn = workflowSaveTurn || skillTurn || expertTurn;
+  const call = workflowSaveTurn
+    ? {
+        index: 0,
+        id: "native-workflow-save-" + modelCalls,
+        type: "function",
+        function: {
+          name: "SaveWorkflow",
+          arguments: JSON.stringify({
+            name: messageText(currentUser).includes(
+              "NATIVE_UI_WORKFLOW_SAVE_REJECT",
+            )
+              ? "native-ui-workflow-rejected"
+              : "native-ui-workflow",
+            description: "Native UI two-step workflow",
+            scope: "project",
+            script: workflowScript,
+          }),
+        },
+      }
+    : {
+        index: 0,
+        id: (expertTurn ? "native-expert-" : "native-skill-") + modelCalls,
+        type: "function",
+        function: {
+          name: expertTurn ? "Agent" : "Skill",
+          arguments: JSON.stringify(
+            expertTurn
+              ? {
+                  description: "Native enterprise expert",
+                  prompt: "NATIVE_ENTERPRISE_EXPERT_CHILD",
+                  subagent_type: enterpriseExpert?.name,
+                }
+              : { skill: "enterprise:" + enterpriseAsset?.id },
+          ),
+        },
+      };
+  const output = workflowActor
+    ? `NATIVE_UI_STEP_${workflowStep}_DONE`
+    : "原生企业资产联动完成。";
   if (body.stream) {
     res.setHeader("content-type", "text/event-stream");
     if (toolTurn)
@@ -122,7 +202,9 @@ const upstream = httpServer(async (req, res) => {
           "\n\n",
       );
     else
-      for (const content of ["原生企业资产", "联动完成。"])
+      for (const content of workflowActor
+        ? [output]
+        : ["原生企业资产", "联动完成。"])
         res.write(
           "data: " +
             JSON.stringify({
@@ -254,6 +336,7 @@ const model = await api(p + "/models", "POST", {
   scope: { all: true },
   maxOutputTokens: 1024,
   supportsTools: true,
+  ...(dynamicWorkflowMode === "alwaysOn" ? { contextWindow: 500000 } : {}),
 });
 const dA = await api(p + "/departments", "POST", { name: "业务一部" }),
   dB = await api(p + "/departments", "POST", { name: "业务二部" });
@@ -392,12 +475,18 @@ await writeFile(
 );
 await writeFile(
   join(appRoot, "entry.cjs"),
-  `require('./env-guard.cjs');const {app}=require('electron');app.setAsDefaultProtocolClient=()=>false;import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
+  `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
 );
 // 未打包的 Main 会搜索开发环境文件；拷贝正式产物到隔离根，不能借源目录启动。
-await cp(join(client, "packages/desktop/out"), join(appRoot, "out"), {
-  recursive: true,
+const outSnapshot = await copyNativeOutSnapshot({
+  source: join(client, "packages/desktop/out"),
+  ownedRoot: root,
 });
+await writeFile(
+  join(evidence, "native-out-snapshot.json"),
+  JSON.stringify(outSnapshot, null, 2),
+  { mode: 0o600 },
+);
 const mainHash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const mainEntrySha256 = mainHash(
   await readFile(join(appRoot, "out/main/index.js")),
@@ -439,6 +528,7 @@ const meta = {
   home,
   modelId: model.id,
   mainEntrySha256,
+  dynamicWorkflowMode: dynamicWorkflowMode ?? null,
   copiedProductionMain: true,
   supplierOrigin: `http://127.0.0.1:${upstream.address().port}`,
   tenantId: owner.tenantId,
@@ -552,7 +642,13 @@ async function launch() {
   if (electron) throw Error("Already launched");
   electron = spawn(
     runtime.electron,
-    [appRoot, "--remote-debugging-port=" + cdpPort],
+    [
+      appRoot,
+      ...(dynamicWorkflowMode === "alwaysOn"
+        ? ["--open-workspace", workflowWorkspacePath]
+        : []),
+      "--remote-debugging-port=" + cdpPort,
+    ],
     {
       cwd: appRoot,
       detached: true,
@@ -577,12 +673,18 @@ async function launch() {
         ),
         ZCODE_ENV: "production",
         ZCODE_BASE_URL: origin,
+        ...(dynamicWorkflowMode === "alwaysOn"
+          ? { ZCODE_DYNAMIC_WORKFLOW_MODE: dynamicWorkflowMode }
+          : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
   const { createWriteStream } = await import("node:fs");
-  const log = createWriteStream(evidence + "/electron.log", { mode: 0o600 });
+  const log = createWriteStream(evidence + "/electron.log", {
+    mode: 0o600,
+    ...(dynamicWorkflowMode === "alwaysOn" ? { flags: "a" } : {}),
+  });
   electron.stdout.pipe(log);
   electron.stderr.pipe(log);
   electron.once("exit", (code) => {
@@ -592,6 +694,68 @@ async function launch() {
   });
   console.log(
     JSON.stringify({ event: "launched", pid: electron.pid, cdpPort }),
+  );
+}
+async function stopNative() {
+  const child = electron;
+  if (!child) return;
+  const wait = (milliseconds) =>
+    new Promise((resolve) => {
+      if (child.exitCode !== null || child.signalCode !== null) {
+        resolve(true);
+        return;
+      }
+      const done = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+      const timer = setTimeout(() => {
+        child.off("exit", done);
+        resolve(false);
+      }, milliseconds);
+      child.once("exit", done);
+    });
+  process.kill(-child.pid, "SIGTERM");
+  if (!(await wait(10000))) {
+    process.kill(-child.pid, "SIGKILL");
+    if (!(await wait(5000))) throw Error("Owned Electron did not exit");
+  }
+  if (dynamicWorkflowMode === "alwaysOn") {
+    await writeFile(
+      join(evidence, `native-stop-${child.pid}.json`),
+      JSON.stringify({
+        pid: child.pid,
+        exitCode: child.exitCode,
+        signalCode: child.signalCode,
+      }),
+      { mode: 0o600 },
+    );
+  }
+}
+async function saveWorkflowProof(name) {
+  if (!/^[a-z0-9-]+$/.test(name)) throw Error("Invalid workflow proof name");
+  const usage = await api(p + "/usage");
+  await writeFile(
+    join(evidence, name + "-workflow-proof.json"),
+    JSON.stringify(
+      {
+        modelCalls,
+        workflowFacts,
+        workflowPendingReplies: workflowPendingReplies.size,
+        traffic,
+        modelRequests,
+        ledger: usage.items.map((row) => ({
+          id: row.id,
+          status: row.status,
+          amount: row.amount,
+          inputTokens: row.inputTokens,
+          outputTokens: row.outputTokens,
+        })),
+      },
+      null,
+      2,
+    ),
+    { mode: 0o600 },
   );
 }
 let closing = false;
@@ -606,31 +770,9 @@ async function close() {
       errors.push("cleanup_failed");
     }
   };
-  await attempt(async () => {
-    const child = electron;
-    if (!child) return;
-    const wait = (milliseconds) =>
-      new Promise((resolve) => {
-        if (child.exitCode !== null || child.signalCode !== null) {
-          resolve(true);
-          return;
-        }
-        const done = () => {
-          clearTimeout(timer);
-          resolve(true);
-        };
-        const timer = setTimeout(() => {
-          child.off("exit", done);
-          resolve(false);
-        }, milliseconds);
-        child.once("exit", done);
-      });
-    process.kill(-child.pid, "SIGTERM");
-    if (!(await wait(10000))) {
-      process.kill(-child.pid, "SIGKILL");
-      if (!(await wait(5000))) throw Error("Owned Electron did not exit");
-    }
-  });
+  await attempt(stopNative);
+  if (dynamicWorkflowMode === "alwaysOn")
+    await attempt(() => saveWorkflowProof("final"));
   await attempt(() => app.close());
   for (const server of [upstream, proxy])
     await attempt(async () => {
@@ -641,7 +783,16 @@ async function close() {
     });
   await writeFile(
     evidence + "/desktop-traffic.json",
-    JSON.stringify({ modelCalls, traffic, modelRequests }, null, 2),
+    JSON.stringify(
+      {
+        modelCalls,
+        traffic,
+        modelRequests,
+        ...(dynamicWorkflowMode === "alwaysOn" ? { workflowFacts } : {}),
+      },
+      null,
+      2,
+    ),
     { mode: 0o600 },
   );
   paths.setDataBaseDir(null);
@@ -670,6 +821,24 @@ rl.on("line", async (line) => {
   try {
     const c = JSON.parse(line);
     if (c.op === "launch") await launch();
+    else if (c.op === "stopNative" && dynamicWorkflowMode === "alwaysOn")
+      await stopNative();
+    else if (
+      c.op === "workflowPauseSecond" &&
+      dynamicWorkflowMode === "alwaysOn"
+    )
+      workflowHoldSecond = true;
+    else if (
+      c.op === "workflowReleaseSecond" &&
+      dynamicWorkflowMode === "alwaysOn"
+    ) {
+      workflowHoldSecond = false;
+      for (const deliver of [...workflowPendingReplies]) deliver();
+    } else if (
+      c.op === "workflowSnapshot" &&
+      dynamicWorkflowMode === "alwaysOn"
+    )
+      await saveWorkflowProof(c.name);
     else if (c.op === "pauseConfiguration") configurationPaused = true;
     else if (c.op === "resumeConfiguration") {
       configurationPaused = false;
@@ -709,6 +878,12 @@ rl.on("line", async (line) => {
           home,
           cdpPort,
           modelCalls,
+          ...(dynamicWorkflowMode === "alwaysOn"
+            ? {
+                workflowFacts,
+                workflowPendingReplies: workflowPendingReplies.size,
+              }
+            : {}),
           assetId: enterpriseAsset?.id,
           expertId: enterpriseExpert?.id,
           expertName: enterpriseExpert?.name,
