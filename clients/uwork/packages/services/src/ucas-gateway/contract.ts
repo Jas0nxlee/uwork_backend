@@ -51,6 +51,8 @@ export interface UcasGatewayProvisioningTarget {
   apply(input: {
     readonly baseUrl: string;
     readonly authMode?: "enterprise-session";
+    /** 既有身份lease的只读准入检查，仅Host私有端口传递，不写盘。 */
+    readonly isCurrent?: () => boolean;
     readonly apiKey?: string;
     readonly replaceApiKey?: boolean;
     readonly modelIds?: readonly string[];

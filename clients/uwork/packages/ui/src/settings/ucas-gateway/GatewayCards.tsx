@@ -12,6 +12,7 @@ import {
   formatCost,
   gatewayHostLabel,
   shortModelName,
+  gatewayAccountRoleId,
 } from "./gatewayFormat.js";
 import { FieldRow, InfoTile, SectionCard, type Translate } from "./gatewayUiParts.js";
 
@@ -19,7 +20,7 @@ export function AccountCard({ t, view }: { t: Translate; view: UcasGatewayView }
   const { locale } = useZCodeIntl();
   const user = view.user;
   if (!user) return null;
-  const roleId = user.role === "org_admin" || user.role === "super_admin" ? user.role : "user";
+  const roleId = gatewayAccountRoleId(user.role);
   return (
     <SectionCard
       icon={<Building2 className="size-4" aria-hidden="true" />}
@@ -28,17 +29,24 @@ export function AccountCard({ t, view }: { t: Translate; view: UcasGatewayView }
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <InfoTile label={t("account.name")} value={user.name} />
         <InfoTile label={t("account.department")} value={user.department ?? t("notSet")} />
-        <InfoTile label={t("account.position")} value={user.position ?? t("notSet")} />
+        {view.authMode !== "enterprise-session" && (
+          <InfoTile label={t("account.position")} value={user.position ?? t("notSet")} />
+        )}
         <InfoTile label={t("account.email")} value={user.email ?? t("notSet")} />
         <InfoTile label={t("account.role")} value={t(`role.${roleId}`)} />
-        <InfoTile
-          label={t("account.budget")}
-          value={
-            user.monthlyBudgetUsd && user.monthlyBudgetUsd > 0
-              ? formatUsd(locale, user.monthlyBudgetUsd)
-              : t("notSet")
-          }
-        />
+        {view.authMode === "enterprise-session" && user.wecomUserId && (
+          <InfoTile label={t("account.wecomUserId")} value={user.wecomUserId} />
+        )}
+        {view.authMode !== "enterprise-session" && (
+          <InfoTile
+            label={t("account.budget")}
+            value={
+              user.monthlyBudgetUsd && user.monthlyBudgetUsd > 0
+                ? formatUsd(locale, user.monthlyBudgetUsd)
+                : t("notSet")
+            }
+          />
+        )}
       </div>
     </SectionCard>
   );
@@ -127,6 +135,7 @@ function PlanRow({
       ? Math.min(100, (subscription.amountUsed / subscription.amountTotal) * 100)
       : 0;
   const reset = formatResetTime(locale, subscription.nextResetTime);
+  const allowance = subscription.effectiveAllowance;
   return (
     <div className="space-y-2 rounded-lg border border-border/60 bg-surface/50 px-3 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -135,10 +144,29 @@ function PlanRow({
         </span>
         <Badge variant="secondary">{subscription.status}</Badge>
       </div>
+      {allowance && (
+        <div className="space-y-1 text-ui-sm" data-testid="enterprise-effective-allowance">
+          <p className="font-medium text-foreground">
+            {t("plan.effectiveRemaining", {
+              amount: formatCost(locale, allowance.amountRemaining, "credits"),
+            })}
+          </p>
+          {allowance.blocked && (
+            <p className="text-foreground-subtle">
+              {t(
+                allowance.reason === "subscription_inactive"
+                  ? "plan.subscriptionInactive"
+                  : "plan.creditExhausted",
+              )}
+            </p>
+          )}
+          <p className="text-foreground-subtle">{t("plan.effectiveHint")}</p>
+        </div>
+      )}
       <Progress value={percent} />
       <div className="flex flex-wrap items-center justify-between gap-2 text-ui-sm text-foreground-subtle">
         <span>
-          {t("plan.usedOf", {
+          {t(allowance ? "plan.referenceUsedOf" : "plan.usedOf", {
             used: formatCost(locale, subscription.amountUsed, subscription.unit),
             total: formatCost(locale, subscription.amountTotal, subscription.unit),
           })}

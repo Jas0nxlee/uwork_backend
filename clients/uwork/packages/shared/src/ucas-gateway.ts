@@ -46,7 +46,16 @@ export const ucasGatewayKeySchema = z.object({
 });
 export type UcasGatewayKey = z.infer<typeof ucasGatewayKeySchema>;
 
+/** 当前uwork请求的有效预算下界；不是执行许可，也不暴露其他成员/共享规则明细。 */
+const uworkEffectiveAllowanceSchema = z.object({
+  application: z.literal("uwork"),
+  period: z.string().min(1).max(64),
+  amountRemaining: z.number().int().nonnegative().max(1e12),
+  blocked: z.boolean(),
+  reason: z.enum(["subscription_inactive", "quota_exhausted"]).nullable(),
+});
 export const ucasGatewaySubscriptionSchema = z.object({
+  effectiveAllowance: uworkEffectiveAllowanceSchema.optional(),
   unit: z.enum(["usd", "credits"]).optional(),
   planId: z.string().trim().max(256),
   planTitle: z.string().trim().max(256),
@@ -119,6 +128,7 @@ export const ucasGatewayErrorSchema = z.enum([
   "signed-out",
   "unconfigured",
   "unauthorized",
+  "forbidden",
   "network",
   "failed",
 ]);

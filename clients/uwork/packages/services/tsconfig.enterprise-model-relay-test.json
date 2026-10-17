@@ -14,12 +14,21 @@
     "test/enterpriseModelRelay.test.ts",
     "test/enterpriseModelRelayIndependentSecurity.test.ts",
     "test/enterpriseToolAuthorizationBridge.test.ts",
-    "src/enterprise-model-relay/**/*.ts"
+    "src/enterprise-model-relay/**/*.ts",
+    "test/gatewayProjectionAdmission.test.ts"
   ],
   "references": [
-    { "path": "../shared" },
-    { "path": "../rpc" },
-    { "path": "../provider" },
-    { "path": "../provider-node" }
+    {
+      "path": "../shared"
+    },
+    {
+      "path": "../rpc"
+    },
+    {
+      "path": "../provider"
+    },
+    {
+      "path": "../provider-node"
+    }
   ]
 }

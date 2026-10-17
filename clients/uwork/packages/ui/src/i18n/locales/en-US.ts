@@ -3148,6 +3148,8 @@ const enUS: Record<string, string> = {
   "settings.usage.gateway.error.unconfigured":
     "No enterprise auth service is configured on this device.",
   "settings.usage.gateway.error.unauthorized": "Your enterprise session expired. Sign in again.",
+  "settings.usage.gateway.error.forbidden":
+    "Your enterprise permissions, seat or subscription are unavailable. Contact your administrator.",
   "settings.usage.gateway.error.network": "Network unreachable. Check your connection and retry.",
   "settings.usage.gateway.error.failed": "Sync failed. Please try again later.",
   "settings.usage.gateway.account.title": "Enterprise account",
@@ -3158,6 +3160,12 @@ const enUS: Record<string, string> = {
   "settings.usage.gateway.account.role": "Role",
   "settings.usage.gateway.account.budget": "Monthly budget",
   "settings.usage.gateway.role.user": "Member",
+  "settings.usage.gateway.role.owner": "Organization owner",
+  "settings.usage.gateway.role.admin": "Administrator",
+  "settings.usage.gateway.role.operator": "Operator",
+  "settings.usage.gateway.role.auditor": "Auditor",
+  "settings.usage.gateway.role.member": "Member",
+  "settings.usage.gateway.account.wecomUserId": "WeCom UserId",
   "settings.usage.gateway.role.org_admin": "Org admin",
   "settings.usage.gateway.role.super_admin": "Super admin",
   "settings.usage.gateway.gateway.title": "Model gateway",
@@ -3166,6 +3174,14 @@ const enUS: Record<string, string> = {
     "An existing local key is never overwritten automatically.",
   "settings.usage.gateway.gateway.replaceKey": "Replace with enterprise key",
   "settings.usage.gateway.plan.title": "Plans",
+  "settings.usage.gateway.plan.effectiveRemaining": "Currently available: {amount}",
+  "settings.usage.gateway.plan.effectiveHint":
+    "Includes organization, department, member and application limits. Each request still requires backend budget approval.",
+  "settings.usage.gateway.plan.subscriptionInactive":
+    "The subscription has not started or has expired.",
+  "settings.usage.gateway.plan.creditExhausted":
+    "Available Credit is exhausted. Zero-cost requests still follow backend rules.",
+  "settings.usage.gateway.plan.referenceUsedOf": "Member reference: {used} used / {total}",
   "settings.usage.gateway.plan.empty": "No active plan on this account.",
   "settings.usage.gateway.plan.unnamed": "Unnamed plan",
   "settings.usage.gateway.plan.usedOf": "{used} of {total} used",

@@ -93,6 +93,8 @@ export const providerConfigDataSchema = z
     api: providerApiDataSchema.nullable().optional(),
     builtinModelIds: modelIdsDataSchema,
     personalModelIds: modelIdsDataSchema,
+    // 仅私有Gateway写入的派生候选，不是后台执行授权。
+    enterpriseModelIds: modelIdsDataSchema,
     modelOrder: modelIdsDataSchema,
     visibility: providerVisibilityDataSchema.nullable().optional(),
   })

@@ -561,7 +561,8 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
   return {
     api,
     p,
-    packaged: async () => {
+    privateFrames,
+    packaged: async (automaticSelection = false) => {
       const { ZCodeProtocolClient } = await source(
         "zcode-agent/zcodeProtocolClient.ts",
       );
@@ -758,13 +759,17 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
           type: "createSession",
           payload: {
             workspaceId: workspacePath,
-            config: {
-              modelSelection: {
-                providerId: "ucas",
-                modelId: String(model.id),
-                options: { reasoningLevel: "high" },
-              },
-            },
+            ...(automaticSelection
+              ? {}
+              : {
+                  config: {
+                    modelSelection: {
+                      providerId: "ucas",
+                      modelId: String(model.id),
+                      options: { reasoningLevel: "high" },
+                    },
+                  },
+                }),
           },
           issuedAt: Date.now(),
         },
@@ -803,11 +808,15 @@ async function liveFixture(t: TestContext, name: string, capabilities = false) {
               type: "sendText",
               payload: {
                 text: "Synthetic hold until stopped",
-                modelSelection: {
-                  providerId: "ucas",
-                  modelId: String(model.id),
-                  options: { reasoningLevel: "high" },
-                },
+                ...(automaticSelection
+                  ? {}
+                  : {
+                      modelSelection: {
+                        providerId: "ucas",
+                        modelId: String(model.id),
+                        options: { reasoningLevel: "high" },
+                      },
+                    }),
               },
               issuedAt: Date.now(),
             },
@@ -978,5 +987,69 @@ test("packaged CLI stop during an admitted Host read closes streamed SSE", async
   assert.equal(usage.items.length, 1);
   f.check(
     "packaged-stop-active-read-closes-3hops-uncertain-partial-SSE-no-refund",
+  );
+});
+
+test("fresh packaged CLI sends its first message with Gateway default and no manually selected model", async (t) => {
+  const f = await liveFixture(t, "stdio-fresh-default", false);
+  assert.ok((await f.gateway().sync("login")).committed);
+  const cli = await f.packaged(true);
+  assert.equal((await cli.send()).status, "accepted");
+  const usage = await eventually(
+    () =>
+      f.api<{ items: Row[] }>(`${f.p}/usage`, "GET", undefined, f.login.token),
+    (value) =>
+      value.items.length === 2 &&
+      value.items.every((row) => row.status === "settled"),
+  );
+  assert.equal(f.calls(), 2);
+  assert.ok(usage.items.every((row) => row.amount === 9));
+  const opens = f.privateFrames.flatMap((value: unknown) => {
+    if (!value || typeof value !== "object" || !("params" in value)) return [];
+    const params = value.params;
+    if (!params || typeof params !== "object" || !("request" in params))
+      return [];
+    const request = params.request;
+    if (
+      !request ||
+      typeof request !== "object" ||
+      !("kind" in request) ||
+      request.kind !== "open" ||
+      !("body" in request) ||
+      typeof request.body !== "string"
+    )
+      return [];
+    return [JSON.parse(request.body) as Row];
+  });
+  assert.equal(opens.length, 2);
+  assert.ok(opens.some((body) => body.stream === true));
+  assert.ok(opens.some((body) => body.stream !== true));
+  assert.ok(
+    opens.every(
+      (body) =>
+        !Object.hasOwn(body, "tools") && !Object.hasOwn(body, "tool_choice"),
+    ),
+  );
+  assert.ok(opens.every((body) => body.model === f.model.id));
+  assert.ok(
+    opens.every(
+      (body) =>
+        !Object.hasOwn(body, "reasoning_effort") &&
+        !Object.hasOwn(body, "thinking") &&
+        !Object.hasOwn(body, "max_completion_tokens"),
+    ),
+  );
+  await eventually(
+    async () => cli.notifications,
+    (values) =>
+      values.some(
+        (v) =>
+          v.method === "v4/telemetry/event" &&
+          v.params.kind === "turn.terminal" &&
+          v.params.status === "success",
+      ),
+  );
+  f.check(
+    "fresh-HOME-no-create-config-no-send-selection-default-opaque-none-main-and-title-success",
   );
 });

@@ -197,6 +197,7 @@ export class ProviderConfig extends ConfigOverlay<ProviderConfig> {
   readonly api?: ProviderApiConfig | null;
   readonly builtinModelIds?: ProviderConfigObject["builtinModelIds"];
   readonly personalModelIds?: ProviderConfigObject["personalModelIds"];
+  readonly enterpriseModelIds?: ProviderConfigObject["enterpriseModelIds"];
   readonly modelOrder?: ProviderConfigObject["modelOrder"];
   readonly visibility?: ProviderConfigObject["visibility"];
 
@@ -208,6 +209,7 @@ export class ProviderConfig extends ConfigOverlay<ProviderConfig> {
     this.api = input.api;
     this.builtinModelIds = freezeModelIds(input.builtinModelIds);
     this.personalModelIds = freezeModelIds(input.personalModelIds);
+    this.enterpriseModelIds = freezeModelIds(input.enterpriseModelIds);
     this.modelOrder = freezeModelIds(input.modelOrder);
     this.visibility = input.visibility;
     Object.freeze(this);
@@ -221,6 +223,7 @@ export class ProviderConfig extends ConfigOverlay<ProviderConfig> {
       api: this.overlayConfig(this.api, next.api),
       builtinModelIds: this.overlayValue(this.builtinModelIds, next.builtinModelIds),
       personalModelIds: this.overlayValue(this.personalModelIds, next.personalModelIds),
+      enterpriseModelIds: this.overlayValue(this.enterpriseModelIds, next.enterpriseModelIds),
       modelOrder: this.overlayValue(this.modelOrder, next.modelOrder),
       visibility: this.overlayValue(this.visibility, next.visibility),
     });
@@ -245,6 +248,7 @@ export class ProviderConfig extends ConfigOverlay<ProviderConfig> {
       api: this.api,
       builtinModelIds: this.builtinModelIds,
       personalModelIds: this.personalModelIds,
+      enterpriseModelIds: this.enterpriseModelIds,
       modelOrder: this.modelOrder,
       visibility: this.visibility,
     });
@@ -259,6 +263,7 @@ export class ProviderConfig extends ConfigOverlay<ProviderConfig> {
       api: this.api,
       builtinModelIds: source?.builtinModelIds,
       personalModelIds: source?.personalModelIds,
+      enterpriseModelIds: source?.enterpriseModelIds,
       modelOrder: source?.modelOrder,
       visibility: this.visibility,
     });
@@ -277,6 +282,7 @@ export class ProviderConfig extends ConfigOverlay<ProviderConfig> {
       api: this.api?.toJSON() ?? this.api,
       builtinModelIds: this.builtinModelIds,
       personalModelIds: this.personalModelIds,
+      enterpriseModelIds: this.enterpriseModelIds,
       modelOrder: this.modelOrder,
       visibility: this.visibility,
     });

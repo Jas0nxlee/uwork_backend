@@ -56,6 +56,7 @@ export async function applyUWorkGatewayModelConfigs(
   initial: ProviderSettingsView,
   descriptors: readonly UWorkGatewayModelDescriptor[] | undefined,
   modelIds: readonly string[],
+  isCurrent?: () => boolean,
 ): Promise<ProviderSettingsView> {
   if (descriptors === undefined) return initial;
   const models = z.array(descriptorSchema).parse(descriptors);
@@ -68,6 +69,7 @@ export async function applyUWorkGatewayModelConfigs(
   }
   let view = initial;
   for (const model of models) {
+    if (isCurrent && !isCurrent()) throw new Error("enterprise_identity_changed");
     const current = view.providers
       .find((p) => p.providerId === "ucas")
       ?.models.find((m) => m.modelId === model.id);
@@ -78,6 +80,7 @@ export async function applyUWorkGatewayModelConfigs(
       JSON.stringify(current.personalExactConfig) === JSON.stringify(config)
     )
       continue;
+    if (isCurrent && !isCurrent()) throw new Error("enterprise_identity_changed");
     view = await facade.savePersonalModelDraft({
       providerId: "ucas",
       originalModelId: model.id,

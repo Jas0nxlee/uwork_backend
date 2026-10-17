@@ -170,3 +170,77 @@ flowchart LR
 ```
 
 验收：真实Gateway.sync→ProviderRuntime的server false/128k/output16逐字段一致；旧1M/Vision/最高reasoning参数再同步后修正；server更新描述后同ID再次同步生效；JSON/SSE实际SDK请求无不支持方言且成功/计量；旧UCAS及个人配置哨兵不变。只在独立磁盘/合成email与device/本机TLS和零费用provider上执行，不调用企微/外部MCP/网盘。
+
+## 多成员当前资料与服务端撤销（2026-10-17）
+
+受管Gateway仅投影当前认证成员的真实姓名、邮箱、原始平台角色（owner/admin/operator/auditor/member）及后台membership返回的企微externalId、部门名称。无该字段的旧后端仍返回null；不从客户端输入猜测身份/部门，不将Credit额度映射为USD。legacy UCAS角色映射不变。
+
+同一组织的不同客户端会话各自持有既有身份owner/加密store、Gateway及Provider文件，不共享成员用量或身份投影。目录依当前席位、部门祖先scope与角色读取，部门转移/角色变化须在下次实际刷新反映；本地Provider旧模型条目不授后端执行权。
+
+服务端明确401/403拒绝刷新或同步后，Gateway必须撤掉旧目录、套餐/用量及ready授权投影；401还清旧资料。不得仅设置error而保留可见的旧授权模型或旧成员用量。该动作仅撤销Gateway投影，身份是否恢复/退出仍由既有EnterpriseIdentityService处理，不创建第二身份owner。临时网络/5xx失败可保留最后快照但必须标error而非ready；保留数据不构成执行准入。当前成功的后续全sync可恢复投影。
+
+```mermaid
+sequenceDiagram
+  participant Admin
+  participant Backend
+  participant Identity as Existing identity owner
+  participant Gateway
+  Admin->>Backend: change member role/department/seat or revoke session
+  Gateway->>Identity: capture current lease
+  Gateway->>Backend: profile/catalog/usage using private current session
+  alt current authorized response
+    Backend-->>Gateway: current member-only facts
+    Gateway->>Identity: assert lease
+    Gateway-->>Gateway: commit current projection
+  else HTTP401/403
+    Backend-->>Gateway: explicit rejection
+    Gateway-->>Gateway: clear old authorized projection + error
+  end
+```
+
+验收使用独立磁盘+本机TLS真实HTTP：同租户两个企业成员、父子部门scope、部门额度、转部门、角色变化、撤席位与服务端会话失效，实际经Host私有relay生成及本人用量隔离；不调用真实企微/外部MCP/网盘，不读取主实例环境或数据。
+
+当前成员套餐新增可选 `effectiveAllowance`：固定 `application=uwork`、账期、`amountRemaining`、`blocked` 与稳定原因。它是当前订阅/企业/成员/所有祖先部门/uwork应用约束扣除settled/uncertain/reserved后的预算下界，不披露共享使用明细或其他成员标识，不替换旧amountTotal/amountUsed口径，也不授执行许可。预算归零不等于禁止所有模型，显式零价模型仍由既有逐请求原子admission决定。
+
+永久真实HTTPS回归入口（本仓根目录）：`node --import tsx --test scripts/client-user-journey-smoke.ts`。包含24组新的多成员流程：本人非等量用量隔离、已发布配置、五种平台角色、祖先scope/预算/部门变更、四种Gateway入口的席位及服务端会话拒绝、撤权恢复时局部刷新不能冒称完整ready、统计阶段中途撤销，以及受控503失败/成功恢复、真实Registry默认候选/撤权重启与成功目录收缩/空目录。外部企微provider被显式禁止调用，绑定仅为本机合成管理元数据；不会验证真实企微授权。
+
+## 当前受管模型候选与默认选择（2026-10-17）
+
+受管模式不能把旧UCAS模板自带的模型混入当前后端目录。当前scope-bound plan.ids经同一私有Symbol传入Provider的既有原子writer，派生为 `enterpriseModelIds` 候选快照；缺失或空数组均无受管候选。Resolver只在enterprise-session模式用它缩小真实Registry/selectable/default候选，不修改旧builtin/personal membership、规则或用户磁盘默认偏好；legacy访问模式忽略该快照。该字段只承载派生目录，不提供执行授权，用户改配置也不能绕过后台当前模型scope/会话/席位/额度检查。
+
+公开create/save不能提交reserved `enterpriseModelIds`。Gateway写目录、拒绝后的清候选均绑定原操作scope.isCurrent；同一writer在实际磁盘变更前检查这个Host私有回调，旧owner的迟到拒绝不能清新owner目录。managed401/403后把候选清为空；既有磁盘规则保留供诊断及legacy恢复。新scope完整同步才重新建立受管候选。默认选择由既有ModelSelection owner从真实Registry得出，不靠UI隐藏，更不凭空创建后端未授权模型。
+
+自有协议401为unauthorized（重新登录），403为forbidden（权限/席位不足但不伪造身份失效）；两者均撤销授权投影和候选，旧UCAS错误映射不变。
+
+私有编排先发布空候选，再由既有Facade写入精确模型能力，最后同一原子writer发布当前IDs；失败保持候选为空，不能在描述就绪前短暂继承UCAS旧能力。该编排helper不保存身份、目录或任务状态。成功refreshModels仅在同owner完整旧投影仍存在时更新候选；明确拒绝清空后，局部刷新不能重建可选模型，必须由完整同步重建资料与当前目录。
+
+自有控制面目录/配置请求明确402（如SUBSCRIPTION_INACTIVE）与403同属forbidden，清旧active套餐/有效额度与候选，但保留identity owner；401仍unauthorized。该映射只作用UWork控制面client，不改变经Host relay返回的模型POST402（如单次预占额度不足），也不改变legacyUCAS错误语义。真实回归先HTTP使订阅过期，再实测目录402、Gateway失效及Registry/重启无默认，登录会话仍可GET me。
+
+## 用量刷新与授权失效并发（2026-10-17）
+
+自有模式的用量“刷新”在同一个请求serial/身份scope内读取当前套餐/effectiveAllowance和所选period/metric/force的统计，一起提交；后台调整额度后不要求另点全量同步。legacy只刷新usage的协议行为保持。套餐明确inactive（或effectiveAllowance.reason=subscription_inactive）作为forbidden清授权投影及候选；quota_exhausted/剩余0不等于撤销目录，不禁零价模型。
+
+服务端401/403/控制面402清授权投影前，同时使同Gateway已有usageSerial失效。旧owner本地仍authenticated不代表旧HTTP200可发布：服务端已拒绝后的迟到统计/套餐不得复活旧用量、active额度或ready状态。仅使用既有Gateway serial与身份owner，不增第二身份或任务所有者。
+
+## Gateway投影准入代次
+
+同owner服务端撤权也会使先前已计算的models/usage/sync200过时。Gateway内部投影admission generation在新的完整sync及当前明确拒绝时推进；不是身份代次，不保存token，也不建立新身份/任务所有者。所有操作scope与Provider isCurrent回调叠加此代次，旧操作迟到成功/失败直接丢弃，不能发布、清理或覆盖新快照。拒绝清候选绑定推进后的代次，后续完整sync使旧clear失效。usageSerial仍独立保留所选统计请求的最新胜出规则。
+
+已提交projection仅持原identity lease；同owner已完成快照的临时503可保留缓存。新owner/启动未绑定快照的完整sync先以当前准入scope stage空候选再读取目录，失败时不能把前owner目录当默认候选。该初始清理同样受锁内isCurrent保护。
+
+```mermaid
+sequenceDiagram
+  participant GW as Gateway唯一投影owner
+  participant Old as earlier HTTP200
+  participant New as current control rejection
+  participant Repo as existing Provider writer
+  GW->>Old: capture admission N + identity lease
+  GW->>New: capture admission N
+  New-->>GW: 401/403/control402
+  GW->>GW: admission N+1, invalidate usage serial
+  GW->>Repo: clear candidates bound N+1
+  Old-->>GW: late 200
+  GW->>GW: discard N; no publish or late catch cleanup
+  GW->>GW: new full sync advances N+2
+  Repo-->>GW: old clear N+1 cannot commit after N+2
+```

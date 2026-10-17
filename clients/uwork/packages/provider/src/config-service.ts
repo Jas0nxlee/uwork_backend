@@ -71,6 +71,10 @@ export interface UcasEndpointSource {
 export interface UcasGatewayConfigInput {
   readonly baseUrl: string;
   readonly authMode?: "enterprise-session";
+  /** 私有Gateway当前目录的派生候选；不是授权，缺省在企业模式中fail closed。 */
+  readonly enterpriseModelIds?: readonly string[];
+  /** Host私有准入回调，不持久化/不接受公共JSON自报。 */
+  readonly isCurrent?: () => boolean;
   readonly apiKey?: string;
   /** 仅显式替换才覆盖用户已有密钥；默认只补缺失。 */
   readonly replaceApiKey?: boolean;
@@ -329,6 +333,8 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
     if (input.apiKey !== undefined && !apiKey) throw new Error("UCAS API Key 不能为空");
     let apiKeyApplied = false;
     return this.#updatePersonal((current) => {
+      // 锁内才是实际写入准入点，旧拒绝结果不能迟到清空新身份的目录。
+      if (input.isCurrent && !input.isCurrent()) throw new Error("enterprise_identity_changed");
       const rule = current.providers.getRule(UCAS_PROVIDER_ID);
       if (rule?.templateId !== UCAS_PROVIDER_TEMPLATE_ID) {
         throw new Error("UCAS 默认供应商不可用");
@@ -356,6 +362,15 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
         new ProviderConfigValue({
           access: nextAccess ?? new ApiKeyAccessConfig(),
           api,
+          ...(enterpriseSession
+            ? {
+                enterpriseModelIds: [
+                  ...new Set(
+                    (input.enterpriseModelIds ?? []).map((id) => normalizeId("modelId", id)),
+                  ),
+                ],
+              }
+            : {}),
         }),
       );
       return {
@@ -468,6 +483,7 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
           ...(Object.keys(headers).length === 0 ? {} : { headers }),
         }),
         personalModelIds,
+        enterpriseModelIds: currentConfig?.enterpriseModelIds,
         modelOrder,
         visibility: "visible",
       });

@@ -33,9 +33,14 @@ export function createUWorkGatewayClient(options: UcasGatewayClientOptions): Uca
     } catch {
       throw new UcasGatewayRequestError("network");
     }
+    // 控制面402表示订阅准入失效，不能保留旧授权快照；模型POST额度错误走独立relay。
     if (!response.ok)
       throw new UcasGatewayRequestError(
-        response.status === 401 || response.status === 403 ? "unauthorized" : "http",
+        response.status === 401
+          ? "unauthorized"
+          : response.status === 402 || response.status === 403
+            ? "forbidden"
+            : "http",
         response.status,
       );
     return readJson(response);
@@ -50,17 +55,25 @@ export function createUWorkGatewayClient(options: UcasGatewayClientOptions): Uca
           user: z.object({ id: z.string(), name: z.string(), email: z.string().nullable() }),
           tenant: z.object({ id: z.string() }),
           role: z.string(),
+          membership: z
+            .object({
+              source: z.string(),
+              externalId: z.string().nullable(),
+              department: z.object({ id: z.string(), name: z.string() }).nullable(),
+            })
+            .optional(),
         })
         .parse(await send("/api/auth/me"));
+      // 当前后台已给出成员映射：不能再硬编码空部门/企微ID，或把不同平台角色折叠成user。
       return ucasGatewayUserSchema.parse({
         id: me.user.id,
         orgId: me.tenant.id,
         name: me.user.name,
-        role: me.role === "owner" ? "super_admin" : me.role === "admin" ? "org_admin" : "user",
-        wecomUserId: null,
+        role: me.role,
+        wecomUserId: me.membership?.externalId ?? null,
         email: me.user.email,
         avatar: null,
-        department: null,
+        department: me.membership?.department?.name ?? null,
         position: null,
         monthlyBudgetUsd: null,
       });

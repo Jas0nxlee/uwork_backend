@@ -127,3 +127,12 @@ export async function isGatewayProjectionCurrent(
     return false;
   }
 }
+
+/** 只绑定同一Gateway的只读identity端口与dispose检查，不创建身份状态。 */
+export function createGatewayIdentityScopeFactory(
+  source: GatewayIdentitySource,
+  isDisposed: () => boolean,
+) {
+  return (session: EnterpriseIdentitySession, apiBaseUrl: string, backend: "ucas" | "uwork") =>
+    createGatewayIdentityScope(source, session, apiBaseUrl, backend, isDisposed);
+}

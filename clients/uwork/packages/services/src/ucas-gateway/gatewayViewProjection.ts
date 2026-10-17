@@ -2,6 +2,7 @@ import {
   ucasGatewayModelsSchema,
   ucasGatewaySyncResultSchema,
   type UcasGatewaySyncResult,
+  type UcasGatewayError,
   type UcasGatewayView,
 } from "@zcode/shared";
 
@@ -126,5 +127,63 @@ export function initialGatewayView(): UcasGatewayView {
     models: null,
     lastSyncedAt: null,
     error: null,
+  };
+}
+
+/** 服务端明确拒绝后旧目录/用量已非授权事实；只撤投影，不伪造身份owner退出。 */
+export function failedGatewayProjection(
+  current: UcasGatewayView,
+  code: UcasGatewayError,
+  managed: boolean,
+  partial = false,
+): Omit<UcasGatewayView, "revision"> {
+  return {
+    ...(managed && (code === "unauthorized" || code === "forbidden")
+      ? emptyGatewayProjection(current, "idle", true)
+      : current),
+    status: managed || !partial ? "error" : current.status,
+    error: code,
+  };
+}
+
+/** 成功局部刷新只能恢复同owner完整快照；被拒后空投影仍等待完整sync。 */
+export function recoveredGatewayProjection(
+  current: UcasGatewayView,
+  managed: boolean,
+): Omit<UcasGatewayView, "revision"> {
+  return {
+    ...current,
+    error: null,
+    status:
+      managed && current.status === "error"
+        ? current.user && current.endpoint && current.models
+          ? "ready"
+          : "idle"
+        : current.status,
+  };
+}
+
+/** 同次统计查询和当前套餐一起提交，避免只刷新usage而继续展示旧额度。 */
+export function refreshedUsageProjection(
+  current: UcasGatewayView,
+  facts: Pick<UcasGatewayView, "usage"> & Partial<Pick<UcasGatewayView, "subscriptions">>,
+): Omit<UcasGatewayView, "revision"> {
+  return {
+    ...current,
+    ...facts,
+    status: current.status === "signed-out" ? "ready" : current.status,
+  };
+}
+
+export function hydratedGatewayProjection(
+  current: UcasGatewayView,
+  state: import("@zcode/shared").UcasGatewayState,
+): Omit<UcasGatewayView, "revision"> {
+  return {
+    ...current,
+    status: "idle",
+    endpoint: state.endpoint,
+    key: state.key,
+    lastSyncedAt: state.lastSyncedAt,
   };
 }

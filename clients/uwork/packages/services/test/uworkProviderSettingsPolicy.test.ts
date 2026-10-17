@@ -340,6 +340,29 @@ test("only the private Gateway Symbol may establish enterprise-session access", 
   await assert.rejects(
     () =>
       f.service.createPersonalProvider({
+        providerName: "forged catalog",
+        initialConfig: { enterpriseModelIds: ["forged"] },
+      }),
+    /enterprise_session_private_only/,
+  );
+  await assert.rejects(
+    () => f.service.savePersonalProviderOverlay(f.id, { enterpriseModelIds: [] }),
+    /enterprise_session_private_only/,
+  );
+  await assert.rejects(
+    () =>
+      f.service[providerSettingsTrustedGatewayProvisioning]({
+        baseUrl: "https://backend.example.test/v1",
+        authMode: "enterprise-session",
+        modelIds: [],
+        isCurrent: () => false,
+      }),
+    /enterprise_identity_changed/,
+  );
+
+  await assert.rejects(
+    () =>
+      f.service.createPersonalProvider({
         providerName: "forged managed",
         initialConfig: { access: { type: "enterprise-session" } },
       }),

@@ -304,3 +304,19 @@ test("bootstrap model factory forwards the trusted dispatch guard before actual 
   );
   assert.equal(calls, 0);
 });
+
+test("text-only model still rejects explicitly requested tools before Host relay dispatch", async () => {
+  const f = await fixture([]);
+  const model = new AiSdkModelAdapter({ env: {}, enterpriseSessionFetch: f.fetch }).createModel(
+    config(),
+  );
+  await assert.rejects(
+    model.generateText({
+      messages: [{ role: "user", content: "explicit required tool" }],
+      tools: [{ name: "ExplicitTool", inputSchema: { type: "object", properties: {} } }],
+      options: { reasoningLevel: "none", maxOutputTokens: 8 },
+    }),
+    /does not support tool calls/,
+  );
+  assert.equal(f.calls.length, 0);
+});

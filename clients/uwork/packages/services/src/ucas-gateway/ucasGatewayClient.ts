@@ -18,7 +18,7 @@ const MAX_RESPONSE_BYTES = 512 * 1024;
 /** 网关请求失败分类：鉴权、网络、HTTP 与响应格式分开，供 UI 给出不同提示。 */
 export class UcasGatewayRequestError extends Error {
   constructor(
-    readonly kind: "unauthorized" | "network" | "http" | "invalid",
+    readonly kind: "unauthorized" | "forbidden" | "network" | "http" | "invalid",
     readonly status?: number,
   ) {
     super(`UCAS gateway request failed: ${kind}`);
