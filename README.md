@@ -19,12 +19,13 @@ npm start
 
 默认入口 <http://localhost:3000>。首次初始化凭据保存在 `data/bootstrap-credentials.txt`（0600），不会打印；主密钥与运行数据不入 Git。重复 init 不覆盖账号。
 
-后端覆盖企业身份/通讯录/RBAC/席位、AES-GCM vault、模型代理与 SSE/计量、资产版本审核分发、客户端策略发布、模型 Runtime/自动化/评测、审计/Trace/指标/导出及外部适配合同。SQLite WAL 单实例，数据真实持久化；无生产数据和模拟业务种子。
+后端覆盖企业身份/通讯录/RBAC/席位、AES-GCM vault、模型代理与 SSE/计量、资产版本审核分发、客户端策略发布、模型 Runtime/自动化/评测、审计/Trace/指标/导出、已登录企业成员会话分享及外部适配合同。SQLite WAL 单实例，数据真实持久化；无生产数据和模拟业务种子。
 
 - [实施规格与顺序](tasks/plan.md)
 - [自有 API 合同](docs/api.md)，运行时索引 `/api/openapi.json`
+- [企业内会话分享规格](SPEC-enterprise-sharing.md)
 - [部署、备份与恢复](docs/deployment.md)
-- [2026-10-15 代码复核与补齐](docs/review-2026-10-15.md)
+- [2026-10-15 代码复核与补齐](docs/review-2026-10-15.md)、[2026-10-18 代码复核与修正](docs/review-2026-10-18.md)
 - [验证结果与未完成边界](docs/acceptance.md)
 
 ```sh

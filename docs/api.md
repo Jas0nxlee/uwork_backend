@@ -4,7 +4,7 @@
 
 ## 鉴权与组织
 
-- `POST /api/auth/login`：`{email,password,tenantId?}`，返回不透明 `token,expiresAt`，同时设置 HttpOnly/SameSite cookie。管理 Web 不保存 token。
+- `POST /api/auth/login`：`{email,password,tenantId?,delivery?}`，`delivery="token"`（缺省）返回不透明 `token,expiresAt`；`delivery="cookie"` 只返回 `expiresAt`，会话仅经 HttpOnly/SameSite Cookie 交付，并要求请求 `Origin` 等于 `PUBLIC_URL`。管理 Web 不保存 token。
 - `GET /api/auth/me`：当前成员、组织、角色、到期时间；`POST /api/auth/switch` 重新签发会话并废止旧会话。
 - `POST /api/auth/logout`：可选 `{revokeDevices:true}` 同时废止当前成员在本组织的全部终端凭据。
 - `POST /api/auth/device-tokens`：`{ttlHours:24,replaceId?}`，返回一次可见 `id,token,expiresAt`。只允许 execute，不允许管理/vault；最长 168 小时，默认 24 小时。GET 列元数据、DELETE `/:id` 吊销；创建/列表/管理吊销仅限交互会话，终端凭据只能退出自身。
@@ -17,7 +17,7 @@
 
 1. POST `/api/auth/wecom/attempts` `{tenantId}` → `id,proof,expiresAt,authorizeUrl`。
 2. 系统浏览器 GET `/api/auth/wecom/callback?state=...&code=...`；原生拦截回调时用 POST `/attempts/{id}/complete` `{proof,code}`。随机 state 与 attempt 绑定，proof 不放 URL。
-3. POST `/attempts/{id}/claim` `{proof}`。pending/verifying 继续轮询，authorized 一次性返回会话；重复认领 409。
+3. POST `/attempts/{id}/claim` `{proof,delivery?}`。pending/verifying 继续轮询；`delivery="token"`（缺省）一次性返回 `status:"authorized"` 与会话，`delivery="cookie"` 返回 `status:"claimed"` 且只经 HttpOnly Cookie 交付，并同样要求同源 `Origin`。重复认领 409。
 4. POST `/attempts/{id}/cancel` `{proof}`。验证中的取消也有效，迟到回调不能复活。
 
 ## 模型与计量
@@ -70,6 +70,18 @@ Header `Idempotency-Key` 最长 128 字符；同键/同人/同内容且当前授
 连接器 RPC：POST `/api/client/connectors/{id}/rpc`，仅允许声明方法与 `allowedTools`。initialize 返回本地不透明 MCP-Session-Id；远端 session 加密并绑定成员、资源发布版本和有效期。凭据只由代理注入，响应中的凭据/远端 session 回显脱敏，顶层非 JSON-RPC 协议字段剥离。支持 POST JSON 与单次 SSE 响应；不提供长期服务端推送 GET 流。请求分派前重新检查成员、终端凭据范围/有效期、发布版本、安全出口；DNS 等待也受取消和截止点约束。DELETE 同一路径配合 `mcp-session-id` 显式回收会话（204，只作用于当前凭证持有者的会话），不需要等到自然过期。
 
 连接器协议版本：`initialize` 按客户端 `params.protocolVersion` 选择发往远端的 `mcp-protocol-version`，并把远端协商结果记录在该连接上；后续请求回放该连接的版本，请求体里的版本不能改写已建立的连接。缺少有效版本时回退 `2025-03-26`。
+
+## 企业内会话分享
+
+访问模式 `organization`：只有发布者当前企业的有效登录成员可只读查看；分享 URL 不是访问凭据，凭 share code 不能匿名读取或导入。存储、授权与限额合同见 [SPEC-enterprise-sharing.md](../SPEC-enterprise-sharing.md)，实现见 `src/sharing.ts`、`src/sharing-viewer.ts`，真实 HTTP 闭环见 `scripts/client-organization-sharing-live-smoke.ts`。
+
+- `GET /api/client/shares/capabilities`：当前发布能力，`access_modes=["organization"]` 及上限（1 MiB 确认体/2,000 行/8 附件/512 KiB 单附件/1 MiB 附件合计/10 分钟准备/7 天分享）；`publish=disabled` 或 `files=false` 时分别拒绝或清空附件能力。要求 execute、有效订阅、local 渠道与当前 sharing 策略。
+- `POST /api/client/shares/preparations` `{client_request_id,title,schema_version:1,access_mode,payload_sha256,artifact_count}` → 201（同键同内容重放 200，异内容 409）。`POST /preparations/{id}/artifacts` `{descriptor,content_base64}` 校验实际字节/长度/SHA；`POST /preparations/{id}/confirm` 校验所选轮次、完整投影、披露确认与投影/附件集合摘要后原子发布。附件仅 text/txt、md/md、image/png、image/jpg|jpeg、pdf/pdf，字节存数据库 BLOB，不用上传名称落盘，也不代客户端抓取 URL。
+- `GET /api/client/shares/{code}/preview`：实时成员授权后返回只读投影、`can_revoke` 提示与同源、仍需身份验证的附件 URL。`GET .../artifacts/{id}` 为 Host 私有 JSON（有限 base64）；`GET .../artifacts/{id}/content` 为浏览器同源 Cookie 下载，强制 `attachment`、`application/octet-stream` 与 `nosniff`。
+- `DELETE /api/client/shares/{code}`：发布者本人或同企业 write 角色撤销（幂等 204）；撤销后正文与附件均不可读。`POST /api/client/shares/{code}/continuation` 恒为 403 `SHARE_READONLY`，不创建导入 grant。
+- `GET /share/{code}`、`GET /cn/share/{code}`：自有同源只读浏览页（CSP `default-src 'none'`），未认证时只显示登录入口；`GET /api/auth/shares/{code}/context` 仅提供完成企微认证所需的公开企业定位。
+
+跨企业或无权访问的 opaque ID 一律 404 且不泄露标题、作者、正文或附件名；未登录 401。查看只要求当前有效登录成员与 IP 规则，不要求模型席位，也不预留或扣减模型额度。
 
 ## 企业客户端控制台
 
