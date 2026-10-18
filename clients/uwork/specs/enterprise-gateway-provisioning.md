@@ -267,3 +267,5 @@ sequenceDiagram
 ```
 
 验收包含真实 React Panel/ServiceProvider 的合法公开 DTO 次序：初始旧返回晚于 signed-out；sync旧返回晚于 signed-out；7d在途后退出/新owner month；服务更换首次layout无旧用户且新服务低revision可接受；A旧busy不能锁B，旧A完成不能清B新busy；冷启动null usage同步保持busy直到完成。新增的用量返回提交另验返回先于事件、迟到旧revision与请求拒绝。组件复现不冒称真实Native注销/网络故障；Native与HTTP验收独立保留。
+
+未登录提示的中英文只说明自动同步企业模型配置、套餐与用量，不承诺向客户端下发模型 API Key。此文案规则不改变已有认证模式、密钥所有者或权限合同。

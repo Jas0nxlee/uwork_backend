@@ -2974,8 +2974,9 @@ const zhCN: Record<string, string> = {
   "settings.usage.gateway.unavailable.description":
     "请升级或重启 UWork，使本机 Host 提供企业网关能力。",
   "settings.usage.gateway.signedOut.title": "未登录企业账号",
+  // 企业模型密钥由后台持有，登录提示只描述可同步的配置和用量。
   "settings.usage.gateway.signedOut.description":
-    "登录企业微信后，将自动配置模型网关地址、API Key，并读取套餐与用量。",
+    "登录企业微信后，将自动同步企业模型配置、套餐与用量。",
   "settings.usage.gateway.sync": "同步",
   "settings.usage.gateway.syncing": "同步中…",
   "settings.usage.gateway.lastSynced": "上次同步：{time}",

@@ -3147,8 +3147,9 @@ const enUS: Record<string, string> = {
   "settings.usage.gateway.unavailable.description":
     "Restart or upgrade UWork so the local host provides the enterprise gateway capability.",
   "settings.usage.gateway.signedOut.title": "Not signed in",
+  // 企业模型密钥由后台持有，登录提示只描述可同步的配置和用量。
   "settings.usage.gateway.signedOut.description":
-    "Sign in with WeCom to configure the model gateway endpoint and API key automatically and to load plans and usage.",
+    "Sign in with WeCom to sync enterprise model settings, plans, and usage automatically.",
   "settings.usage.gateway.sync": "Sync",
   "settings.usage.gateway.syncing": "Syncing…",
   "settings.usage.gateway.lastSynced": "Last synced: {time}",
