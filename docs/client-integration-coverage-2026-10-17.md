@@ -2,7 +2,7 @@
 
 2026-10-17。当前目标为继续自动覆盖所有尚未验证的真实联动，发现问题修复并复测。真实企微、外部 MCP 和网盘按用户要求排除。本表保留未完成项；通过一个层次不自动证明其他层次或整个项目完成。
 
-2026-10-19 当前：G04h v8空身份原登录三epoch、freshDraft实际自动选模与G07c v3原文件A/B链已通过。Standalone Web v8已在Electron41内嵌Chromium完成11项原DOM业务；本机尚待G04i插件安装到Skill正文消费桥实测，跨环境边界及U02–U05保持开放，历史具名切片保留原日期/候选。
+2026-10-19 当前：G04h v8空身份原登录三epoch、freshDraft实际自动选模与G07c v3原文件A/B链已通过。Standalone Web v8已在Electron41内嵌Chromium完成11项原DOM业务；[G04i v5](client-plugin-skill-bridge-test-2026-10-19.md)已完成插件安装到Skill正文消费与同会话撤权拒绝，5模型/5settled/5Trace、45 Credit。本机当前可运行的独有切片已完成；跨环境边界及U02–U05保持开放，历史具名切片保留原日期/候选。
 
 判定依据是 `SPEC-uwork-client.md`、`SPEC-client-policy.md`、`SPEC-ai-assets.md` 及客户端 enterprise specs、实际 UI/Host/CLI 入口、测试代码和执行证据。原始审计在 ignored `evidence/client-coverage-audit-20261017/`。只审计当前支持的行为，不为了造通过而增加云服务、远端身份或协作产品。
 
@@ -213,7 +213,7 @@ Native共5请求/110 Credit；另一个成员初始化2B/44单列，总7请求/1
 
 [Web v8联测](client-web-standalone-dom-test-2026-10-19.md)以正常Web/Server产物完成无认证401、原Cookie bootstrap/200、未配置身份、原FirstRun、原目录选择、文件预览及一次reload后的Cookie/引导/项目/文件恢复，11项业务标志全true、uiDriver exit0，无模型发送或企业登录动作。不是Desktop产品Main，也未注入身份或Cookie。
 
-Root独核9公开文件/23 journals，275已知PID及两端口均闭。controller exit1仅因根FD扫描不完整而保留私有根，不能写成controller全绿或写者零。旧Chrome导航超时原样保留、根因未唯一确定；本结果限Electron41 Web，不代表Chrome安装、自动重连、Web企业认证或跨平台。[本机阶段结果与剩余边界](client-local-integration-acceptance-2026-10-19.md)保留G04i插件发现/消费桥及跨环境待验项，U02–U05未整体勾选。
+Root独核9公开文件/23 journals，275已知PID及两端口均闭。controller exit1仅因根FD扫描不完整而保留私有根，不能写成controller全绿或写者零。旧Chrome导航超时原样保留、根因未唯一确定；本结果限Electron41 Web，不代表Chrome安装、自动重连、Web企业认证或跨平台。[本机阶段结果与剩余边界](client-local-integration-acceptance-2026-10-19.md)另列已完成G04i v5及跨环境待验项，U02–U05未整体勾选。
 
 ## G07d Read 返回结果的权限与账号复验
 
@@ -221,6 +221,6 @@ Root独核9公开文件/23 journals，275已知PID及两端口均闭。controlle
 
 新打包CLI经真实本机后台、Host relay和OS文件完成禁读/禁写/允许Read正文/允许Write/同会话撤权五阶段；Token记录字段遗漏修复后全新复测通过。实际11次供应商请求、11笔settled账本，55 input/22 output Token、99 Credit，凭据未进入CLI流或模型RPC。Native原界面分别由G07c v3和G04h v8另验；实际OS阻塞读期间的Native撤权仍不由本项或发送前撤权替代，U02–U05暂保持原范围。
 
-## G04i 插件安装到Skill正文消费桥（待测）
+## G04i 插件安装到Skill正文消费桥（v5通过）
 
-最终Source核对确认：正文下游共用NodeSkillAdapter，但安装记录、启用状态、manifest根装配、插件别名及符号链接限制有独有分支。G04f已验安装生命周期，现有实际FS/HTTP正文合同使用显式admin/remote根；尚不能据此证明完整插件连接。下一项仅补真实Host/正常CLI/FS的允许及合同要求的拒绝，不重复Native安装全流程，也不自创既有会话禁用语义。
+原PluginManagementService、正常新CLI及自有HTTP/FS已实际贯通安装记录、启用状态、非默认manifest根与别名：普通成员的D/S两个新App分别读取禁用/启用catalog；同S首轮A正文及baseDirectory进入后继模型，发布personal.skills=false后未消费B被拒且无B正文，恢复目录无额外模型。baseline全0、原发送2次，实际2A+标题1+2B共5请求/5settled/5Trace、25 input/10 output、45 Credit；request与ledger按真实复合键关联，Trace/supplier独立。详见[G04i报告](client-plugin-skill-bridge-test-2026-10-19.md)。G04f Native生命周期不重演，v1–v4零模型失败原封存保留，不把相位直接当作产品根因。

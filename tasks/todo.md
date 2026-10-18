@@ -54,7 +54,7 @@
 - [ ] U04 远程/移动、云/助理渠道及其余真实客户端入口逐项核验；支持的现有入口实际运行，缺环境/未实现项记明，不以本地 metadata 或布尔配置代替。
 - [ ] U05 每个缺口修复后定向复测，相关全量类型/Lint/格式/架构/构建通过，保留原始失败和清理证据，最终逐能力完成审计。
 
-已完成的本机阶段结果见 `docs/client-local-integration-acceptance-2026-10-19.md`。尚待G04i插件安装到Skill正文消费桥实测，U02–U05保持未勾；未实现/无入口、缺目标平台与用户排除项另列，不扩大为无穷测试组合。
+已完成的本机阶段结果见 `docs/client-local-integration-acceptance-2026-10-19.md`。G04i v5插件安装到Skill正文消费及同会话撤权已实际通过，本机当前可运行独有切片已完成；U02–U05及T13保持原勾选范围，未实现/无入口、缺目标平台与用户排除项另列，不扩大为无穷测试组合。
 
 已完成的持续覆盖子项（不据此勾整个 U02/U03）：
 
@@ -104,4 +104,4 @@
 
 - [x] Standalone Web v8在Electron41内嵌Chromium完成11项原DOM业务，含Cookie/FirstRun/目录/文件预览/reload恢复；uiDriver0、275已知PID/2ports闭。controller1为FD不完整保根，旧Chrome超时/未知根因保留，不冒称Chrome、自动reconnect或Web企业认证；见 `docs/client-web-standalone-dom-test-2026-10-19.md`。
 
-- [ ] G04i 插件安装到Skill正文消费桥：通过原安装记录/启用状态/manifest根装配及别名，验证真实Host/正常CLI/FS正文消费与规格要求的拒绝。已有G04f仅证明生命周期，显式admin/remote根的既有正文合同不能替代插件独有装配；不重演已过12阶段UI生命周期。
+- [x] G04i v5普通member经原PluginManagementService/正常新CLI完成非默认manifest根三文件、D/S禁启catalog及别名；同S A正文/baseDirectory进入后继模型，personal.skills=false后未消费B拒绝且无B正文，恢复目录零额外模型。baseline0、原发送2次，5模型/5settled/5Trace、25 input/10 output、45 Credit，request↔ledger真实复合键关联，Trace/supplier独立；v1–v4零模型失败保留，不重演G04f Native生命周期，见 `docs/client-plugin-skill-bridge-test-2026-10-19.md`。
