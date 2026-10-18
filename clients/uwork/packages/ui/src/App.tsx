@@ -863,6 +863,8 @@ export function App({
       // 目标统一归一为 User，避免旧 sessionStorage/同窗口事件把设置页带回失效 scope。
       const returnScopeKey = "user";
       if (workspaceMainView === "plugin-store") {
+        // 已打开商店时主视图值不会变化，仍须标记显式导航，避免退出设置又切回对话。
+        preserveNextSettingsExit();
         setPluginStoreReturnScopeKey(returnScopeKey);
         setPluginStoreOpenVersion((version) => version + 1);
         return;
@@ -870,7 +872,7 @@ export function App({
       handleOpenPluginStore();
       setPluginStoreReturnScopeKey(returnScopeKey);
     },
-    [handleOpenPluginStore, workspaceMainView],
+    [handleOpenPluginStore, preserveNextSettingsExit, workspaceMainView],
   );
   useEffect(
     () => addPluginStoreOpenListener(handleOpenPluginStoreForScope),
