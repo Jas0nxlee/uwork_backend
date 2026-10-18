@@ -21,6 +21,13 @@ import { bootstrap } from "../../src/identity.ts";
 import { copyNativeOutSnapshot } from "./native-out-snapshot.mjs";
 import { copyNativeAdminSnapshot } from "./native-admin-snapshot.mjs";
 import { createNativeTraceCapture } from "./native-trace-capture.mjs";
+import {
+  viewerAuthModeEnabled,
+  stripViewerAuthFlag,
+  assertViewerAuthCommand,
+  viewerAuthSafePath,
+  createNativeControlledViewerAuth,
+} from "./native-controlled-viewer-auth.mjs";
 import { validateOwnedNativeWorkspace } from "./native-owned-workspace.mjs";
 import {
   MAX_NATIVE_CONFIGURATION_BYTES,
@@ -39,6 +46,11 @@ if (dynamicWorkflowMode !== undefined && dynamicWorkflowMode !== "alwaysOn")
 const experienceMode = process.env.UWORK_NATIVE_CLIENT_EXPERIENCE;
 if (experienceMode !== undefined && experienceMode !== "enabled")
   throw Error("Invalid Native client experience fixture mode");
+const viewerAuthEnabled = viewerAuthModeEnabled(
+  experienceMode,
+  dynamicWorkflowMode,
+  process.env.UWORK_NATIVE_VIEWER_AUTH,
+);
 const configurationWitnessEnabled = isNativeConfigurationWitnessEnabled(
   experienceMode,
   process.env.UWORK_NATIVE_CONFIGURATION_WITNESS,
@@ -528,10 +540,16 @@ const proxy = httpsServer(
 );
 await new Promise((r) => proxy.listen(0, "127.0.0.1", r));
 const origin = `https://127.0.0.1:${proxy.address().port}`;
+const controlledViewerAuth = viewerAuthEnabled
+  ? createNativeControlledViewerAuth()
+  : undefined;
 const app = await createApp({
   database: join(root, "backend.sqlite"),
   masterKey: randomBytes(32),
   publicUrl: origin,
+  ...(controlledViewerAuth
+    ? { wecomProvider: controlledViewerAuth.provider }
+    : {}),
   allowPrivateUpstreams: true,
   worker: true,
 });
@@ -542,7 +560,11 @@ app.addHook("onResponse", async (req, reply) => {
     method: req.method,
     path: routeTemplate,
     routeTemplate,
-    pathname: pathOnly?.startsWith("/") ? pathOnly : null,
+    pathname: controlledViewerAuth
+      ? viewerAuthSafePath(req.raw.url)
+      : pathOnly?.startsWith("/")
+        ? pathOnly
+        : null,
     status: reply.statusCode,
   });
 });
@@ -620,6 +642,14 @@ await api(p + "/wecom", "PUT", {
 await api(p + "/members/" + member.id + "/wecom", "PUT", {
   externalId: "synthetic-wecom-user-a",
 });
+if (controlledViewerAuth) {
+  await controlledViewerAuth.seed({
+    api,
+    tenantPrefix: p,
+    tenantId: owner.tenantId,
+  });
+  controlledViewerAuth.observeOwnAttempts(app.server, { origin });
+}
 const initialLimitAmounts = {
   department:
     dynamicWorkflowMode === "alwaysOn" || experienceMode ? 3000000 : 200000,
@@ -945,7 +975,7 @@ async function expertCreate() {
   }
 }
 function nativeEnvironment() {
-  return {
+  return stripViewerAuthFlag({
     PATH: process.env.PATH,
     HOME: home,
     USERPROFILE: home,
@@ -974,7 +1004,7 @@ function nativeEnvironment() {
     ...(dynamicWorkflowMode === "alwaysOn"
       ? { ZCODE_DYNAMIC_WORKFLOW_MODE: dynamicWorkflowMode }
       : {}),
-  };
+  });
 }
 async function launch() {
   if (electron) throw Error("Already launched");
@@ -1170,6 +1200,7 @@ let closing = false;
 async function close() {
   if (closing) return;
   closing = true;
+  controlledViewerAuth?.dispose();
   const errors = [];
   const attempt = async (operation) => {
     try {
@@ -1264,7 +1295,14 @@ rl.on("line", async (line) => {
     } else if (c.op === "draft") await saveDraft(c.kind, c.data);
     else if (c.op === "publish") await publishDraft(c.kind);
     else if (c.op === "configure") await configure(c.kind, c.data);
-    else if (c.op === "assetCreate") await assetCreate();
+    else if (c.op === "completeViewerAuth" && controlledViewerAuth) {
+      assertViewerAuthCommand(c, "completeViewerAuth");
+      await controlledViewerAuth.complete({ origin, ca: await readFile(cert) });
+    } else if (c.op === "viewerAuthStatus" && controlledViewerAuth) {
+      assertViewerAuthCommand(c, "viewerAuthStatus");
+      console.log(JSON.stringify(controlledViewerAuth.safeStatus()));
+      return;
+    } else if (c.op === "assetCreate") await assetCreate();
     else if (c.op === "expertCreate") await expertCreate();
     else if (c.op === "expertRevoke")
       expertDenyPolicy = await api(p + "/policies", "POST", {
