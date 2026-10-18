@@ -70,6 +70,8 @@ primary 启动器使用真正的 entry.mjs，先执行环境守卫，再以顶�
 
 登录输入前锁定敏感观察；随后只允许固定公开布尔、文本和原控件几何及 Browser Harness 物理输入。禁止读取或输出原始 AX/截图/DOM、链接、网络明文、Cookie、Storage、proof、Token 和 OAuth 参数。冷启动的新 Root 必须重新核对实际 PID/PPID/birth/appPath/CDP 与受信任 renderer，不沿用旧 attachment。
 
+只读 `observe`、`first_run_observe`、`preworkspace` 的收据使用同一独占编号分配器，每个相位/epoch最多128份，不能再写固定同名文件或依靠 glob 数量推算。分配器以目录 fd 限定已拥有的0700目录，拒绝目录/文件符号链接与不符权限；每份新收据 O_EXCL、0600。业务动作收据仍固定 wx 一次，原输入前 journal 保持。完整 dispatcher 在运行前封存精确字节，真实临时文件合同须覆盖重复观察、多相位、并发与业务重复拒绝，运行时不临场重写。
+
 原生产快照、stopNative 和 owned openWorkspace 仍使用原有限接口；不提供通用 RPC。primary supplier 只接受精确 models/chat 路径和本次正常 API 创建的后台 Key；拒绝未知路径、query 变体或错误凭据，Trace 与默认模式保持原行为。公开证据只输出匹配计数、角色/额度及本人账本归属布尔。
 
 ## 接受边界
