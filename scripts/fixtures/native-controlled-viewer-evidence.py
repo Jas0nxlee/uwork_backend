@@ -4,7 +4,8 @@ import re
 from urllib.parse import urlsplit
 
 VISIBILITY_EXPRESSION = """(()=>{const box=document.getElementById('auth-box'),link=document.getElementById('authorize'),viewer=document.querySelector('[data-testid=share-viewer]');return{authBoxVisible:!!box&&!box.hidden,authorizeVisible:!!link&&link.getClientRects().length>0,viewerReady:viewer?.dataset.state==='ready'};})()"""
-VISIBLE_TEXT_EXPRESSION = """(()=>{const text=id=>document.getElementById(id)?.textContent||'',shown=id=>!!document.getElementById(id)&&!document.getElementById(id).hidden;return{title:text('title'),conversation:text('conversation'),status:text('status-title'),logoutVisible:shown('logout'),revokeVisible:shown('revoke')};})()"""
+# 页面 ready 会隐藏整个 status 区域；读取子标题 textContent 不能证明提示仍可见。
+VISIBLE_TEXT_EXPRESSION = """(()=>{const text=id=>document.getElementById(id)?.textContent||'',shown=id=>!!document.getElementById(id)&&!document.getElementById(id).hidden;return{title:text('title'),conversation:text('conversation'),status:shown('status')?text('status-title'):'',logoutVisible:shown('logout'),revokeVisible:shown('revoke')};})()"""
 
 
 class ViewerAuthEvidenceGate:
