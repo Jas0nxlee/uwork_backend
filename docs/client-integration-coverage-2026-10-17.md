@@ -202,3 +202,9 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 随后首次 post-callback 固定公开 UI 观察包装 exit1，Main 固定拒绝码 session_guard；publicAuthenticated/guardSatisfied 为 false，生产加密提交尚未证明。原配置、模型/权限、本人额度用量、实际模型请求及后台 Key/本人账本、认证冷恢复、退出拒发和再次冷启保持退出均未验收。现场 supplier/ledger0 是未发送的结果，不能据此声称模型转发或 provider 通过。
 
 v4 共56份公开工件、2,021,795字节，manifest SHA `c0b3dfa1374980b12cd0a73b0f7d3662e542098dd0b9a430a47f36d30729205f` 已逐项独核；四个已知PID/四port/BH socket与工具句柄收口。Main 由原 stopNative 实际 SIGKILL，Common 经 Root 独核后 SIGKILL、原工具 exit1；R0700保留且handoff后不再访问。G04h、U02/U03/U04/U05 继续开放，真实企微、外部 MCP/网盘、真实外部模型服务及平台验收范围不变。
+
+## G07d Read 返回结果的权限与账号复验
+
+[修复与复测](client-read-result-authorization-test-2026-10-18.md)已覆盖文件端口等待期间撤权、原 owner/端口改变、管理模式变化、取消与不合作授权端口的原 deadline。正文在序列化、PostToolUse 和成功结果发布前扣留，迟到 allow 不重复发布。正式 Core119/Host292、根及CLI标准typecheck、Lint、格式和架构通过；正常CLI/Desktop重新构建并核对全部来源和产物。
+
+新打包CLI经真实本机后台、Host relay和OS文件完成禁读/禁写/允许Read正文/允许Write/同会话撤权五阶段；Token记录字段遗漏修复后全新复测通过。实际11次供应商请求、11笔settled账本，55 input/22 output Token、99 Credit，凭据未进入CLI流或模型RPC。该项不替代Native G07c文件引用发送、G04h空身份登录或实际OS阻塞读期间撤权，U02–U05保持原范围。

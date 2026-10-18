@@ -536,12 +536,24 @@ export async function liveFixture(
         undefined,
         adminLogin.token,
       )
-    ).items.map((row) => ({
-      status: row.status,
-      amount: row.amount,
-      inputTokens: row.inputTokens,
-      outputTokens: row.outputTokens,
-    }));
+    ).items.map((row) => {
+      // usage 返回 snake_case；误读驼峰会让 JSON 静默丢掉 Token，无法核验实际账本。
+      assert.ok(
+        [row.input_tokens, row.output_tokens].every(
+          (value) =>
+            typeof value === "number" &&
+            Number.isSafeInteger(value) &&
+            value >= 0,
+        ),
+        "Usage API token fields must be non-negative integers",
+      );
+      return {
+        status: row.status,
+        amount: row.amount,
+        inputTokens: row.input_tokens,
+        outputTokens: row.output_tokens,
+      };
+    });
     hostRelay.dispose();
     gateway.dispose();
     runtime.dispose();

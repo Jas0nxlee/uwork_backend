@@ -56,6 +56,8 @@
 
 已完成的持续覆盖子项（不据此勾整个 U02/U03）：
 
+- [x] G07d 正式Read返回前绑定原账号/端口复验，撤权或换人扣留正文，原deadline/取消覆盖不合作授权端口且迟到allow不重复终态；Core119/Host292及标准类型/Lint/格式/架构通过。新正常CLI/Desktop构建后的真实后台+OS五阶段复测，实际11笔账本、55 input/22 output Token、99 Credit，凭据隔离与临时资源收口通过；Native G07c/G04h另待原界面验收，见 `docs/client-read-result-authorization-test-2026-10-18.md`。
+
 - [x] G04g 真实 React 登录 Provider 在 Native open未决时由poll先认证，之后旧null/ERR_ABORTED均不回退、不cancel/重复close或sync；新2+旧23一次25/25，类型/Lint（113既有警告）/架构/改动格式通过。运行器有限等待、已知进程与未知FD保根合同已修，90进程身份/两端口/两临时根独立收口；正常out6631逐SHA恢复。仅组件端口合同，客户端空身份原生登录仍待独立验收，详见 `docs/client-enterprise-login-polling-test-2026-10-18.md`。
 
 - [x] G01 真实交互身份、跨企业/issuer 资产缓存、迟到下载、冷恢复及退出：2 项、279 次 HTTP、4 CLI。
