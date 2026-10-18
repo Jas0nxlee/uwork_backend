@@ -1,6 +1,14 @@
 # G04h 客户端空身份原生登录进展（未验收）
 
-2026-10-18。v4 已实际执行到原登录输入、held/pending、唯一 callback、原私有 claim 成功和 guest 关闭；随后首次固定公开 UI 观察失败，Main 留下 `session_guard` 拒绝。**原 Native 身份完成提交与整条登录链路仍未验收，G04h、U02–U05 保持开放。**
+2026-10-18。最新 v5 已通过原 Main、BH、工作区入口，并用原“跳过登录”按钮显示了职业引导页；随后只读观察的证据文件名碰撞，测试记录器中断，尚未发起登录。此前 v4 到达原 claim 和 guest 关闭后停在 `session_guard` 边界。**原 Native 身份完成提交与整条登录链路仍未验收，G04h、U02–U05 保持开放。**
+
+## v5 首跑与记录器中断
+
+v5 使用含 Read 权限修复的新正常 CLI/Desktop 构建，来源 HEAD `9f1236c64a6ef775c0418d2d889a7945351c76ce`，7,323 个客户端输入与新构建逐 SHA 相同。真实 Main、唯一 file renderer、owned BH 和原工作区第二实例 exit0 均通过。原 `first_run_skip_login` 的收据确认 loginVisible=false、onboardingVisible=true、step=role、startupLoadingVisible=false；它证明职业页实际出现，没有种入设置或身份。
+
+运行时 dispatcher 只给 `observe` 编号，`first_run_observe` 被写成固定 wx 文件名；第二次只读观察因此发生同名冲突。原 `primary-ui-failure` 标记不存在，Main/副实例没有固定拒绝文件。没有选择职业、没有登录 attempt 或 callback、没有模型发送，supplier/账本均为0；不能把这个记录器缺陷称为产品登录失败。
+
+首错后 Main 与 BH 均正常 exit0；Common 经 Root 独核后 SIGKILL，原 PTY 实际 exit1。4个已知PID、4个端口和BH socket全部关闭，私有根0700保留，handoff后未访问。55份公开文件、2,031,825字节逐SHA独核，封存 [manifest](../evidence/client-native-primary-login-v5-20261018/manifest.json) SHA `92a5fe6dc642744a96ace0f13cb2cc8dae0cff39bda0386d4d57828d330357f1`。后续修复须覆盖所有只读相位的独占编号，并在新 profile 重跑，不能在该失败 profile 续跑或改写封存。
 
 本轮使用仓库内客户端副本、正常生产 Electron/Main/Host 和全新空身份 profile。只预配公开后端地址及应用配置，没有预种成员 email 会话、Token、Provider 或有效身份，也没有初始化模型请求。后台通过正常管理 API 建立普通成员、部门、席位、政策、模型和额度。外部身份兑换由受控替身完成；官方企微网页、二维码和扫码未加载，真实企微、外部 MCP、网盘继续排除。
 
