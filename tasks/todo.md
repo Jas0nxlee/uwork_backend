@@ -54,7 +54,7 @@
 - [ ] U04 远程/移动、云/助理渠道及其余真实客户端入口逐项核验；支持的现有入口实际运行，缺环境/未实现项记明，不以本地 metadata 或布尔配置代替。
 - [ ] U05 每个缺口修复后定向复测，相关全量类型/Lint/格式/架构/构建通过，保留原始失败和清理证据，最终逐能力完成审计。
 
-已完成的本机阶段结果见 `docs/client-local-integration-acceptance-2026-10-19.md`。G04i v5插件安装到Skill正文消费及同会话撤权已实际通过，本机当前可运行独有切片已完成；U02–U05及T13保持原勾选范围，未实现/无入口、缺目标平台与用户排除项另列，不扩大为无穷测试组合。
+已完成的本机阶段结果见 `docs/client-local-integration-acceptance-2026-10-19.md`。G04i v5插件正文消费与后续W02断线恢复分别通过具名验收；此前“本机当前可运行独有切片已完成”的概括已撤回，持续按实际入口及证据核对缺口。U02–U05及T13保持原勾选范围，未实现/无入口、缺目标平台与用户排除项另列，不扩大为无穷测试组合。
 
 已完成的持续覆盖子项（不据此勾整个 U02/U03）：
 
@@ -79,12 +79,14 @@
 - [x] G08e 原 Native 成功面板打开同一分享产物，实际应用内 guest/独立 partition/同源 TLS 页与 JS/CSS/匿名 preview401通过；四请求、416px无溢出，分享浏览零模型增量。地址栏后续导航未形成有效证据，登录后阅读/退出仍开放，三原失败及两 followup 如实封存；14已知PID/5端口收口、外部写FD保留0700和软阈值停止见 `docs/client-native-share-browser-test-2026-10-18.md`。
 - [x] G08f 原 Native 发布→原打开→同 guest 成员登录/只读阅读→原退出通过，实际 preview401/200/401、logout204；普通 member 无席位、无撤销入口，分享/阅读模型账本与 Trace 零增量。受控 provider、原 TLS callback/Cookie claim各层保持，真实企微排除。五已知PID/五端口收口、私有根0700保留；取证误读隐藏状态文字已补十项回归，详见 `docs/client-native-member-viewer-test-2026-10-18.md`。客户端空身份原登录成功链路由G04h v8单列完成，不关闭整体U03。
 - [x] G09a 实际企业用量 Panel 的迟到 getView/sync、用户/服务换域、周期退休及 busy 隔离：永久同十场景旧9 RED/冷同步1 PASS→修复10/10 GREEN，首次layout和新B请求不被旧A finally清除均实测；类型/Lint/架构/格式、11既有Gateway回归及正常Desktop构建通过。组件端口交付不替代Native真实注销/网络竞态，详见 `docs/client-gateway-view-delivery-test-2026-10-18.md`。
+- [ ] G09b 原Native用量刷新真实HTTP在途→原Back卸载设置→身份菜单退出→释放或丢弃原响应→原设置重开验证signed-out、旧资料/额度/用量不回灌；模型/账本/Trace增量须为0。暂挂真实已计算响应，不替换DTO；原authority自然Abort时如实记录，不冒称同挂载面板迟到成功。当前在准备薄传输门与独立测试，尚未执行Native验收。
 
 - [x] G02c 实际企业专家 v1/v2、同 session 冷恢复、撤权后禁止同名个人回退和个人 canonical 选择再撤权：4 项，当前正式 CLI 及相关15项回归通过；修复前实际子模型泄漏个人正文，修复后复测通过。
 - [x] G02d Native 指定企业专家真实正文；后台撤权、实际 Electron 重启、侧边栏打开原任务后旧名不可用且0个人子模型；8供应商/8settled含另一成员初始化2。
 - [x] G03b 双独立 Host/CLI 共享身份/磁盘的旧选择迟到，以及实际部分 stage SIGKILL→新Host冷恢复当前完整版本：2项131HTTP/4CLI；本机macOS，其他平台保留。
 - [x] G06b 正式 CLI 用户/项目 Skill、个人本机MCP、真实identity owner注销：3项352HTTP；正向正文/marker、开关即时撤权、零新增派发且配置字节保留；包含在新产物19项回归中。
 - [x] W01 正式 standalone Web/Server 的HTTP/Cookie/静态JS/真实WS与文件重连、Host票据首用/重放/真实30s过期：2项；企业身份实际未配置，不能勾为managed remote。
+- [x] W02 成功连接后断线的原RPC/浏览器RED→修复RPC/UI关闭与恢复工作区Hook序列；42项相关回归、完整门禁及正常Server/Web/Desktop构建通过。v4真实断线、四宽、Tab/Enter原Retry、新document/Cookie/项目/文件恢复通过，console0/script0；三UI driver0，controller1仅为FD不完整保根，已知PID/端口独立核对关闭，见 `docs/client-web-disconnect-recovery-test-2026-10-19.md`。不替代Native交互或Web企业认证。
 
 - [x] G05b 实际CronCreate绑定原task、正式Host runAutomationNow三阶段：允许/关闭local零新增/恢复并重启原task；不替代Main定时scheduler或Native按钮。
 - [x] G07b 公共HTTPS WebFetch真实正文与后继模型结果、同runtime精确域名撤权；不改变DNS/TLS/SSRF，不冒领公共站点日志。
