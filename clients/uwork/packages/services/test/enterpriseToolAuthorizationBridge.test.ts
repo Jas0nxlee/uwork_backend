@@ -6,6 +6,7 @@ import type {
   ZCodeEnterpriseToolAuthorizationParams,
   ZCodeEnterpriseToolAuthorizationResult,
 } from "@zcode/shared";
+import { zcodeEnterpriseToolAuthorizationParamsSchema } from "@zcode/shared";
 
 const workspace = {
   workspaceKey: "controlled-identity",
@@ -41,6 +42,48 @@ function client() {
     },
   };
 }
+
+test("before_result is a strict builtin Read request and keeps owner fencing on the existing bridge", async () => {
+  const release = { ...request, phase: "before_result", ownerKey: "a".repeat(64) };
+  assert.equal(zcodeEnterpriseToolAuthorizationParamsSchema.safeParse(release).success, true);
+  assert.equal(
+    zcodeEnterpriseToolAuthorizationParamsSchema.safeParse({ ...release, ownerKey: undefined })
+      .success,
+    true,
+  );
+  for (const patch of [
+    { toolName: "Write" },
+    { ownerKey: "not-an-owner" },
+    { asset: {} },
+    { capability: { ...request.capability, permission: "mcp" } },
+    { capability: { ...request.capability, readOnly: false } },
+    { capability: { ...request.capability, destructive: true } },
+    { capability: { ...request.capability, sideEffectScope: "workspace" } },
+  ])
+    assert.equal(
+      zcodeEnterpriseToolAuthorizationParamsSchema.safeParse({ ...release, ...patch }).success,
+      false,
+    );
+  assert.equal(
+    zcodeEnterpriseToolAuthorizationParamsSchema.safeParse({ ...release, phase: "before_dispatch" })
+      .success,
+    false,
+  );
+  const peer = client();
+  let seen: ZCodeEnterpriseToolAuthorizationParams | undefined;
+  const bridge = createEnterpriseToolAuthorizationBridge({
+    isCurrent: () => true,
+    resolver: {
+      async authorize(value) {
+        seen = value;
+        return { allowed: true, code: "allowed", ownerKey: release.ownerKey };
+      },
+    },
+  });
+  await bridge.handle(peer, workspace, 1, release);
+  assert.equal(seen?.ownerKey, release.ownerKey);
+  assert.deepEqual(peer.results, [{ allowed: true, code: "allowed", ownerKey: release.ownerKey }]);
+});
 
 test("the enterprise reverse RPC rejects forged workspace routing before calling the resolver", async () => {
   const peer = client();

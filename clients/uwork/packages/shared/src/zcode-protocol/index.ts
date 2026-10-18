@@ -2459,6 +2459,7 @@ export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractio
     phase: z.enum([
       "before_hooks",
       "before_dispatch",
+      "before_result",
       "native_execution",
       "network_request",
       "asset_load",
@@ -2507,11 +2508,19 @@ export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractio
     }, "Enterprise tool input exceeds the bounded JSON contract"),
   })
   .strict()
-  .refine((request) =>
-    request.phase === "asset_load"
-      ? request.ownerKey !== undefined
-      : request.asset === undefined && request.ownerKey === undefined,
-  );
+  .refine((request) => {
+    if (request.phase === "asset_load") return request.ownerKey !== undefined;
+    if (request.phase === "before_result")
+      return (
+        request.asset === undefined &&
+        request.toolName === "Read" &&
+        request.capability.permission === "read" &&
+        request.capability.readOnly &&
+        !request.capability.destructive &&
+        request.capability.sideEffectScope === "none"
+      );
+    return request.asset === undefined && request.ownerKey === undefined;
+  });
 export type ZCodeEnterpriseToolAuthorizationParams = z.infer<
   typeof zcodeEnterpriseToolAuthorizationParamsSchema
 >;

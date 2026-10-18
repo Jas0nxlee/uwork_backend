@@ -2,6 +2,8 @@ import {
   CoreErrorType,
   createCoreError,
   type EnterpriseToolAuthorizationRequest,
+  type EnterpriseToolAuthorizationDecision,
+  type EnterpriseToolAuthorizationPort,
   type TraceContext,
 } from "@zcode/contracts";
 import type { ExecutableToolCall, ToolEntry, ToolExecutionResult } from "../types.js";
@@ -13,6 +15,44 @@ export interface EnterpriseExecutionScope {
   workingDirectory: string;
   workspaceRoot: string;
   workspaceIdentity?: string;
+}
+
+export interface EnterpriseReadResultAuthority {
+  readonly port: EnterpriseToolAuthorizationPort | undefined;
+  owner?: { managed: boolean; key?: string };
+}
+
+export function captureEnterpriseReadResultAuthority(
+  deps: ToolExecutorDeps,
+  entry: ToolEntry,
+): EnterpriseReadResultAuthority | undefined {
+  return entry.metadata.name === "Read" &&
+    !entry.metadata.mcpPresentation &&
+    entry.permission.permission === "read" &&
+    entry.metadata.readOnly &&
+    !entry.metadata.destructive &&
+    entry.permission.sideEffectScope === "none"
+    ? { port: deps.permissionService.enterpriseAuthorization }
+    : undefined;
+}
+
+function bindReadDecision(
+  authority: EnterpriseReadResultAuthority,
+  decision: EnterpriseToolAuthorizationDecision,
+  phase: EnterpriseToolAuthorizationRequest["phase"],
+): string | undefined {
+  const managed = decision.code === "allowed";
+  if (!managed && decision.code !== "not_managed") return "enterprise_policy_unavailable";
+  if (managed ? !/^[a-f0-9]{64}$/.test(decision.ownerKey ?? "") : decision.ownerKey !== undefined)
+    return "enterprise_read_owner_missing";
+  if (phase === "before_dispatch") authority.owner = { managed, key: decision.ownerKey };
+  else if (
+    !authority.owner ||
+    authority.owner.managed !== managed ||
+    authority.owner.key !== decision.ownerKey
+  )
+    return "enterprise_identity_changed";
+  return undefined;
 }
 
 export function captureEnterpriseExecutionScope(deps: ToolExecutorDeps): EnterpriseExecutionScope {
@@ -43,6 +83,27 @@ export function snapshotEnterpriseInput(input: unknown): unknown {
   }
 }
 
+export async function emitEnterpriseToolDenial(
+  deps: ToolExecutorDeps,
+  toolCall: ExecutableToolCall,
+  traceContext: TraceContext,
+  result: ToolExecutionResult,
+): Promise<void> {
+  await emitPermissionDenied(
+    deps,
+    toolCall,
+    result.error?.message ?? "Enterprise authorization denied",
+    traceContext,
+  );
+  await emitToolCallError(
+    deps,
+    toolCall.id,
+    traceContext,
+    traceContext.turnId ?? deps.turnId,
+    result.error,
+  );
+}
+
 export async function authorizeEnterpriseTool(input: {
   deps: ToolExecutorDeps;
   entry: ToolEntry;
@@ -52,12 +113,20 @@ export async function authorizeEnterpriseTool(input: {
   traceContext: TraceContext;
   phase: EnterpriseToolAuthorizationRequest["phase"];
   signal?: AbortSignal;
+  readResultAuthority?: EnterpriseReadResultAuthority;
+  deferFailureEvents?: boolean;
 }): Promise<ToolExecutionResult | undefined> {
-  const port = input.deps.permissionService.enterpriseAuthorization;
-  if (!port) return undefined;
+  const binding = input.readResultAuthority;
+  const port = binding ? binding.port : input.deps.permissionService.enterpriseAuthorization;
   let code = "enterprise_policy_unavailable";
   try {
     input.signal?.throwIfAborted();
+    // Read 等待期间端口可能消失或换人；必须使用原端口，不能从当前服务重新抓一个 allow。
+    if (binding && port !== input.deps.permissionService.enterpriseAuthorization) {
+      code = "enterprise_authority_changed";
+      throw Error(code);
+    }
+    if (!port) return undefined;
     // 企业裁决读取静态注册能力，不把 Bash 的只读优化或 MCP 注解升级成安全豁免。
     const decision = await port.authorize(
       {
@@ -69,6 +138,9 @@ export async function authorizeEnterpriseTool(input: {
         workingDirectory: input.scope.workingDirectory,
         input: snapshotEnterpriseInput(input.executionInput),
         phase: input.phase,
+        ...(input.phase === "before_result" && binding?.owner?.key
+          ? { ownerKey: binding.owner.key }
+          : {}),
         capability: {
           permission: input.entry.metadata.mcpPresentation
             ? "mcp"
@@ -87,34 +159,40 @@ export async function authorizeEnterpriseTool(input: {
       input.signal,
     );
     input.signal?.throwIfAborted();
-    if (!matchesEnterpriseExecutionScope(input.deps, input.scope))
+    if (binding && port !== input.deps.permissionService.enterpriseAuthorization)
+      code = "enterprise_authority_changed";
+    else if (!matchesEnterpriseExecutionScope(input.deps, input.scope))
       code = "enterprise_execution_context_changed";
-    else if (decision?.allowed === true) return undefined;
-    else if (typeof decision?.code === "string" && /^[a-z_]{1,80}$/.test(decision.code))
+    else if (decision?.allowed === true) {
+      const failure = binding ? bindReadDecision(binding, decision, input.phase) : undefined;
+      if (!failure) return undefined;
+      code = failure;
+    } else if (typeof decision?.code === "string" && /^[a-z_]{1,80}$/.test(decision.code))
       code = decision.code;
   } catch {
     /* 外部身份/网络异常不能泄露请求或凭据，也不能回退到 yolo 放行。 */
   }
   const cancelled = input.signal?.aborted === true;
+  const withheld = input.phase === "before_result";
+  const reason = cancelled ? "enterprise_authorization_cancelled" : code;
   const error = createCoreError(
     cancelled ? CoreErrorType.ToolCancelled : CoreErrorType.PermissionDenied,
-    cancelled ? "Enterprise authorization cancelled" : code,
+    withheld
+      ? `Read completed; content withheld (${reason})`
+      : cancelled
+        ? "Enterprise authorization cancelled"
+        : code,
     {
       context: {
-        code: cancelled ? "enterprise_authorization_cancelled" : code,
+        code: reason,
         source: "enterprise-policy",
+        ...(withheld ? { handlerExecuted: true, resultWithheld: true } : {}),
       },
-      recoverable: true,
+      recoverable: !withheld,
     },
   );
-  await emitPermissionDenied(input.deps, input.toolCall, error.message, input.traceContext);
   const result = createErrorResult(input.toolCall, error);
-  await emitToolCallError(
-    input.deps,
-    input.toolCall.id,
-    input.traceContext,
-    input.traceContext.turnId ?? input.deps.turnId,
-    result.error,
-  );
+  if (!input.deferFailureEvents)
+    await emitEnterpriseToolDenial(input.deps, input.toolCall, input.traceContext, result);
   return result;
 }

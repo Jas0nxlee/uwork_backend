@@ -10,7 +10,13 @@ export interface EnterpriseToolAuthorizationRequest {
   workspaceIdentity?: string;
   workingDirectory: string;
   input: unknown;
-  phase: "before_hooks" | "before_dispatch" | "native_execution" | "network_request" | "asset_load";
+  phase:
+    | "before_hooks"
+    | "before_dispatch"
+    | "before_result"
+    | "native_execution"
+    | "network_request"
+    | "asset_load";
   asset?: EnterpriseAdmissionAsset;
   ownerKey?: string;
   capability: {
@@ -27,6 +33,7 @@ export interface EnterpriseToolAuthorizationRequest {
 export interface EnterpriseToolAuthorizationDecision {
   allowed: boolean;
   code: string;
+  /** Managed builtin Read binds this owner at dispatch and supplies it at before_result. */
   ownerKey?: string;
 }
 

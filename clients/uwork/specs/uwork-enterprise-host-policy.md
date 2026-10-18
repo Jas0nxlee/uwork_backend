@@ -22,7 +22,7 @@ Shared-boundary verification: 11 focused session tests pass, including cancellat
 - Desktop-local Host sets `ZCODE_ENTERPRISE_POLICY_REQUIRED=1` when spawning its managed CLI. This is a trusted process bootstrap input, not a workspace/session configuration field. The protocol bootstrap captures it and injects the port into every main, subagent, and workflow runtime. Standalone CLI without this input retains current behavior.
 - The Host resolver checks its current trusted backend configuration and private identity session on every request. Non-UWork profiles remain unmanaged. Config/read/network/protocol failures in a managed profile deny execution; no cached successful decision is reused after failure or logout.
 - A Host that has observed a UWork configuration retains a fail-closed admission latch if that configuration disappears, including after logout. This latch stores no allow decision or identity; an explicit valid UCAS profile remains unmanaged. Unconfigured initial startup keeps the existing behavior.
-- Requests carry workspace identity/path, session, tool-call and trace identifiers, the actual tool name, capability facts, and bounded execution input. Routing uses the existing stdio connection and its bound workspace, not a payload-supplied Host. Results contain only allowed/denied plus a stable reason code.
+- Requests carry workspace identity/path, session, tool-call and trace identifiers, the actual tool name, capability facts, and bounded execution input. Routing uses the existing stdio connection and its bound workspace, not a payload-supplied Host. Results contain allowed/denied, a stable reason code and the optional opaque ownerKey required by owner-bound operations; no credential is exposed.
 - Enterprise admission is separate from interactive permissions. Yolo, plan/read-only, project allows, session grants, Hook allow, and user approval cannot override an enterprise denial. Check before PreToolUse effects and again on the final normalized input immediately before handler dispatch, including approval/Hook input modifications.
 - Cancellation and a bounded request deadline propagate through CLI -> Host -> backend HTTP. A late success after cancellation, identity change, or obsolete runtime cannot dispatch a tool. Existing trace/event/error lifecycles report denial without logging full input or credentials.
 - Identity fencing reads a private synchronous authority snapshot from the existing identity owner (generation, store revision, current session, invalidation signal). Logout invalidates this snapshot before awaiting storage. Authorization also checks the existing shared private store before and after HTTP so a peer's logout tombstone fences execution before its notification arrives; it rechecks the owner snapshot and trusted backend configuration fingerprint after every asynchronous check.
@@ -51,13 +51,44 @@ sequenceDiagram
 
 ## Acceptance
 
+### Builtin Read Result Release
+
+An admitted builtin `Read` can wait for asynchronous filesystem bytes after `before_dispatch`. That admission is not permission to release bytes after filesystem revocation, logout, identity/configuration replacement, or replacement/removal of its authorization port. The existing executor owns a call-local binding to the exact dispatch port and its decision: `allowed` requires the Host's valid opaque ownerKey; explicit `not_managed` binds unmanaged behavior without a key; absence of a port preserves standalone behavior only while it remains absent. No second identity owner, allow cache, RPC, environment variable, or persisted ticket is added.
+
+After the real Read handler returns, and before output serialization, PostToolUse or successful result events, the executor requests `before_result` on the captured port with the original ownerKey. The handler and this release request share one existing ToolDeadline/abort race; an uncooperative authority cannot extend the deadline or prevent cancellation. Denial events are published only after that race settles, so a late allow after timeout/cancel cannot emit another terminal event. Both sides of the await require the same port, workspace/working-directory scope, cancellation state, managed/unmanaged mode and owner. A fresh allow for member B cannot release member A's bytes. Missing managed owner keys, malformed decisions, unavailable authority, cancellation and mode changes fail closed. The Host compares the supplied key with its current private backend-session scope before requesting current execution policy; the existing scope checks and bridge cancellation/deadline remain in force.
+
+The strict wire schema permits `before_result` only for the registered builtin Read classification (`Read`, permission `read`, readOnly true, destructive false, sideEffectScope none). Its ownerKey is optional only to represent an explicitly unmanaged call; a managed Host refuses a missing key. Other phases retain their existing field restrictions, and asset-load authorization is unchanged. CLI and Host ship the phase contract together; an older managed Host lacking Read owner binding fails closed with the new CLI.
+
+If Read has completed but release is denied, its terminal error says the read completed and its content was withheld. No content reaches PostToolUse, ToolCallResult or model-visible success; no automatic rollback, unexecuted claim, or replay of the read is implied. Existing accepted history is retained. Write, Bash, MCP annotations and other tools gain no new exemption or result-stage behavior. This slice does not assert revocation during a later PostToolUse operation or actual OS/Native acceptance.
+
+```mermaid
+sequenceDiagram
+    participant Executor as Existing Tool Executor
+    participant Host as Captured Host Authority
+    participant FS as Existing Filesystem Port
+    Executor->>Host: before_dispatch(Read)
+    Host-->>Executor: current allow + ownerKey A / explicit not_managed
+    Executor->>FS: real Read handler awaits bytes
+    Note over Host,FS: Policy/identity/port may change while Read waits
+    FS-->>Executor: bytes (not yet released)
+    Executor->>Host: before_result(Read, original ownerKey A)
+    alt same authority and current permission
+      Host-->>Executor: same owner/mode allow
+      Executor->>Executor: serialize, PostToolUse, successful result
+    else revoked, changed, missing, cancelled or failed
+      Executor->>Executor: completed Read; content withheld error, no success content
+    end
+```
+
+The formal real-source contracts cover allowed bytes, pending filesystem revocation, owner A→B with B allowed, missing owner keys, managed/unmanaged changes, port removal/replacement, cancellation and unavailable release authorization. Denial assertions include absence of marker bytes in PostToolUse, success events and model content. Standalone and explicitly unmanaged positive controls preserve existing behavior; existing generic enterprise admission tests retain yolo/Hook/approval/MCP boundaries. OS reads, packaged CLI, Host/backend HTTP and Native UI remain separate build/runtime acceptance.
+
 ### Personal Model And Connector Runtime Admission
 
 The existing Registry Model factory and MCP owner remain the only model/server owners. A Host-bound reverse authorization permission `model_request` checks the current local assistant channel and the published `personal.models`; `personal_connector` checks `personal.connectors`. The same execution response supplies security and personal flags. The model's actual HTTP target is authorized at the shared proxy-aware fetch boundary after asynchronous body/proxy preparation, including SDK retries. A model routed to the current private backend origin under `/v1` is enterprise-managed and remains subject to that backend's model/credential/entitlement checks; a copied provider name or UI flag grants no exemption. Personal targets also require current network/domain permission.
 
 The MCP owner checks personal servers before connecting and before/after calls; its actual HTTP and stdio transports recheck before dispatch after asynchronous setup. Enterprise relay servers continue through asset/version/owner admission. Only Host-generated builtin provenance bypasses the personal-connector switch; public config schemas reject that provenance and ordinary plugin/user/project servers remain personal. Builtins retain their existing shell/filesystem/network checks when executed.
 
-The existing strict authorization response adds an optional opaque ownerKey for these runtime consumers. The private Host supplies it; request input cannot declare it outside the existing asset-load contract. A model invocation binds its owner in request-local async context and each MCP transport binds its connection owner. A new identity, or a managed/unmanaged mode change, cannot publish an old operation's result. This is an operation/connection fence, not a second identity store. Desktop's actual protocol connection pool receives the guard too; decorating only the App's fallback adapter would leave pooled discovery unprotected.
+The existing strict authorization response adds an optional opaque ownerKey for these runtime consumers. The private Host supplies it; authorization requests can carry it only for asset-load and the builtin Read result-release contract above. A model invocation binds its owner in request-local async context and each MCP transport binds its connection owner. A new identity, or a managed/unmanaged mode change, cannot publish an old operation's result. This is an operation/connection fence, not a second identity store. Desktop's actual protocol connection pool receives the guard too; decorating only the App's fallback adapter would leave pooled discovery unprotected.
 
 Model results and each model stream event are checked again before leaving the existing owner, including bound models and subagent/workflow reuse. Revocation, invalid or missing personal fields, identity changes, absent required Host, and denied local assistant channel fail closed. Standalone and explicit UCAS behavior stays unchanged. These guards do not create a second provider registry, model cache, MCP pool, queue, or identity owner.
 

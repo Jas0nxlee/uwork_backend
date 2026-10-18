@@ -89,6 +89,17 @@ function fixture() {
     logout: () => {
       authority = { ...authority, generation: authority.generation + 1, session: null };
     },
+    replaceOwner: () => {
+      authority = {
+        ...authority,
+        generation: authority.generation + 1,
+        revision: authority.revision + 1,
+        session: {
+          ...authority.session!,
+          profile: { ...authority.session!.profile, id: "other-member" },
+        },
+      };
+    },
   };
 }
 
@@ -131,7 +142,9 @@ test("the Host evaluates current security even for a declared read-only tool", a
     code: "enterprise_filesystem_denied",
   });
   f.policy({ allowFilesystem: true });
-  assert.deepEqual(await f.resolver.authorize(request), { allowed: true, code: "allowed" });
+  const allowed = await f.resolver.authorize(request);
+  assert.deepEqual(allowed, { allowed: true, code: "allowed", ownerKey: allowed.ownerKey });
+  assert.match(allowed.ownerKey ?? "", /^[a-f0-9]{64}$/);
   assert.equal(f.counts(), 2);
 });
 
@@ -140,6 +153,64 @@ test("the Host keeps unmanaged UCAS behavior without reading or sending identity
   f.configure({ backend: "ucas" });
   assert.deepEqual(await f.resolver.authorize(request), { allowed: true, code: "not_managed" });
   assert.equal(f.counts(), 0);
+});
+
+test("builtin Read result release binds the dispatch owner and rechecks current filesystem policy", async () => {
+  const f = fixture();
+  f.policy({ allowFilesystem: true });
+  const dispatch = await f.resolver.authorize(request);
+  assert.match(dispatch.ownerKey ?? "", /^[a-f0-9]{64}$/);
+  const release = { ...request, phase: "before_result" as const, ownerKey: dispatch.ownerKey };
+  assert.equal((await f.resolver.authorize(release)).allowed, true);
+  f.policy({ allowFilesystem: false });
+  assert.equal((await f.resolver.authorize(release)).code, "enterprise_filesystem_denied");
+});
+
+test("a missing or different Read owner cannot borrow a newly allowed identity", async () => {
+  const f = fixture();
+  f.policy({ allowFilesystem: true });
+  const first = await f.resolver.authorize(request);
+  f.replaceOwner();
+  const second = await f.resolver.authorize(request);
+  assert.equal(second.allowed, true);
+  assert.notEqual(first.ownerKey, second.ownerKey);
+  const requests = f.counts();
+  for (const ownerKey of [first.ownerKey, undefined]) {
+    const result = await f.resolver.authorize({ ...request, phase: "before_result", ownerKey });
+    assert.deepEqual(result, { allowed: false, code: "enterprise_identity_changed" });
+  }
+  assert.equal(f.counts(), requests, "owner mismatch must precede the new owner's policy HTTP");
+});
+
+test("Read result release rejects both managed mode transitions and non-Read stage misuse", async () => {
+  const f = fixture();
+  f.policy({ allowFilesystem: true });
+  const managed = await f.resolver.authorize(request);
+  f.configure({ backend: "ucas" });
+  assert.equal(
+    (await f.resolver.authorize({ ...request, phase: "before_result", ownerKey: managed.ownerKey }))
+      .allowed,
+    false,
+  );
+  assert.deepEqual(await f.resolver.authorize({ ...request, phase: "before_result" }), {
+    allowed: true,
+    code: "not_managed",
+  });
+  f.configure({ backend: "uwork" });
+  assert.equal((await f.resolver.authorize({ ...request, phase: "before_result" })).allowed, false);
+  const calls = f.counts();
+  assert.equal(
+    (
+      await f.resolver.authorize({
+        ...request,
+        phase: "before_result",
+        toolName: "Write",
+        ownerKey: managed.ownerKey,
+      })
+    ).allowed,
+    false,
+  );
+  assert.equal(f.counts(), calls);
 });
 
 test("private transport error details do not change the established execution-denial contract", async () => {

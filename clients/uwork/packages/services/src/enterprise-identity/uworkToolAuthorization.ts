@@ -147,9 +147,20 @@ export function createUWorkToolAuthorizationResolver(
       traceId?: string,
     ): Promise<ZCodeEnterpriseToolAuthorizationResult> {
       if (request.phase === "asset_load") return denied("enterprise_capability_unsupported");
+      const builtinRead =
+        request.toolName === "Read" &&
+        request.capability.permission === "read" &&
+        request.capability.readOnly &&
+        !request.capability.destructive &&
+        request.capability.sideEffectScope === "none";
+      if (request.phase === "before_result" && !builtinRead)
+        return denied("enterprise_capability_unsupported");
       try {
         const result = await backendSession.run(
           async (scope) => {
+            // Read 已读到的正文属于原准入 owner；不能借新成员的有效 allow 释放旧正文。
+            if (request.phase === "before_result" && request.ownerKey !== scope.ownerKey)
+              return denied("enterprise_identity_changed");
             const response = await scope.request("/api/client/authorize", {
               action: "execution",
               channel: "local",
@@ -183,16 +194,21 @@ export function createUWorkToolAuthorizationResolver(
               scope.origin,
             );
             return decision.allowed &&
-              (["model_request", "personal_connector", "personal_agent", "filesystem"].includes(
-                request.capability.permission,
-              ) ||
+              (builtinRead ||
+                ["model_request", "personal_connector", "personal_agent", "filesystem"].includes(
+                  request.capability.permission,
+                ) ||
                 request.toolName === "McpDispatch")
               ? { ...decision, ownerKey: scope.ownerKey }
               : decision;
           },
           { signal, traceId },
         );
-        return result.managed ? result.value : { allowed: true, code: "not_managed" };
+        return result.managed
+          ? result.value
+          : request.phase === "before_result" && request.ownerKey !== undefined
+            ? denied("enterprise_identity_changed")
+            : { allowed: true, code: "not_managed" };
       } catch (error) {
         if (signal?.aborted) return denied("enterprise_authorization_cancelled");
         return denied(
