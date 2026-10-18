@@ -166,6 +166,100 @@ test("builtin Read result release binds the dispatch owner and rechecks current 
   assert.equal((await f.resolver.authorize(release)).code, "enterprise_filesystem_denied");
 });
 
+const attachmentRequest: ZCodeEnterpriseToolAuthorizationParams = {
+  ...request,
+  toolName: "PromptAttachmentRead",
+  input: { path: "/controlled/owned.txt", kind: "file" },
+  capability: {
+    permission: "filesystem",
+    readOnly: true,
+    destructive: false,
+    sideEffectScope: "none",
+  },
+};
+
+test("attachment release rechecks the original member filesystem policy with managed owner proof", async () => {
+  const f = fixture();
+  assert.equal(
+    (await f.resolver.authorize(attachmentRequest)).code,
+    "enterprise_filesystem_denied",
+  );
+  f.policy({ allowFilesystem: true });
+  const dispatch = await f.resolver.authorize(attachmentRequest);
+  assert.match(dispatch.ownerKey ?? "", /^[a-f0-9]{64}$/);
+  const release = {
+    ...attachmentRequest,
+    phase: "before_result" as const,
+    ownerKey: dispatch.ownerKey,
+  };
+  assert.equal((await f.resolver.authorize(release)).allowed, true);
+  f.policy({ allowFilesystem: false });
+  assert.equal((await f.resolver.authorize(release)).code, "enterprise_filesystem_denied");
+});
+
+test("attachment results cannot borrow another member or lose managed proof while UCAS stays compatible", async () => {
+  const f = fixture();
+  f.policy({ allowFilesystem: true });
+  const first = await f.resolver.authorize(attachmentRequest);
+  f.replaceOwner();
+  const second = await f.resolver.authorize(attachmentRequest);
+  assert.notEqual(first.ownerKey, second.ownerKey);
+  const calls = f.counts();
+  for (const ownerKey of [first.ownerKey, undefined])
+    assert.deepEqual(
+      await f.resolver.authorize({ ...attachmentRequest, phase: "before_result", ownerKey }),
+      { allowed: false, code: "enterprise_identity_changed" },
+    );
+  assert.equal(f.counts(), calls, "proof mismatch precedes current-owner HTTP");
+  f.configure({ backend: "ucas" });
+  assert.deepEqual(
+    await f.resolver.authorize({
+      ...attachmentRequest,
+      phase: "before_result",
+      ownerKey: second.ownerKey,
+    }),
+    { allowed: false, code: "enterprise_identity_changed" },
+  );
+  assert.deepEqual(await f.resolver.authorize({ ...attachmentRequest, phase: "before_result" }), {
+    allowed: true,
+    code: "not_managed",
+  });
+  f.configure({ backend: "uwork" });
+  assert.equal(
+    (await f.resolver.authorize({ ...attachmentRequest, phase: "before_result" })).allowed,
+    false,
+  );
+});
+
+test("the Host rejects malformed attachment capability, phase and input before policy HTTP", async () => {
+  const f = fixture();
+  f.policy({ allowShell: true, allowFilesystem: true });
+  const invalid: ZCodeEnterpriseToolAuthorizationParams[] = [
+    ...(["before_hooks", "native_execution", "network_request", "asset_load"] as const).map(
+      (phase) => ({ ...attachmentRequest, phase }),
+    ),
+    { ...attachmentRequest, capability: { ...attachmentRequest.capability, permission: "read" } },
+    { ...attachmentRequest, capability: { ...attachmentRequest.capability, readOnly: false } },
+    { ...attachmentRequest, capability: { ...attachmentRequest.capability, destructive: true } },
+    {
+      ...attachmentRequest,
+      capability: { ...attachmentRequest.capability, sideEffectScope: "workspace" },
+    },
+    { ...attachmentRequest, capability: { ...attachmentRequest.capability, assetGuarded: true } },
+    {
+      ...attachmentRequest,
+      input: { path: "/controlled/owned.txt", kind: "file", body: "SYNTHETIC_NOT_AUTH_METADATA" },
+    },
+    { ...attachmentRequest, input: { path: "zcode-artifact://owned", kind: "file" } },
+  ];
+  for (const candidate of invalid)
+    assert.deepEqual(await f.resolver.authorize(candidate), {
+      allowed: false,
+      code: "enterprise_capability_unsupported",
+    });
+  assert.equal(f.counts(), 0);
+});
+
 test("a missing or different Read owner cannot borrow a newly allowed identity", async () => {
   const f = fixture();
   f.policy({ allowFilesystem: true });

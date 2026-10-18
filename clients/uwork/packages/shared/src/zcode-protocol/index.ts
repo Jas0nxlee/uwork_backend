@@ -2451,6 +2451,21 @@ const enterpriseInteractionScopeSchema = z
     workspace: zcodeWorkspaceRefSchema,
   })
   .strict();
+// 附件正文绕过工具分派，沿原私有授权桥用固定消费者验证，元数据不能携带正文。
+const promptAttachmentReadInputSchema = z
+  .object({
+    path: z
+      .string()
+      .min(1)
+      .max(4096)
+      .refine(
+        (path) =>
+          !path.includes("\0") &&
+          (path.startsWith("/") || /^[a-zA-Z]:[\\/]/u.test(path) || path.startsWith("\\\\")),
+      ),
+    kind: z.enum(["file", "image", "video", "pdf"]),
+  })
+  .strict();
 export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractionScopeSchema
   .extend({
     toolCallId: z.string().min(1).max(200),
@@ -2509,15 +2524,28 @@ export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractio
   })
   .strict()
   .refine((request) => {
+    const attachmentRead = request.toolName === "PromptAttachmentRead";
+    if (
+      attachmentRead &&
+      (!promptAttachmentReadInputSchema.safeParse(request.input).success ||
+        Object.keys(request.capability).length !== 4 ||
+        request.capability.permission !== "filesystem" ||
+        !request.capability.readOnly ||
+        request.capability.destructive ||
+        request.capability.sideEffectScope !== "none" ||
+        !["before_dispatch", "before_result"].includes(request.phase))
+    )
+      return false;
     if (request.phase === "asset_load") return request.ownerKey !== undefined;
     if (request.phase === "before_result")
       return (
         request.asset === undefined &&
-        request.toolName === "Read" &&
-        request.capability.permission === "read" &&
-        request.capability.readOnly &&
-        !request.capability.destructive &&
-        request.capability.sideEffectScope === "none"
+        (attachmentRead ||
+          (request.toolName === "Read" &&
+            request.capability.permission === "read" &&
+            request.capability.readOnly &&
+            !request.capability.destructive &&
+            request.capability.sideEffectScope === "none"))
       );
     return request.asset === undefined && request.ownerKey === undefined;
   });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { zcodeEnterpriseToolAuthorizationParamsSchema } from "@zcode/shared";
 import type {
   ZCodeEnterpriseToolAuthorizationParams,
   ZCodeEnterpriseToolAuthorizationResult,
@@ -147,18 +148,25 @@ export function createUWorkToolAuthorizationResolver(
       traceId?: string,
     ): Promise<ZCodeEnterpriseToolAuthorizationResult> {
       if (request.phase === "asset_load") return denied("enterprise_capability_unsupported");
+      const attachmentRead = request.toolName === "PromptAttachmentRead";
+      // 只窄开内部附件消费者：不能借 filesystem 标签放行写能力、正文或其它阶段。
+      if (
+        attachmentRead &&
+        !zcodeEnterpriseToolAuthorizationParamsSchema.safeParse(request).success
+      )
+        return denied("enterprise_capability_unsupported");
       const builtinRead =
         request.toolName === "Read" &&
         request.capability.permission === "read" &&
         request.capability.readOnly &&
         !request.capability.destructive &&
         request.capability.sideEffectScope === "none";
-      if (request.phase === "before_result" && !builtinRead)
+      if (request.phase === "before_result" && !builtinRead && !attachmentRead)
         return denied("enterprise_capability_unsupported");
       try {
         const result = await backendSession.run(
           async (scope) => {
-            // Read 已读到的正文属于原准入 owner；不能借新成员的有效 allow 释放旧正文。
+            // 新读取的正文属于原准入 owner；不能借新成员的有效 allow 释放旧正文。
             if (request.phase === "before_result" && request.ownerKey !== scope.ownerKey)
               return denied("enterprise_identity_changed");
             const response = await scope.request("/api/client/authorize", {

@@ -144,6 +144,7 @@ export interface AgentRuntimeCoreMethods {
     traceContext: TraceContext;
   }): Promise<number>;
   drainPendingInput(options: {
+    abortSignal?: AbortSignal;
     activeTurn: ActiveTurnSteeringState;
     events: SessionEvent[];
     traceContext: TraceContext;

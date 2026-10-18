@@ -33,7 +33,7 @@ export interface EnterpriseToolAuthorizationRequest {
 export interface EnterpriseToolAuthorizationDecision {
   allowed: boolean;
   code: string;
-  /** Managed builtin Read binds this owner at dispatch and supplies it at before_result. */
+  /** Managed Read / PromptAttachmentRead bind this owner at dispatch and supply it at before_result. */
   ownerKey?: string;
 }
 

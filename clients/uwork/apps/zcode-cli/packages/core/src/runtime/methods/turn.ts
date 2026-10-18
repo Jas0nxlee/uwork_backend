@@ -63,6 +63,7 @@ import {
 import { scheduleProjectMemoryExtraction } from "../helpers/project-memory-extraction.js";
 import { appendBrowserTurnScreenshot } from "./browser-turn-screenshot.js";
 import { clearBrowserTurnState } from "../../repl/browser-turn-state.js";
+import { createPromptAttachmentAuthorizationContext } from "../helpers/attachment-authorization.js";
 import { applySubmissionExecutionState, createTurnModel } from "./turn-model.js";
 import { rebuildContextPrefix } from "./context-refresh.js";
 
@@ -432,17 +433,6 @@ export async function executeTurnCommand(
         );
         injectReferencedSessionContextReminderIntoMessageHistory.call(this, input, options);
         injectDateChangeReminderIntoMessageHistory.call(this);
-        const resolvedAttachments = await resolveTurnAttachments(attachments, {
-          abortSignal: turnAbortSignal,
-          artifactStore: this.artifactStore,
-          fileSystemPort: this.fileSystemPort,
-          imageProcessorPort: this.imageProcessorPort,
-          sessionId: this.sessionId,
-          traceContext: turnTraceContext,
-          turnId,
-          workingDirectory: this.workingDirectory,
-        });
-        logResolvedTurnAttachments(this.logger, turnTraceContext, resolvedAttachments);
         const sharedContextRefs = options?.sharedContextRefs ?? options?.intent?.sharedContextRefs;
         if (sharedContextRefs && sharedContextRefs.length > 0) {
           const [reference] = sharedContextRefs;
@@ -483,6 +473,19 @@ export async function executeTurnCommand(
           }
         }
         await this.persistPendingModelChangeTimeline(turnTraceContext);
+        // shared-context / 切模持久化仍会等待；附件最后准入必须位于它们之后，紧邻同步 history 消费。
+        const resolvedAttachments = await resolveTurnAttachments(attachments, {
+          authorization: createPromptAttachmentAuthorizationContext(this, turnTraceContext),
+          abortSignal: turnAbortSignal,
+          artifactStore: this.artifactStore,
+          fileSystemPort: this.fileSystemPort,
+          imageProcessorPort: this.imageProcessorPort,
+          sessionId: this.sessionId,
+          traceContext: turnTraceContext,
+          turnId,
+          workingDirectory: this.workingDirectory,
+        });
+        logResolvedTurnAttachments(this.logger, turnTraceContext, resolvedAttachments);
         if (options?.skipInputRecord !== true && options?.inputVisibility === "model-only") {
           const inputSource = options.inputSource ?? "goal-continuation";
           const userContent = buildUserContentFromTurn(input, resolvedAttachments);

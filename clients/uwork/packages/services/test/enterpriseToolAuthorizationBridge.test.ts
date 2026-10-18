@@ -105,6 +105,46 @@ test("the enterprise reverse RPC rejects forged workspace routing before calling
   assert.equal(calls, 0);
 });
 
+test("attachment owner proof uses the original bridge and rejects a different workspace before resolution", async () => {
+  let calls = 0;
+  const bridge = createEnterpriseToolAuthorizationBridge({
+    isCurrent: () => true,
+    resolver: {
+      async authorize(value) {
+        calls++;
+        assert.equal(value.toolName, "PromptAttachmentRead");
+        assert.equal(value.ownerKey, "a".repeat(64));
+        return { allowed: true, code: "allowed", ownerKey: value.ownerKey };
+      },
+    },
+  });
+  const release = {
+    ...request,
+    toolName: "PromptAttachmentRead",
+    input: { path: "/controlled/owned.txt", kind: "file" },
+    phase: "before_result" as const,
+    ownerKey: "a".repeat(64),
+    capability: {
+      permission: "filesystem",
+      sideEffectScope: "none" as const,
+      readOnly: true,
+      destructive: false,
+    },
+  };
+  const accepted = client();
+  await bridge.handle(accepted, workspace, 1, release);
+  assert.deepEqual(accepted.results, [
+    { allowed: true, code: "allowed", ownerKey: release.ownerKey },
+  ]);
+  const forged = client();
+  await bridge.handle(forged, workspace, 2, {
+    ...release,
+    workspace: { ...workspace, workspaceIdentity: "other", workspaceKey: "other" },
+  });
+  assert.deepEqual(forged.results, [{ allowed: false, code: "enterprise_workspace_mismatch" }]);
+  assert.equal(calls, 1);
+});
+
 test("obsolete CLI clients cannot return a late successful enterprise authorization", async () => {
   const peer = client();
   let current = true;
