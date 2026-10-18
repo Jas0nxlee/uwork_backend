@@ -190,3 +190,7 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 新独占 Native 从原成功面板打开同一 guest，经原登录按钮、受控 provider 和原 callback/claim 完成普通同企业无席位成员阅读，再经原退出清空正文。preview401→200→401、logout204；分享、登录和阅读阶段模型/账本/Trace无增量。五已知PID/五端口收口，保留私有根0700；细节和历史驱动失败见[成员阅读联测](client-native-member-viewer-test-2026-10-18.md)。
 
 下一缺口包括客户端空身份的原 Native 登录成功、文件引用实际发送并进入 Read 工具及模型，以及可运行的独立 Web DOM 链路。此前加密会话预种恢复、文件预览/添加/移除和 HTTP/静态资源/直连 WS 各保留原范围，不代替这些待验项。真实企微、外部 MCP、网盘、远端权限及平台安装边界继续保留，U02/U03/U04/U05不整体关闭。
+
+## G04f 登录 poll 与 Native IPC 交付顺序
+
+[真实 React 回归](client-enterprise-login-polling-test-2026-10-18.md) 已一次通过新2和旧23：open未决时原poll effect先认证，随后旧null/ERR_ABORTED不回退、无cancel/重复close或sync。类型/Lint/架构/改动格式通过，已知进程/端口与临时根收口，正常out全部原SHA恢复；生产Hook未改。该组件合同补足原生测试的时序前置证明，空身份Native主链仍在执行，整体验收项保持开放。

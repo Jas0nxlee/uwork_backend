@@ -29,6 +29,7 @@ npm start
 - [Native 分享页成员登录、只读阅读与退出](docs/client-native-member-viewer-test-2026-10-18.md)
 - [企业用量界面异步视图修复](docs/client-gateway-view-delivery-test-2026-10-18.md)
 - [Native 测试驱动 Enter 与超时修复](docs/client-native-test-driver-2026-10-18.md)
+- [企业登录轮询与窗口迟到结果回归](docs/client-enterprise-login-polling-test-2026-10-18.md)
 - [自有插件 Native 生命周期验收](docs/client-native-owned-plugin-test-2026-10-18.md)
 - [部署、备份与恢复](docs/deployment.md)
 - [2026-10-18 本地后台恢复与实际运行核验](docs/local-backend-recovery-2026-10-18.md)

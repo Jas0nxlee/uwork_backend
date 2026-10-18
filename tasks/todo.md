@@ -56,6 +56,8 @@
 
 已完成的持续覆盖子项（不据此勾整个 U02/U03）：
 
+- [x] G04f 真实 React 登录 Provider 在 Native open未决时由poll先认证，之后旧null/ERR_ABORTED均不回退、不cancel/重复close或sync；新2+旧23一次25/25，类型/Lint（113既有警告）/架构/改动格式通过。运行器有限等待、已知进程与未知FD保根合同已修，90进程身份/两端口/两临时根独立收口；正常out6631逐SHA恢复。仅组件端口合同，客户端空身份原生登录仍待独立验收，详见 `docs/client-enterprise-login-polling-test-2026-10-18.md`。
+
 - [x] G01 真实交互身份、跨企业/issuer 资产缓存、迟到下载、冷恢复及退出：2 项、279 次 HTTP、4 CLI。
 - [x] G02a 正式 CLI Agent 子任务继承私有 relay/目录与子派发前席位撤权：2 项及原 5 项回归。
 - [x] G02b Native Skill v1→v2→撤权，模型 IO 实证正文/无正文；不替代专家/resume。
