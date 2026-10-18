@@ -1,6 +1,16 @@
 # G04h 客户端空身份原生登录进展（未验收）
 
-2026-10-18。最新 v5 已通过原 Main、BH、工作区入口，并用原“跳过登录”按钮显示了职业引导页；随后只读观察的证据文件名碰撞，测试记录器中断，尚未发起登录。此前 v4 到达原 claim 和 guest 关闭后停在 `session_guard` 边界。**原 Native 身份完成提交与整条登录链路仍未验收，G04h、U02–U05 保持开放。**
+2026-10-18。最新 v6 已从空身份完成原首跑引导、原登录操作、受控 callback、原 claim、guest 关闭和客户端公开身份确认。随后在发送前的模型选择检查停止，未发送模型请求。**登录后的实际对话、计量、认证冷恢复与退出完整链路尚未验收，G04h、U02–U05 保持开放。** 历史 v1–v5 的失败证据原样保留。
+
+## v6 原登录成功，发送前模型检查停止
+
+来源 HEAD `588c49b692458cb6f0e9bc45441db4e57587baad`；7,438 项来源、39 份准备文件和正常 Desktop out 的 6,631 文件均逐 SHA 独核。客户端 7,323 项与含 Read 修复的正常构建完全一致。记录器改用有界、独占编号的只读结果文件后，七个原首跑界面动作实际完成，没有种入身份或偏好。原 prelogin 快照确认登录 attempt、callback、模型、账本、Trace、Credit 全为 0。
+
+唯一原登录操作后，同次执行观察 held/pending 并完成一次无参受控 callback。原安全状态确认为 callbackCount=1、successfulClaim=true、guestClosed=true、publicAuthenticated=true、guardSatisfied=true，adapter/hold 没有失败。固定原 UI 中 authenticated、identityNameMatches、presentationReady、composerVisible 均为 true；`/api/auth/me`、配置、模型目录、entitlement、usage 的实际请求返回 200。post-login 的模型、账本和 Trace 仍为 0。没有直接读取私有会话存储；认证冷恢复仍待验证。
+
+首次失败为 `prepare_question` 固定 UI 阶段 exit1，原动作 journal 尚未认领，`send_once` 未调用。两次登录后只读投影中 `modelMatches`、`modelIdMatches` 为 false；现有有限投影不能区分空选择、缺失控件或其他值，因此尚不能单凭这次证据判定产品根因。额度和用量属于网关设置页，现场 `settingsGatewayVisible=false`，其 match=false 不作为额度或用量故障。下一步针对空目录到登录后目录更新的真实 React 状态转换复现，并完善测试的页面适用性判断。
+
+Main 原停止 exit0/signal=null，工作区副实例此前 exit0，专属 BH 的原工具实际 exit1。未知写者只记录聚合；私有根0700保留，handoff 后不再读取或 stat。Root 精确核对 Common PID/PPID/birth/cwd、DB fd22/u、三个监听和 children=0 后 SIGKILL，原 PTY 实际 exit1。四个已知 PID、四个端口及专属 socket 连接全部关闭，总耗时412,146ms。91份公开文件、2,271,382字节逐SHA独核：[manifest](../evidence/client-native-primary-login-v6-20261018/manifest.json)，SHA `0b9327d274a1d706f7b1ad8af9aa967da6881e02ab35a941fe4bb0406c3fe730`。
 
 ## v5 首跑与记录器中断
 
