@@ -14,16 +14,26 @@ export function initializeNewTaskDraft(
   workspaceIdentity: string | undefined,
   view: ModelSelectionView,
 ): V4ComposerDraft {
+  if (draft.mode) {
+    if (draft.initializeFromNewTask !== true) return draft;
+    // 空身份首读可先初始化模式；目录晚到只补首个模型，不能覆盖期间编辑的正文或权限。
+    const modelSelection =
+      draft.modelSelection ?? resolveDraftInitialModelSelection(view, null).selection;
+    return modelSelection ? { ...draft, initializeFromNewTask: undefined, modelSelection } : draft;
+  }
   const recent = readComposerRecent(workspacePath, workspaceIdentity);
+  const modelSelection =
+    draft.modelSelection ??
+    recent?.modelSelection ??
+    resolveDraftInitialModelSelection(view, null).selection ??
+    undefined;
   return {
     ...draft,
-    initializeFromNewTask: undefined,
+    // 模式就绪不代表用户已决定模型；原草稿保留初始化资格，直到取得首个合法默认。
+    initializeFromNewTask: modelSelection ? undefined : true,
     mode: recent?.mode === "plan" ? "build" : (recent?.mode ?? "build"),
     planEnabled: false,
-    modelSelection:
-      recent?.modelSelection ??
-      resolveDraftInitialModelSelection(view, null).selection ??
-      undefined,
+    modelSelection,
   };
 }
 
@@ -49,6 +59,7 @@ export function seedImportedSessionDraft(result: {
           mode: root.mode,
           planEnabled: root.planEnabled ?? false,
           modelSelection: root.modelSelection,
+          initializeFromNewTask: root.initializeFromNewTask,
         }
       : { text: "", initializeFromNewTask: true },
   );

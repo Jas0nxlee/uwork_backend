@@ -27,6 +27,34 @@ flowchart LR
 
 验收：真实磁盘/privateSymbol→Registry→默认选择 7vs1 RED；全新 HOME 私有 Gateway→真实 Registry→默认首次发送，无手选；同 ID 描述刷新、目录收缩/清空/重启/401拒绝后不复活、disabled、legacy/API-key 与个人 Provider 哨兵保持；旧 scope 晚写不能清新目录。测试不调用真实企微、MCP、网盘或付费供应商。
 
+## 全新草稿等待首个目录
+
+空身份启动时，真实 ModelSelectionView 可以先完成读取但候选为空；同一个未提交的 Root draft 此时仍可初始化 mode、正文和界面。登录后 Gateway 的目录发布与认证投影异步到达，不能用“mode 已有合法值”推定它已经拥有明确的模型意图。
+
+- 仍由原 V4ComposerDraft 唯一拥有初始化资格，复用 `initializeFromNewTask`；不新增 ref、选择缓存或身份 owner。仅明确新建/首次导入且尚未取得初始模型的草稿保留此资格。mode 已有值时 codec 仍保留资格；旧的 mode+empty、已有 Session/history 或用户已保存的空选择没有资格，不能反向猜成 fresh。
+- 首个合法 preferredSelection 到达后，只补当前模型与其合法 reasoning 并消费资格；不重新初始化正文、mode、plan 或权限选择。正文编辑和切换 mode/plan 不代表用户选择或清空了模型，不能使迟到的默认覆盖这些字段，也不能让资格提前丢失。
+- 用户明确选模型、明确恢复/保存空模型意图或已有已接纳选择后，结束资格。后续目录变化保留原意图，由现有 effectiveSelection 映射/拒绝；不得因选择暂时失效而悄悄改为另一个模型。完整目录持续为空时继续等待，不回退旧 UCAS seed。
+- 同一模型事件经真实 Registry/ModelSelectionService 与原 Hook 的订阅重读进入当前 scope。测试覆盖空目录→合法目录、已初始化 mode 的 pending codec/冷恢复、正文/mode/plan 保留、明确选择/清空/历史与目录仍空；不以任意 delay、重挂载或手选取得通过。
+
+```mermaid
+sequenceDiagram
+  participant Catalog as Gateway/Registry 既有目录 owner
+  participant View as ModelSelectionService
+  participant Draft as 原 V4ComposerDraft
+  Catalog-->>View: 首读 ready，候选空
+  View-->>Draft: mode 可初始化；保留等待首个模型资格
+  Note over Draft: 用户可编辑正文与 mode/plan
+  Catalog-->>View: 登录后的合法候选与 preferredSelection
+  View-->>Draft: 原事件触发当前输入重读
+  alt 明确 fresh pending，未有模型意图
+    Draft->>Draft: 只补模型/reasoning，消费资格
+  else 明确已选/清空/历史或已接纳
+    Draft->>Draft: 保留原意图，不自动改选
+  end
+```
+
+定向入口：从客户端根执行 `pnpm exec tsx --tsconfig packages/ui/tsconfig.json --test packages/ui/test/freshDraftModelSelection.test.mjs packages/ui/test/enterpriseModelNames.test.ts`。使用工作区现有 React 19/reconciler 内存 renderer，挂载真实 Hook 并消费真实 Registry/ModelSelectionService 事件；只有存储、设置与无关平台端口采用内存替身，不启动浏览器、Host、CLI 或模型。该 Source 合同不替代重建后的 Native 验收。
+
 ## 当前企业模型的显示名称
 
 2026-10-17 真实 Native 与 source RED：后台 `/v1/models` 已返回 `name=联动受控模型`，现有 UWork adapter 丢弃 name，实际 ModelSelectionView → selector → composer 因而显示 `ucas/<opaque ID>`；后台同 ID 改名后仍显示 ID。名称是当前管理员维护的公开显示 metadata，模型 ID 仍是选择、执行和计费身份，两者不得互换。

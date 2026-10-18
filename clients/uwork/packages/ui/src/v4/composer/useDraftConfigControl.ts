@@ -133,6 +133,7 @@ export function useDraftConfigControl(params: {
       draft: readV4ComposerDraft(workspacePath, workspaceIdentity, scopeId) ?? {
         text: "",
         updatedAt: 0,
+        ...(sessionId === null ? { initializeFromNewTask: true as const } : {}),
       },
     }),
     [scopeKey],
@@ -151,11 +152,14 @@ export function useDraftConfigControl(params: {
   const modelSelectionView =
     modelSelectionRead.state.status === "ready" ? modelSelectionRead.state.view : null;
   const initializeAsNewTask = sessionId === null || draft.initializeFromNewTask === true;
-  if (!draft.mode && (initializeAsNewTask ? modelSelectionView !== null : sessionConfig != null)) {
+  if (
+    (!draft.mode || draft.initializeFromNewTask === true) &&
+    (initializeAsNewTask ? modelSelectionView !== null : sessionConfig != null)
+  ) {
     const mode = submissionModeSchema.safeParse(sessionConfig?.mode);
     // Recent 是初始化原意图，不先按旧 Provider 是否仍在候选中删掉；下一次输入读取
     // 由同一解析入口对应当前账号，或暂时留空。否则冷启动会绕过统一账号对应规则。
-    // mode 是已初始化标记：历史恢复给出的空选择也是确定结果，后续 Snapshot 不得填满。
+    // mode 只标记模式已初始化；仅原草稿的明确资格可继续补模型，历史空选择仍不得填满。
     draft =
       initializeAsNewTask && modelSelectionView
         ? initializeNewTaskDraft(draft, workspacePath, workspaceIdentity, modelSelectionView)
@@ -264,7 +268,11 @@ export function useDraftConfigControl(params: {
           stateRef.current.draft.modelSelection !== original
         )
           return;
-        updateComposerDraft((current) => ({ ...current, modelSelection: selection }));
+        updateComposerDraft((current) => ({
+          ...current,
+          modelSelection: selection,
+          initializeFromNewTask: undefined,
+        }));
       };
     },
     [scopeKey, updateComposerDraft],
@@ -308,12 +316,10 @@ export function useDraftConfigControl(params: {
       if (!targetSessionId) return;
       // 首发成功曾直接删除 Root scope，真实 Session 没有 Composer Draft，
       // 重挂载后又从 Snapshot 初始化。先写目标、再删来源，保留完整正文/模式/选择。
-      const written = persistV4ComposerDraft(
-        workspacePath,
-        workspaceIdentity,
-        targetSessionId,
-        stateRef.current.draft,
-      );
+      const written = persistV4ComposerDraft(workspacePath, workspaceIdentity, targetSessionId, {
+        ...stateRef.current.draft,
+        initializeFromNewTask: undefined,
+      });
       if (!written) return;
       clearV4ComposerDraft(workspacePath, workspaceIdentity, V4_DRAFT_SCOPE_ROOT);
     },
@@ -464,7 +470,6 @@ export function useDraftConfigControl(params: {
           ...current,
           mode: current.mode === "plan" ? "build" : (current.mode ?? "build"),
           planEnabled: mode === "plan",
-          initializeFromNewTask: undefined,
         }));
         return;
       }
@@ -474,7 +479,6 @@ export function useDraftConfigControl(params: {
         updateComposerDraft((current) => ({
           ...current,
           mode: parsed.data,
-          initializeFromNewTask: undefined,
         }));
     },
     [updateComposerDraft],

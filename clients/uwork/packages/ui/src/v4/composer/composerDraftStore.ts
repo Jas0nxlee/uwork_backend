@@ -17,14 +17,14 @@ export interface V4ComposerDraft {
   text: string;
   editorStateJson?: string;
   mention?: ComposerMentionPrefill;
-  /** 有合法 mode 表示已经初始化；没有模型仍是明确空态，不能按旧文本草稿补默认。 */
+  /** 合法 mode 表示模式已初始化；仅明确 pending 资格可继续补模型，未标记历史空态不补。 */
   mode?: SubmissionMode;
   planEnabled?: boolean;
   /** 已处理的工具变更，防止重连快照再次覆盖用户选择。 */
   lastPlanTransitionId?: string;
   lastPermissionGrantId?: string;
   modelSelection?: ModelSelection;
-  /** 首次分享导入等待公共新任务初始化；不能由空 Session snapshot 抢先填充。 */
+  /** 明确新任务/首次导入仍等待首个模型；mode 可先就绪，不能由空 Session snapshot 抢先填充。 */
   initializeFromNewTask?: true;
   updatedAt: number;
 }
@@ -133,7 +133,7 @@ function readDraft(value: unknown): V4ComposerDraft | null {
       ? { lastPlanTransitionId: value.lastPlanTransitionId }
       : {}),
     ...(modelSelection ? { modelSelection } : {}),
-    ...(value.initializeFromNewTask === true && !mode.success
+    ...(value.initializeFromNewTask === true && value.modelSelection === undefined
       ? { initializeFromNewTask: true as const }
       : {}),
     updatedAt:
