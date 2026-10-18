@@ -2,7 +2,7 @@
 
 2026-10-17。当前目标为继续自动覆盖所有尚未验证的真实联动，发现问题修复并复测。真实企微、外部 MCP 和网盘按用户要求排除。本表保留未完成项；通过一个层次不自动证明其他层次或整个项目完成。
 
-2026-10-19 当前：G04h v8空身份原登录三epoch、freshDraft实际自动选模与G07c v3原文件A/B链已通过。Standalone Web v8已在Electron41内嵌Chromium完成11项原DOM业务；[G04i v5](client-plugin-skill-bridge-test-2026-10-19.md)已完成插件安装到Skill正文消费与同会话撤权拒绝，5模型/5settled/5Trace、45 Credit。本机当前可运行的独有切片已完成；跨环境边界及U02–U05保持开放，历史具名切片保留原日期/候选。
+2026-10-19 当前：G04h v8空身份原登录三epoch、freshDraft实际自动选模与G07c v3原文件A/B链已通过。Standalone Web v8已在Electron41内嵌Chromium完成11项原DOM业务；[G04i v5](client-plugin-skill-bridge-test-2026-10-19.md)已完成插件安装到Skill正文消费与同会话撤权拒绝，5模型/5settled/5Trace、45 Credit。后续补上[W02成功连接后断线](client-web-disconnect-recovery-test-2026-10-19.md)：原RPC与浏览器实际复现后修复两处问题，42 项相关回归、完整门禁与 Server/Web/Desktop 正常构建通过；v4 实际断线、四宽、原键盘 Retry、Cookie/项目/文件恢复通过，console0/script0。此前本机切片全部完成的概括撤回；跨环境边界及U02–U05保持开放，历史具名切片保留原日期/候选。
 
 判定依据是 `SPEC-uwork-client.md`、`SPEC-client-policy.md`、`SPEC-ai-assets.md` 及客户端 enterprise specs、实际 UI/Host/CLI 入口、测试代码和执行证据。原始审计在 ignored `evidence/client-coverage-audit-20261017/`。只审计当前支持的行为，不为了造通过而增加云服务、远端身份或协作产品。
 
@@ -224,3 +224,9 @@ Root独核9公开文件/23 journals，275已知PID及两端口均闭。controlle
 ## G04i 插件安装到Skill正文消费桥（v5通过）
 
 原PluginManagementService、正常新CLI及自有HTTP/FS已实际贯通安装记录、启用状态、非默认manifest根与别名：普通成员的D/S两个新App分别读取禁用/启用catalog；同S首轮A正文及baseDirectory进入后继模型，发布personal.skills=false后未消费B被拒且无B正文，恢复目录无额外模型。baseline全0、原发送2次，实际2A+标题1+2B共5请求/5settled/5Trace、25 input/10 output、45 Credit；request与ledger按真实复合键关联，Trace/supplier独立。详见[G04i报告](client-plugin-skill-bridge-test-2026-10-19.md)。G04f Native生命周期不重演，v1–v4零模型失败原封存保留，不把相位直接当作产品根因。
+
+## W02 Web 成功连接后断线与原 Retry 恢复（v4通过）
+
+[W02 联测](client-web-disconnect-recovery-test-2026-10-19.md)补上 W01 手动新 WS 与 Web v8 reload 未覆盖的成功后断线。原 RPC 和浏览器均取得真实 RED；修复连接关闭时释放 RPC/旧 Root，并在复测中修复三个服务 Hook 随恢复路径改变调用序列的错误。最终 42 项相关回归、完整门禁及正常 Server/Web/Desktop 构建通过，源码与产物均独立核验。
+
+最终 v4 在 Electron41 独立 Web 中沿原界面完成目录/文件→精确自有 Server 断开→匹配 WS Closed 与错误页→四种宽度/Tab→同配置 Server 恢复→唯一 Enter Retry→新 document、Cookie200、原项目/文件恢复，console0/script0，文件字节不变。三 UI driver exit0，控制器 exit1 仅因 FD 查询不完整按原策略保留目录；305 个已知 PID 与两端口已独立核对关闭。此项没有企业登录或发送模型动作，不替代 Native UI、自动重连、Web 企业认证、Chrome 和平台安装验收；U02–U05、T13 边界不变。
