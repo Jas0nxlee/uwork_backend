@@ -31,6 +31,14 @@ import {
 import { validateOwnedNativeWorkspace } from "./native-owned-workspace.mjs";
 import { createPrimaryMainEntry } from "./native-primary-entry.mjs";
 import {
+  fileContextModeEnabled,
+  createNativeFileContextScenario,
+  assertNativeFileContextCommand,
+  projectNativeFileContextAccounting,
+  createNativeFileContextOutputCounter,
+  createNativeFileContextEntry,
+} from "./native-file-context.mjs";
+import {
   primaryLoginModeEnabled,
   runNativeEmailBootstrap,
   primaryLoginPublicConfig,
@@ -76,6 +84,18 @@ const configurationWitnessEnabled = isNativeConfigurationWitnessEnabled(
   experienceMode,
   process.env.UWORK_NATIVE_CONFIGURATION_WITNESS,
 );
+const fileContextEnabled = fileContextModeEnabled(
+  experienceMode,
+  dynamicWorkflowMode,
+  process.env.UWORK_NATIVE_VIEWER_AUTH,
+  process.env.UWORK_NATIVE_PRIMARY_LOGIN,
+  process.env.UWORK_NATIVE_FILE_CONTEXT,
+);
+if (
+  fileContextEnabled &&
+  !fixtureName.startsWith("client-native-file-context-")
+)
+  throw Error("Invalid file context fixture name");
 const exec = promisify(execFile),
   evidence = "evidence/" + fixtureName;
 await mkdir(evidence, { recursive: true, mode: 0o700 });
@@ -99,6 +119,28 @@ await mkdir(join(process.cwd(), "data"), { recursive: true });
 await mkdir(root, { mode: 0o700 });
 for (const p of [home, appRoot, helpConfigDir])
   await mkdir(p, { recursive: true, mode: 0o700 });
+const fileContext = fileContextEnabled
+  ? createNativeFileContextScenario({
+      root,
+      runTag: randomBytes(12).toString("hex"),
+    })
+  : undefined;
+const fileContextOutput = fileContextEnabled
+  ? createNativeFileContextOutputCounter()
+  : undefined;
+if (fileContext) {
+  await mkdir(fileContext.workspacePath, { mode: 0o700 });
+  await exec("/usr/bin/git", ["init", "--quiet", fileContext.workspacePath], {
+    env: {
+      PATH: "/usr/bin:/bin",
+      HOME: home,
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+    },
+  });
+  for (const file of fileContext.files)
+    await writeFile(file.path, file.content, { flag: "wx", mode: 0o600 });
+}
 const helpConfigSource = join(client, "config/default.json"),
   helpConfigPath = join(helpConfigDir, "default.json");
 await copyFile(helpConfigSource, helpConfigPath, fsConstants.COPYFILE_EXCL);
@@ -196,12 +238,14 @@ const messageText = (message) =>
     : Array.isArray(message?.content)
       ? message.content.map((part) => part.text ?? "").join("")
       : "";
-const primarySupplierKey = primaryLoginEnabled
-  ? randomBytes(24).toString("hex")
-  : undefined;
-const primarySupplierWitness = primaryLoginEnabled
-  ? createPrimarySupplierWitness(primarySupplierKey)
-  : undefined;
+const primarySupplierKey =
+  primaryLoginEnabled || fileContextEnabled
+    ? randomBytes(24).toString("hex")
+    : undefined;
+const primarySupplierWitness =
+  primaryLoginEnabled || fileContextEnabled
+    ? createPrimarySupplierWitness(primarySupplierKey)
+    : undefined;
 const upstream = httpServer(async (req, res) => {
   if (
     primarySupplierWitness &&
@@ -268,9 +312,21 @@ const upstream = httpServer(async (req, res) => {
     res.end(JSON.stringify({ data: [{ id: "controlled" }] }));
     return;
   }
+  let fileBody, fileReply;
+  if (fileContext) {
+    try {
+      fileBody = JSON.parse(text);
+      fileReply = fileContext.selectReply(fileBody);
+    } catch {
+      res
+        .writeHead(400, { "content-type": "application/json" })
+        .end(JSON.stringify({ error: "Controlled file context rejected" }));
+      return;
+    }
+  }
   modelCalls++;
-  const body = JSON.parse(text);
-  modelRequests.push(body);
+  const body = fileContext ? fileBody : JSON.parse(text);
+  if (!fileContext) modelRequests.push(body);
   const lastUserIndex = body.messages.findLastIndex((m) => m.role === "user");
   const currentUser = body.messages[lastUserIndex];
   const currentHasTool = body.messages
@@ -321,46 +377,60 @@ const upstream = httpServer(async (req, res) => {
     !currentHasTool &&
     typeof currentUser?.content === "string" &&
     currentUser.content.includes("运行企业专家");
-  const toolTurn = workflowSaveTurn || skillTurn || expertTurn;
-  const call = workflowSaveTurn
+  const toolTurn = fileReply
+    ? !!fileReply.toolCall
+    : workflowSaveTurn || skillTurn || expertTurn;
+  const call = fileReply?.toolCall
     ? {
         index: 0,
-        id: "native-workflow-save-" + modelCalls,
+        id: fileReply.toolCall.id,
         type: "function",
         function: {
-          name: "SaveWorkflow",
-          arguments: JSON.stringify({
-            name: messageText(currentUser).includes(
-              "NATIVE_UI_WORKFLOW_SAVE_REJECT",
-            )
-              ? "native-ui-workflow-rejected"
-              : "native-ui-workflow",
-            description: "Native UI two-step workflow",
-            scope: "project",
-            script: workflowScript,
-          }),
+          name: fileReply.toolCall.name,
+          arguments: fileReply.toolCall.arguments,
         },
       }
-    : {
-        index: 0,
-        id: (expertTurn ? "native-expert-" : "native-skill-") + modelCalls,
-        type: "function",
-        function: {
-          name: expertTurn ? "Agent" : "Skill",
-          arguments: JSON.stringify(
-            expertTurn
-              ? {
-                  description: "Native enterprise expert",
-                  prompt: "NATIVE_ENTERPRISE_EXPERT_CHILD",
-                  subagent_type: enterpriseExpert?.name,
-                }
-              : { skill: "enterprise:" + enterpriseAsset?.id },
-          ),
-        },
-      };
-  const output = workflowActor
-    ? `NATIVE_UI_STEP_${workflowStep}_DONE`
-    : "原生企业资产联动完成。";
+    : workflowSaveTurn
+      ? {
+          index: 0,
+          id: "native-workflow-save-" + modelCalls,
+          type: "function",
+          function: {
+            name: "SaveWorkflow",
+            arguments: JSON.stringify({
+              name: messageText(currentUser).includes(
+                "NATIVE_UI_WORKFLOW_SAVE_REJECT",
+              )
+                ? "native-ui-workflow-rejected"
+                : "native-ui-workflow",
+              description: "Native UI two-step workflow",
+              scope: "project",
+              script: workflowScript,
+            }),
+          },
+        }
+      : {
+          index: 0,
+          id: (expertTurn ? "native-expert-" : "native-skill-") + modelCalls,
+          type: "function",
+          function: {
+            name: expertTurn ? "Agent" : "Skill",
+            arguments: JSON.stringify(
+              expertTurn
+                ? {
+                    description: "Native enterprise expert",
+                    prompt: "NATIVE_ENTERPRISE_EXPERT_CHILD",
+                    subagent_type: enterpriseExpert?.name,
+                  }
+                : { skill: "enterprise:" + enterpriseAsset?.id },
+            ),
+          },
+        };
+  const output =
+    fileReply?.text ??
+    (workflowActor
+      ? `NATIVE_UI_STEP_${workflowStep}_DONE`
+      : "原生企业资产联动完成。");
   if (body.stream) {
     res.setHeader("content-type", "text/event-stream");
     if (toolTurn)
@@ -378,7 +448,7 @@ const upstream = httpServer(async (req, res) => {
           "\n\n",
       );
     else
-      for (const content of workflowActor
+      for (const content of fileReply || workflowActor
         ? [output]
         : ["原生企业资产", "联动完成。"])
         res.write(
@@ -896,9 +966,10 @@ await writeFile(
     name: "uwork-client-link-test",
     version: "0.0.0",
     main: primaryLoginEnabled ? "entry.mjs" : "entry.cjs",
+    ...(fileContextEnabled ? { main: "file-context-entry.mjs" } : {}),
   }),
 );
-if (primaryLoginEnabled) {
+if (primaryLoginEnabled || fileContextEnabled) {
   for (const name of [
     "native-primary-login-adapter.mjs",
     "native-owned-workspace.mjs",
@@ -920,6 +991,12 @@ await writeFile(
       })
     : `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,appPath:app.getAppPath(),helpFallbackPath:require('node:path').join(app.getAppPath(),'../../config/default.json'),dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null,defaultProtocolRegistrationSuppressed:true,recentDocumentsClearSuppressed:true}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;app.clearRecentDocuments=()=>{};import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
 );
+if (fileContextEnabled)
+  await writeFile(
+    join(appRoot, "file-context-entry.mjs"),
+    createNativeFileContextEntry({ root, origin }),
+    { mode: 0o600 },
+  );
 // 未打包的 Main 会搜索开发环境文件；拷贝正式产物到隔离根，不能借源目录启动。
 const outSnapshot = await copyNativeOutSnapshot({
   source: join(client, "packages/desktop/out"),
@@ -977,6 +1054,7 @@ const meta = {
   modelId: model.id,
   mainEntrySha256,
   dynamicWorkflowMode: dynamicWorkflowMode ?? null,
+  ...(fileContextEnabled ? { nativeFileContextMode: "controlled" } : {}),
   ...(workflowTestLimits ? { workflowTestLimits } : {}),
   copiedProductionMain: true,
   supplierOrigin: `http://127.0.0.1:${upstream.address().port}`,
@@ -1172,6 +1250,25 @@ async function launch() {
       if (electron === ownedChild) electron = undefined;
     });
     await ownedBridge.ready;
+  } else if (fileContextOutput) {
+    const ownedChild = electron;
+    ownedChild.stdout.on("data", (bytes) =>
+      fileContextOutput.count("stdout", bytes.length),
+    );
+    ownedChild.stderr.on("data", (bytes) =>
+      fileContextOutput.count("stderr", bytes.length),
+    );
+    ownedChild.once("exit", (code, signal) => {
+      console.log(
+        JSON.stringify({
+          event: "native-file-context-exit",
+          pid: ownedChild.pid,
+          code,
+          signal,
+        }),
+      );
+      if (electron === ownedChild) electron = undefined;
+    });
   } else {
     const { createWriteStream } = await import("node:fs");
     const log = createWriteStream(evidence + "/electron.log", {
@@ -1317,6 +1414,42 @@ async function saveWorkflowProof(name) {
     { mode: 0o600 },
   );
 }
+async function saveFileContextProof(name) {
+  const security = await api(p + "/configurations/security");
+  if (typeof security.published?.allowFilesystem !== "boolean")
+    throw Error("Controlled file security projection rejected");
+  const ledger = app.services.db.all(
+    "SELECT user_id,model_id,application,status,amount,input_tokens,output_tokens FROM ledger WHERE tenant_id=? LIMIT 33",
+    owner.tenantId,
+  );
+  const traces = app.services.db.all(
+    "SELECT user_id,model_id,application,status,error_code FROM traces WHERE tenant_id=? LIMIT 33",
+    owner.tenantId,
+  );
+  await writeFile(
+    join(evidence, name + "-experience-proof.json"),
+    JSON.stringify(
+      {
+        modelCalls,
+        fileContext: fileContext.safeFacts(),
+        supplier: primarySupplierWitness.safeStatus(),
+        output: fileContextOutput.safeFacts(),
+        publishedFilesystemAllowed: security.published.allowFilesystem,
+        accounting: projectNativeFileContextAccounting(
+          ledger,
+          traces,
+          member.id,
+          model.id,
+        ),
+        configurationWitnessMetadata: configurationCapture?.snapshot()
+          .configurationWitnessMetadata ?? { enabled: false },
+      },
+      null,
+      2,
+    ),
+    { mode: 0o600, flag: "wx" },
+  );
+}
 async function saveExperienceProof(name) {
   if (!/^[a-z0-9-]+$/.test(name)) throw Error("Invalid experience proof name");
   const configurations = {};
@@ -1418,6 +1551,8 @@ rl.on("line", async (line) => {
   try {
     const c = JSON.parse(line);
     if (primaryLoginEnabled) assertPrimaryCommand(c);
+    if (fileContextEnabled)
+      assertNativeFileContextCommand(c, fileContext.workspacePath);
     if (c.op === "completePrimaryLogin" && primaryLoginHold) {
       await primaryLoginHold.completeCallback();
     } else if (c.op === "primaryLoginStatus" && primaryLoginHold) {
@@ -1464,7 +1599,9 @@ rl.on("line", async (line) => {
     )
       await saveWorkflowProof(c.name);
     else if (c.op === "experienceSnapshot" && experienceMode)
-      await saveExperienceProof(c.name);
+      await (fileContextEnabled
+        ? saveFileContextProof(c.name)
+        : saveExperienceProof(c.name));
     else if (c.op === "pauseConfiguration") configurationPaused = true;
     else if (c.op === "resumeConfiguration") {
       configurationPaused = false;
@@ -1571,7 +1708,14 @@ rl.on("line", async (line) => {
     console.log(JSON.stringify({ op: c.op, status: "done" }));
   } catch (e) {
     console.log(
-      JSON.stringify({ status: "fixture-command-failed", message: e.message }),
+      JSON.stringify(
+        fileContextEnabled
+          ? {
+              status: "fixture-command-failed",
+              code: "native_file_context_failed",
+            }
+          : { status: "fixture-command-failed", message: e.message },
+      ),
     );
   }
 });
