@@ -5,7 +5,7 @@ import stat
 
 OBSERVATIONS = frozenset(("observe", "first_run_observe", "preworkspace"))
 BUSINESS = frozenset(("cache_prelogin", "login_once", "prepare_question", "send_once",
-    "identity_menu_first", "open_gateway", "return_conversation", "identity_menu_logout",
+    "identity_menu_first", "open_gateway", "back_to_workspace", "return_conversation", "identity_menu_logout",
     "logout_once", "prepare_denied_question", "send_denied_once",
     "first_run_skip_login", "first_run_select_developer", "first_run_next_role",
     "first_run_select_coding", "first_run_next_mode", "first_run_finish", "first_run_reopen_login"))
@@ -21,6 +21,8 @@ def reserve_result_file(directory, epoch, phase):
         if type(epoch) is not int or epoch not in (1, 2, 3) or phase not in OBSERVATIONS | BUSINESS:
             raise ValueError()
         if (phase.startswith('first_run_') or phase == 'preworkspace') and epoch != 1:
+            raise ValueError()
+        if phase == 'back_to_workspace' and epoch != 2:
             raise ValueError()
         # Open each known component without following a symlink, including parent components.
         directory_fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)

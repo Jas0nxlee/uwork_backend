@@ -42,8 +42,9 @@ class Contracts(unittest.TestCase):
     def test_every_business_output_is_still_once_and_unchanged_after_rejection(self):
         with tempfile.TemporaryDirectory(prefix="uwork-ui-observation-contract-") as root:
             for phase in sorted(module.BUSINESS):
-                name=write(root,1,phase,{"once":True});before=(Path(root)/name).read_bytes()
-                with self.assertRaisesRegex(ValueError,"^PRIMARY_UI_OUTPUT_REJECTED$"):write(root,1,phase,{"once":False})
+                epoch=2 if phase=="back_to_workspace" else 1
+                name=write(root,epoch,phase,{"once":True});before=(Path(root)/name).read_bytes()
+                with self.assertRaisesRegex(ValueError,"^PRIMARY_UI_OUTPUT_REJECTED$"):write(root,epoch,phase,{"once":False})
                 self.assertEqual((Path(root)/name).read_bytes(),before)
 
     def test_invalid_scope_and_symlink_fail_without_following_target(self):
@@ -69,6 +70,19 @@ class Contracts(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"^PRIMARY_UI_OUTPUT_REJECTED$"):
                 module.reserve_result_file(str(Path(root).resolve(strict=True)/"alias"),1,"observe")
             self.assertEqual(list(owned.iterdir()),[])
+
+    def test_settings_back_and_original_task_have_separate_once_only_epoch2_receipts(self):
+        with tempfile.TemporaryDirectory(prefix="uwork-ui-observation-contract-") as root:
+            back=write(root,2,"back_to_workspace",{"step":"back_to_workspace"})
+            original=(Path(root)/back).read_bytes()
+            task=write(root,2,"return_conversation",{"step":"return_conversation"})
+            self.assertNotEqual(back,task)
+            self.assertEqual(back,"ui-e2-back-to-workspace.json")
+            for phase in ("back_to_workspace","return_conversation"):
+                with self.assertRaisesRegex(ValueError,"^PRIMARY_UI_OUTPUT_REJECTED$"):write(root,2,phase,{})
+            self.assertEqual((Path(root)/back).read_bytes(),original)
+            for epoch in (1,3):
+                with self.assertRaisesRegex(ValueError,"^PRIMARY_UI_OUTPUT_REJECTED$"):write(root,epoch,"back_to_workspace",{})
 
 
 if __name__=="__main__":unittest.main()
