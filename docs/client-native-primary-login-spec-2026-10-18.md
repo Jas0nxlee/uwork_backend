@@ -34,6 +34,30 @@ sequenceDiagram
 
 ## 接线和取证
 
+### 原 UI 首跑前置
+
+空身份首跑可以在首次 beginLogin 之前，经原 `enterprise-login-skip` 关闭登录 Dialog，再正常完成职业引导，最后由原 `enterprise-identity-entry` 重开登录。跳过前必须未 auth-start、无 waiting/已开始 attempt；跳过不是取消后重试，不能增加 attempt/callback。引导保存经过原 UI 的设置与本地引导记录写入，属于产品动作结果，不允许夹具预种偏好、直接调用 setting/React/store 或伪造身份。
+
+测试薄入口为 `scripts/fixtures/native-first-run-ui.py`。`primary-prelogin` 模式仅允许固定 skip → 软件开发/数据/AI → 职业页下一步 → 开发 → 模式页下一步 → 偏好页开始使用 → identity-entry reopen；实际唯一企业登录仍由原 primary actor 执行。`file-restored` 模式只允许上述职业/模式/偏好步骤，禁止 skip/reopen/logout 或身份修改。Root 的原 owned guard、预算和 wx 一次性 claim 继续是编排所有者，本入口不创建 runner、R、RPC 或允许缓存。原 primary-ui.py、Main 认证三布尔和3000ms/25轮守卫保持原字节与语义。
+
+DOM 只使用固定可见布尔、选择匹配与数字几何：root-startup-loading、onboarding-page、workspace-mode-header、原登录页/身份入口；职业与模式控件限定在该引导页的原 role=group，三个前进控件限定在实际 aria-current step 的 footer/button，中文标题/标签精确匹配。选择“开发”后，偏好页必须恰有工作记忆与迁移两个未勾选控件；测试不点击或改写偏好。默认不是 false、步骤异常、重复动作、等待/认证前置不符或命中几何不确定即停止。所有实际操作只有真实 Input.dispatchMouseEvent，不使用任意 JS/Input、DOM.click、AX/截图、Storage、Token 或网络正文。
+
+每动作都先执行 guard/budget，再持久 claim `first_run_<step>`，Root 换代或重复 claim 不得再输入。完成就绪必须启动壳和引导均消失且 workspace-mode-header 可见；primary 还必须 identity-entry 可见、identity-name 不可见，file 则要求 identity-name 可见。composer 不存在不能被解释为空白就绪。原事实生产器另行证明模型/账本零增量；引导可见、完成或一次内存 draft 预热都不是认证或模型验收。
+
+```mermaid
+sequenceDiagram
+    participant F as Root有限首跑编排
+    participant UI as 原Native UI
+    F->>UI: primary原跳过（未开始attempt）
+    F->>UI: 原职业选择及下一步
+    F->>UI: 原开发模式及下一步
+    F->>UI: 确认两个偏好未勾选，原开始使用
+    UI-->>F: header及入口/身份名称可见
+    F->>UI: primary原identity-entry重开
+    Note over F,UI: file-restored没有skip/reopen；均不注入认证
+    F->>UI: 后续仍走原唯一beginLogin/callback（primary）
+```
+
 原 Main 导入前安装唯一 Session 请求守卫。只允许已绑定的原窗口/guest/Session/main-frame GET；父夹具在 RAM 对齐原 attempt、nonce、六项 SSO 参数、回调、TTL 和请求标识。官方 SSO 一直暂挂，确认 held 后确有原 pending claim 才允许一次无参受控 callback；原 Hook 成功后自然关闭 guest，守卫不抢先取消成功路径。
 
 nonce/state/URL 只过匿名 IPC RAM。原 Main 导入前清除私有 channel bootstrap 环境与测试 flag，Host/CLI 不继承控制 fd。消息、输出、初始化、授权见证和 callback 均有数量/字节/绝对截止；primary 原始 Electron stdout/stderr 只计数，不解码落盘。默认夹具分支保持原行为。
