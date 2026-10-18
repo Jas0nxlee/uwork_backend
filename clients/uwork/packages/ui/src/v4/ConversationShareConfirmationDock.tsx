@@ -6,6 +6,11 @@ import { cn } from "@/components/lib/utils.js";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import type { ConversationShareAccessMode } from "@zcode/shared";
+import {
+  accessModeToPermission,
+  permissionToAccessMode,
+  LEGACY_CONVERSATION_SHARE_ACCESS_MODES,
+} from "@/lib/conversationShareAccess.js";
 import { ConversationSharePermissionPicker } from "@/ConversationSharePermissionPicker.js";
 import {
   DEFAULT_CONVERSATION_SHARE_ACCESS_MODE,
@@ -37,6 +42,7 @@ interface ConversationShareConfirmationDockProps {
   totalCount: number;
   title?: string;
   accessMode?: ConversationShareAccessMode;
+  availableAccessModes?: readonly ConversationShareAccessMode[];
   progressLabel?: string;
   progressPhase?: ConversationShareProgressPhase;
   completedArtifacts?: number;
@@ -65,6 +71,7 @@ function ConversationShareConfirmationDockImpl({
   totalCount,
   title = "Share",
   accessMode = DEFAULT_CONVERSATION_SHARE_ACCESS_MODE,
+  availableAccessModes = LEGACY_CONVERSATION_SHARE_ACCESS_MODES,
   progressLabel,
   progressPhase = "collecting",
   completedArtifacts = 0,
@@ -90,6 +97,7 @@ function ConversationShareConfirmationDockImpl({
   const checkboxRef = useRef<HTMLInputElement>(null);
   const reviewAnimationRef = useRef<Animation | null>(null);
   const handleConfirm = () => {
+    if (!availableAccessModes.includes(accessMode)) return;
     if (!error && !disclosureAccepted) {
       // 未确认时只定位检查入口，不能把点击直接交给发布回调；重复点击先取消上次动画。
       disclosureRef.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
@@ -124,12 +132,15 @@ function ConversationShareConfirmationDockImpl({
         ? "conversationShare.progress.uploadingFailed"
         : "conversationShare.progress.checkingFailed";
   const progressPhaseIndex = SHARE_PROGRESS_PHASES.indexOf(progressPhase);
-  const accessSummaryMessageId =
-    accessMode === "public_readonly"
-      ? "conversationShare.permission.linkViewerSummary"
-      : accessMode === "public_importable"
-        ? "conversationShare.permission.linkEditorSummary"
-        : "conversationShare.permission.privateSummary";
+  const accessSummaryMessageId = !availableAccessModes.includes(accessMode)
+    ? "conversationShare.capabilityUnavailable"
+    : accessMode === "organization"
+      ? "conversationShare.permission.organizationSummary"
+      : accessMode === "public_readonly"
+        ? "conversationShare.permission.linkViewerSummary"
+        : accessMode === "public_importable"
+          ? "conversationShare.permission.linkEditorSummary"
+          : "conversationShare.permission.privateSummary";
   const footerMetaMessageId = error
     ? "conversationShare.publish.failedFooter"
     : pending
@@ -332,22 +343,9 @@ function ConversationShareConfirmationDockImpl({
               </label>
               <ConversationSharePermissionPicker
                 variant="compact"
-                permission={
-                  accessMode === "public_readonly"
-                    ? "link-viewer"
-                    : accessMode === "public_importable"
-                      ? "link-editor"
-                      : "private"
-                }
-                onChange={(permission) =>
-                  onAccessModeChange(
-                    permission === "link-viewer"
-                      ? "public_readonly"
-                      : permission === "link-editor"
-                        ? "public_importable"
-                        : "private",
-                  )
-                }
+                availableAccessModes={availableAccessModes}
+                permission={accessModeToPermission(accessMode)}
+                onChange={(permission) => onAccessModeChange(permissionToAccessMode(permission))}
               />
             </div>
             {/* 设计原因：敏感信息确认需要保留警示语义，但把详细检查范围收进锚定浮层，避免确认 dock 被长文案撑高。 */}
@@ -697,7 +695,12 @@ function ConversationShareConfirmationDockImpl({
           <Button
             type="button"
             size="lg"
-            disabled={pending || selectedCount === 0 || !title.trim()}
+            disabled={
+              pending ||
+              selectedCount === 0 ||
+              !title.trim() ||
+              !availableAccessModes.includes(accessMode)
+            }
             onClick={handleConfirm}
             data-testid="conversation-share-confirm"
             className="col-span-2 h-auto min-h-9 whitespace-normal break-words px-3 @min-[480px]/share:order-last"

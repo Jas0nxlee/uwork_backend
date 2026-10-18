@@ -205,6 +205,10 @@ const zhCN: Record<string, string> = {
   "conversationShare.trigger": "分享",
   "conversationShare.shareTitle": "分享标题",
   "conversationShare.permissionLabel": "访问权限",
+  "conversationShare.permission.organization": "仅已登录企业成员可查看",
+  "conversationShare.permission.organizationHint": "只读查看，不能导入或继续执行",
+  "conversationShare.permission.organizationSummary": "企业成员只读",
+  "conversationShare.capabilityUnavailable": "分享权限尚未就绪，请返回并重试预检",
   "conversationShare.permission.private": "仅自己可见",
   "conversationShare.permission.privateHint": "适合个人留档",
   "conversationShare.permission.linkViewer": "拥有链接的人都可查看",
@@ -231,7 +235,8 @@ const zhCN: Record<string, string> = {
   "conversationShare.error.featureDisabled": "当前工作区或连接类型暂不支持分享。",
   "conversationShare.error.artifactNotAllowed":
     "某个预览文件的类型暂不支持分享，请取消选择对应对话后重试。",
-  "conversationShare.error.limitExceeded": "所选对话或文件超过分享限制，请减少选择的对话数量。",
+  "conversationShare.error.limitExceeded":
+    "分享内容或当前分享额度已达限制，请减少所选对话或文件，或稍后重试。",
   "conversationShare.error.rateLimited": "分享操作过于频繁，请稍后再试。",
   "conversationShare.error.network": "无法连接分享服务，请检查网络后重试。",
   "conversationShare.error.safetyCheckTimeout": "分享安全检查超时，请稍后重试。",

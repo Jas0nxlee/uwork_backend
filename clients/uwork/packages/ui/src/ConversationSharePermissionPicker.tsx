@@ -1,11 +1,17 @@
 import { Fragment } from "react";
-import { Check, Globe, Info, Lock, UserRoundPen } from "lucide-react";
+import { Check, Globe, Info, Lock, UserRoundPen, Users } from "lucide-react";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 
-type ConversationSharePermission = "private" | "link-viewer" | "link-editor";
+import type { ConversationShareAccessMode } from "@zcode/shared";
+import {
+  LEGACY_CONVERSATION_SHARE_ACCESS_MODES,
+  permissionToAccessMode,
+  type ConversationSharePermission,
+} from "@/lib/conversationShareAccess.js";
 
 const PERMISSION_OPTIONS = [
+  { value: "organization", labelId: "conversationShare.permission.organization", Icon: Users },
   {
     value: "private",
     labelId: "conversationShare.permission.private",
@@ -27,15 +33,20 @@ export function ConversationSharePermissionPicker({
   permission,
   onChange,
   disabled = false,
+  availableAccessModes = LEGACY_CONVERSATION_SHARE_ACCESS_MODES,
   variant = "default",
 }: {
   permission: ConversationSharePermission;
   onChange: (permission: ConversationSharePermission) => void;
   disabled?: boolean;
+  availableAccessModes?: readonly ConversationShareAccessMode[];
   variant?: "default" | "compact";
 }) {
   const { intl } = useZCodeIntl();
   const compact = variant === "compact";
+  const options = PERMISSION_OPTIONS.filter((option) =>
+    availableAccessModes.includes(permissionToAccessMode(option.value)),
+  );
 
   return (
     <div
@@ -56,11 +67,12 @@ export function ConversationSharePermissionPicker({
         aria-label={intl.formatMessage({ id: "conversationShare.permissionLabel" })}
         className={cn(
           compact
-            ? "grid grid-cols-1 gap-1.5 @min-[640px]/share:grid-cols-3"
+            ? "grid grid-cols-1 gap-1.5"
             : "flex flex-col overflow-hidden rounded-lg border border-border",
+          compact && options.length > 1 && "@min-[640px]/share:grid-cols-3",
         )}
       >
-        {PERMISSION_OPTIONS.map(({ value, labelId, Icon }, index) => {
+        {options.map(({ value, labelId, Icon }, index) => {
           const selected = permission === value;
           const label = intl.formatMessage({ id: labelId });
           return (
@@ -96,11 +108,13 @@ export function ConversationSharePermissionPicker({
                     <span className="whitespace-normal break-words text-ui-xs text-foreground-subtle">
                       {intl.formatMessage({
                         id:
-                          value === "private"
-                            ? "conversationShare.permission.privateHint"
-                            : value === "link-viewer"
-                              ? "conversationShare.permission.linkViewerHint"
-                              : "conversationShare.permission.linkEditorHint",
+                          value === "organization"
+                            ? "conversationShare.permission.organizationHint"
+                            : value === "private"
+                              ? "conversationShare.permission.privateHint"
+                              : value === "link-viewer"
+                                ? "conversationShare.permission.linkViewerHint"
+                                : "conversationShare.permission.linkEditorHint",
                       })}
                     </span>
                   ) : null}
@@ -114,13 +128,23 @@ export function ConversationSharePermissionPicker({
         })}
       </div>
 
+      {options.length === 0 ? (
+        <p role="status" className="text-ui-sm text-foreground-subtle">
+          {intl.formatMessage({ id: "conversationShare.capabilityUnavailable" })}
+        </p>
+      ) : null}
       {!compact && permission !== "private" ? (
         <div role="note" className="flex items-start gap-1 text-warning">
           <span className="flex size-5 shrink-0 items-center justify-center">
             <Info className="size-4" aria-hidden="true" />
           </span>
           <p className="min-w-0 flex-1 text-ui-sm leading-4">
-            {intl.formatMessage({ id: "conversationShare.publicWarning" })}
+            {intl.formatMessage({
+              id:
+                permission === "organization"
+                  ? "conversationShare.permission.organizationHint"
+                  : "conversationShare.publicWarning",
+            })}
           </p>
         </div>
       ) : null}

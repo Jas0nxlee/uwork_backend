@@ -215,6 +215,10 @@ const enUS: Record<string, string> = {
   "conversationShare.trigger": "Share",
   "conversationShare.shareTitle": "Share title",
   "conversationShare.permissionLabel": "Access",
+  "conversationShare.permission.organization": "Logged-in enterprise members can view",
+  "conversationShare.permission.organizationHint": "Read only; cannot import or continue",
+  "conversationShare.permission.organizationSummary": "Enterprise members can view only",
+  "conversationShare.capabilityUnavailable": "Sharing is unavailable. Return and retry preflight.",
   "conversationShare.permission.private": "Only me",
   "conversationShare.permission.privateHint": "For personal notes",
   "conversationShare.permission.linkViewer": "Anyone with the link can view",
@@ -243,7 +247,7 @@ const enUS: Record<string, string> = {
   "conversationShare.error.artifactNotAllowed":
     "A previewed file type is not supported for sharing. Deselect that conversation and retry.",
   "conversationShare.error.limitExceeded":
-    "The selected conversation or its files exceed the sharing limit. Select fewer conversations.",
+    "The content or current sharing quota reached its limit. Reduce the selection or retry later.",
   "conversationShare.error.rateLimited": "Too many share attempts. Wait a moment, then try again.",
   "conversationShare.error.network":
     "Could not reach the sharing service. Check your connection and try again.",

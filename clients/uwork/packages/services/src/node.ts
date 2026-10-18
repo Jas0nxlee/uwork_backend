@@ -335,7 +335,7 @@ import {
   discoverPolicyAwareProviderModels,
 } from "./model-provider/uworkProviderSettingsPolicy.js";
 import { providerSettingsTrustedGatewayProvisioning } from "./model-provider/providerFacadeServices.js";
-import { createUWorkPublicationPolicy } from "./conversation-share/uworkPublicationPolicy.js";
+import { createUWorkSharePorts } from "./conversation-share/uworkPublicationPolicy.js";
 import {
   ConversationShareService,
   conversationShareConnectionScopeFactory,
@@ -2571,7 +2571,9 @@ export function createLocalServices(options: {
     authorizeLocalMediaPreviewPath: options?.authorizeLocalMediaPreviewPath,
     createLocalMediaPreviewUrl: buildLocalMediaPreviewUrl,
   });
+  const sharePorts = createUWorkSharePorts(enterpriseBackendSession);
   const conversationShareClient = new ConversationShareHttpClient({
+    managedTransport: sharePorts.managedTransport,
     // 分享运行时始终走真实 API；测试/Mock 场景应在 service 单测或 Web fixture 中显式注入，
     // 不能让开发环境默认生成仅存在于进程内存的 mock-share 链接。
     apiClient,
@@ -2593,7 +2595,7 @@ export function createLocalServices(options: {
         zcodeAgentService,
         zcodeSessionService,
         client: conversationShareClient,
-        publicationPolicy: createUWorkPublicationPolicy(enterpriseBackendSession),
+        publicationPolicy: sharePorts.publicationPolicy,
         artifactSource: createLocalConversationShareArtifactSource(),
       });
   // 注册链上的懒工厂（如 OffPeak）会各自创建 tasks-index sqlite repo；先收集到本数组，

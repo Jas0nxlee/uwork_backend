@@ -6,6 +6,7 @@ import type {
 } from "./backendSessionContract.js";
 import type { ApiRequestInit } from "@zcode/shared";
 import { createUWorkModelStream } from "./uworkModelStream.js";
+import { uworkShareRequestLimits } from "./uworkShareRequests.js";
 import { createHash } from "node:crypto";
 import { UWorkBackendSessionError } from "./backendSessionContract.js";
 import type { EnterpriseIdentityAuthority } from "./identityServiceLifecycle.js";
@@ -281,22 +282,26 @@ export function createUWorkBackendSession(
               ? Math.min(options.timeoutMs ?? CONNECTOR_TIMEOUT_MS, CONNECTOR_TIMEOUT_MS)
               : TIMEOUT_MS;
             const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(timeout)]);
-            const maximum = responseLimit(path);
+            const method = options.method ?? (body === undefined ? "GET" : "POST");
+            const shareLimits = uworkShareRequestLimits(path, method);
+            const maximum = shareLimits?.responseBytes ?? responseLimit(path);
             const encoded = body === undefined ? undefined : JSON.stringify(body);
             if (
               encoded !== undefined &&
               Buffer.byteLength(encoded) >
-                (connector
-                  ? CONNECTOR_BODY_BYTES
-                  : path === "/api/client/runs"
-                    ? CONSOLE_BODY_BYTES
-                    : MAX_BODY_BYTES)
+                (shareLimits
+                  ? shareLimits.requestBytes
+                  : connector
+                    ? CONNECTOR_BODY_BYTES
+                    : path === "/api/client/runs"
+                      ? CONSOLE_BODY_BYTES
+                      : MAX_BODY_BYTES)
             )
               throw error("enterprise_request_limit");
             await assertCurrent(requestSignal);
             const response = await abortable(async () => {
               const value = await fetchImpl(new URL(path, endpoint), {
-                method: options.method ?? (encoded === undefined ? "GET" : "POST"),
+                method,
                 redirect: "error",
                 signal: requestSignal,
                 headers: {
