@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'"
+    />
+    <title>Owned Enter protocol probe</title>
+    <style>
+      body {
+        font: 16px sans-serif;
+        padding: 24px;
+      }
+      form {
+        border: 1px solid #888;
+        padding: 16px;
+        margin-bottom: 20px;
+      }
+      input {
+        width: 500px;
+        padding: 8px;
+      }
+      button {
+        padding: 10px;
+      }
+      output {
+        display: block;
+        white-space: pre-wrap;
+        font: 12px monospace;
+        max-height: 180px;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Owned Enter protocol probe</h1>
+    <form id="a">
+      <label
+        >Shared Enter<input id="input-a" aria-label="Shared Enter" type="text"
+      /></label>
+    </form>
+    <form id="b">
+      <label
+        >Enter with carriage return<input
+          id="input-b"
+          aria-label="Enter with carriage return"
+          type="text"
+      /></label>
+    </form>
+    <form id="c">
+      <label
+        >Submit positive control<input
+          id="input-c"
+          aria-label="Submit positive control"
+          type="text" /></label
+      ><button id="submit-c" type="submit">Submit positive control</button>
+    </form>
+    <output id="facts"></output>
+    <script>
+      "use strict";
+      const rows = [],
+        submits = { a: 0, b: 0, c: 0 };
+      let overflow = 0;
+      function record(e, phase) {
+        if (rows.length >= 120) {
+          overflow++;
+          return;
+        }
+        const target = e.target,
+          form = target.closest?.("form");
+        rows.push({
+          type: e.type,
+          phase,
+          form: form?.id ?? target.id,
+          key: e.key ?? null,
+          code: e.code ?? null,
+          keyCode: e.keyCode ?? null,
+          charCode: e.charCode ?? null,
+          isTrusted: e.isTrusted,
+          defaultPrevented: e.defaultPrevented,
+          activeId: document.activeElement?.id ?? null,
+          inputType: e.inputType ?? null,
+        });
+        render();
+      }
+      function render() {
+        document.getElementById("facts").textContent = JSON.stringify({
+          rows,
+          submits,
+          overflow,
+          activeId: document.activeElement?.id ?? null,
+        });
+      }
+      for (const kind of [
+        "keydown",
+        "keypress",
+        "keyup",
+        "beforeinput",
+        "input",
+      ]) {
+        document.addEventListener(kind, (e) => record(e, "capture"), true);
+        document.addEventListener(kind, (e) => record(e, "bubble"));
+      }
+      for (const form of document.querySelectorAll("form"))
+        form.addEventListener("submit", (e) => {
+          record(e, "submit-before");
+          e.preventDefault();
+          submits[form.id]++;
+          record(e, "submit-after");
+        });
+      render();
+    </script>
+  </body>
+</html>
