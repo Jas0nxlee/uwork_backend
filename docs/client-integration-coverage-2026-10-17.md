@@ -4,6 +4,8 @@
 
 2026-10-19 当前：G04h v8空身份原登录三epoch、freshDraft实际自动选模与G07c v3原文件A/B链已通过。Standalone Web v8已在Electron41内嵌Chromium完成11项原DOM业务；[G04i v5](client-plugin-skill-bridge-test-2026-10-19.md)已完成插件安装到Skill正文消费与同会话撤权拒绝，5模型/5settled/5Trace、45 Credit。后续补上[W02成功连接后断线](client-web-disconnect-recovery-test-2026-10-19.md)：原RPC与浏览器实际复现后修复两处问题，42 项相关回归、完整门禁与 Server/Web/Desktop 正常构建通过；v4 实际断线、四宽、原键盘 Retry、Cookie/项目/文件恢复通过，console0/script0。此前本机切片全部完成的概括撤回；跨环境边界及U02–U05保持开放，历史具名切片保留原日期/候选。
 
+新增 [G09b Native用量取消](client-native-gateway-usage-logout-test-2026-10-19.md)已通过：原刷新真实200暂挂、原Back后退出触发abort/drop、匿名重开无旧资料/额度/用量；模型/账本/Trace/Credit增量0，console0/script0。初始化2/2/2/44单列，Common关闭超时与Root精准终止分列，五已知PID/四端口/BH socket独立收口、私有根保留。新的有限剩余审计确认G04j「已安装插件推荐卡→Composer mention，原禁用后回退」仍待验；未以G04f安装或G04i正文消费替代该原UI分支。
+
 判定依据是 `SPEC-uwork-client.md`、`SPEC-client-policy.md`、`SPEC-ai-assets.md` 及客户端 enterprise specs、实际 UI/Host/CLI 入口、测试代码和执行证据。原始审计在 ignored `evidence/client-coverage-audit-20261017/`。只审计当前支持的行为，不为了造通过而增加云服务、远端身份或协作产品。
 
 ## 既有能力与证据层次
