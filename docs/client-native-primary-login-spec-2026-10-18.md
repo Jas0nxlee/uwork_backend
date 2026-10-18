@@ -42,6 +42,8 @@ primary 启动器使用真正的 entry.mjs，先执行环境守卫，再以顶�
 
 测试入口诊断仅允许 secondary_argv_shape、owned_workspace、session_guard、main_import、private_channel 五种固定拒绝码，以及已拥有进程的实际退出 code/signal。拒绝收据用 wx0600 保留第一次结果，不记录原异常、cause、argv、URL 或请求详情。这些测试收据不能作为产品认证或用户权限的来源。
 
+仅 session_guard 可附 diagnostic，精确四字段为 reason、lastProjection、completedReads、inFlight。reason 仅接受 auth_deadline、auth_exhausted、auth_read_rejected、auth_projection_invalid、request_denied、external_open_denied、channel_send_failed、private_control_rejected；lastProjection 仅为 null 或原固定表达式的 authenticated/signedOut/loginVisible 三个布尔，completedReads 是已结算读取次数（整数 0–25），inFlight 是当前读取是否仍在等待的布尔。未知、额外字段、非法枚举或不合法的布尔/次数不得落盘；入口独立验证后只复制这些固定字段，非法 diagnostic 丢弃而保留原固定 code。其它四种 code 的收据仍只有 pid/code。原 3000ms 绝对截止、25 轮、网络和 OS 外跳拒绝、SSO 暂挂和认证放行条件保持不变；诊断不扩大观察范围，也不将 callback、claim 或 guest 关闭当作认证成功。
+
 登录输入前锁定敏感观察；随后只允许固定公开布尔、文本和原控件几何及 Browser Harness 物理输入。禁止读取或输出原始 AX/截图/DOM、链接、网络明文、Cookie、Storage、proof、Token 和 OAuth 参数。冷启动的新 Root 必须重新核对实际 PID/PPID/birth/appPath/CDP 与受信任 renderer，不沿用旧 attachment。
 
 原生产快照、stopNative 和 owned openWorkspace 仍使用原有限接口；不提供通用 RPC。primary supplier 只接受精确 models/chat 路径和本次正常 API 创建的后台 Key；拒绝未知路径、query 变体或错误凭据，Trace 与默认模式保持原行为。公开证据只输出匹配计数、角色/额度及本人账本归属布尔。

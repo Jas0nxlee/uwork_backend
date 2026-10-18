@@ -8,6 +8,7 @@ import { Script } from "node:vm";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createPrimaryMainEntry } from "./native-primary-entry.mjs";
+import * as primaryAdapter from "./native-primary-login-adapter.mjs";
 import {
   PRIMARY_ADAPTER_REVIEWED,
   PRIMARY_AUTH_EXPRESSION,
@@ -404,16 +405,14 @@ test("fixed DOM witness has only three visibility booleans and no authority read
 test("stalled fixed DOM witness has an absolute finite deadline", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const f = await electronFixture(t);
-  let failures = 0;
+  const failures = [];
   f.owner.executeJavaScript = () => new Promise(() => {});
   const guard = installPrimaryMainGuard(f.electron, {
     origin,
     nonce,
     channel: f.channel,
     appRoot: f.appRoot,
-    onFailure: () => {
-      failures++;
-    },
+    onFailure: (diagnostic) => failures.push(diagnostic),
   });
   f.app.emit("session-created", f.loginSession);
   f.loginSession.webRequest.handler(
@@ -428,7 +427,14 @@ test("stalled fixed DOM witness has an absolute finite deadline", async (t) => {
   );
   f.guest.emit("destroyed");
   t.mock.timers.tick(3000);
-  assert.equal(failures, 1);
+  assert.deepEqual(failures, [
+    {
+      reason: "auth_deadline",
+      lastProjection: null,
+      completedReads: 0,
+      inFlight: true,
+    },
+  ]);
   assert.equal(guard.safeStatus().failed, true);
   assert.ok(!f.channel.sent.some((message) => message.op === "authenticated"));
 });
@@ -733,7 +739,17 @@ test("installed Session guard failure reports session_guard independently of Mai
     () => {},
   );
   runtime.emit("disconnect");
-  assert.deepEqual(reports, [["session_guard"]]);
+  assert.deepEqual(reports, [
+    [
+      "session_guard",
+      {
+        reason: "request_denied",
+        lastProjection: null,
+        completedReads: 0,
+        inFlight: false,
+      },
+    ],
+  ]);
   assert.ok(!JSON.stringify(reports).includes("SYNTHETIC_PRIVATE"));
 });
 
@@ -827,6 +843,9 @@ test("primary common writes only pid/code diagnostics and preserves actual exit 
   ).runInNewContext({
     process: { pid: 321 },
     fs: { writeFileSync: (...args) => writes.push(args) },
+    rejectionWritten: false,
+    projectPrimarySessionGuardDiagnostic:
+      primaryAdapter.projectPrimarySessionGuardDiagnostic,
   });
   onReject("main_import");
   onReject("https://outside.invalid/?state=SYNTHETIC_PRIVATE_STATE");
@@ -866,4 +885,225 @@ test("primary common writes only pid/code diagnostics and preserves actual exit 
   ]);
   assert.equal(disposed, 1);
   assert.equal(current(), undefined);
+});
+
+async function diagnosticFixture(t, read) {
+  const f = await electronFixture(t),
+    failures = [];
+  f.owner.executeJavaScript = read;
+  const guard = installPrimaryMainGuard(f.electron, {
+    origin,
+    nonce,
+    channel: f.channel,
+    appRoot: f.appRoot,
+    onFailure: (value) => failures.push(value),
+  });
+  f.app.emit("session-created", f.loginSession);
+  const replies = [];
+  const held = () =>
+    f.loginSession.webRequest.handler(
+      {
+        id: 11,
+        method: "GET",
+        resourceType: "mainFrame",
+        webContentsId: 8,
+        url: url(),
+      },
+      (value) => replies.push(value),
+    );
+  return { ...f, guard, failures, replies, held };
+}
+
+test("guard diagnostic rejects unknown fields and invalid finite public projections", () => {
+  const project = primaryAdapter.projectPrimarySessionGuardDiagnostic;
+  assert.equal(typeof project, "function");
+  const value = {
+    reason: "auth_exhausted",
+    lastProjection: {
+      authenticated: false,
+      signedOut: true,
+      loginVisible: true,
+    },
+    completedReads: 25,
+    inFlight: false,
+  };
+  const accepted = project(value);
+  assert.deepEqual(accepted, value);
+  assert.notEqual(accepted, value);
+  assert.notEqual(accepted.lastProjection, value.lastProjection);
+  const accessor = { ...value };
+  Object.defineProperty(accessor, "reason", {
+    get() {
+      throw Error("MUST_NOT_READ_PRIVATE_GETTER");
+    },
+  });
+  for (const invalid of [
+    null,
+    [],
+    { ...value, url: "SYNTHETIC_PRIVATE_URL" },
+    { ...value, reason: "SYNTHETIC_PRIVATE_CAUSE" },
+    {
+      ...value,
+      lastProjection: { ...value.lastProjection, token: "SYNTHETIC_PRIVATE" },
+    },
+    {
+      ...value,
+      lastProjection: {
+        authenticated: "true",
+        signedOut: false,
+        loginVisible: false,
+      },
+    },
+    { ...value, completedReads: -1 },
+    { ...value, completedReads: 26 },
+    { ...value, completedReads: 1.5 },
+    { ...value, completedReads: NaN },
+    { ...value, inFlight: 1 },
+    { ...value, completedReads: 0 },
+    {
+      ...value,
+      lastProjection: {
+        authenticated: true,
+        signedOut: false,
+        loginVisible: false,
+      },
+    },
+    Object.defineProperty({ ...value }, "secret", {
+      value: "SYNTHETIC_PRIVATE",
+    }),
+    { ...value, [Symbol("secret")]: "SYNTHETIC_PRIVATE" },
+    accessor,
+  ])
+    assert.equal(project(invalid), null);
+});
+
+test("unchanged 25 false DOM reads report exhaustion once without authentication", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const projection = {
+    authenticated: false,
+    signedOut: false,
+    loginVisible: false,
+  };
+  const f = await diagnosticFixture(t, async () => projection);
+  f.held();
+  f.guest.emit("destroyed");
+  await new Promise(setImmediate);
+  for (let i = 1; i < 25; i++) {
+    assert.equal(f.failures.length, 0);
+    t.mock.timers.tick(100);
+    await new Promise(setImmediate);
+  }
+  assert.deepEqual(f.failures, [
+    {
+      reason: "auth_exhausted",
+      lastProjection: projection,
+      completedReads: 25,
+      inFlight: false,
+    },
+  ]);
+  t.mock.timers.tick(10000);
+  assert.equal(f.failures.length, 1);
+  assert.ok(!f.channel.sent.some((message) => message.op === "authenticated"));
+});
+
+test("DOM rejection and malformed shapes report fixed diagnostics without their cause", async (t) => {
+  for (const kind of ["rejected", "shape"]) {
+    const f = await diagnosticFixture(t, async () => {
+      if (kind === "rejected") throw Error("SYNTHETIC_PRIVATE_CAUSE");
+      return {
+        authenticated: false,
+        signedOut: false,
+        loginVisible: false,
+        url: "SYNTHETIC_PRIVATE_URL",
+      };
+    });
+    f.held();
+    f.guest.emit("destroyed");
+    await new Promise(setImmediate);
+    assert.deepEqual(f.failures, [
+      {
+        reason:
+          kind === "rejected"
+            ? "auth_read_rejected"
+            : "auth_projection_invalid",
+        lastProjection: null,
+        completedReads: 1,
+        inFlight: false,
+      },
+    ]);
+    assert.ok(!JSON.stringify(f.failures).includes("SYNTHETIC_PRIVATE"));
+    assert.ok(
+      !f.channel.sent.some((message) => message.op === "authenticated"),
+    );
+  }
+});
+
+test("network, OS and channel denials stay blocked with distinct finite reasons", async (t) => {
+  for (const kind of ["network", "os", "channel"]) {
+    const f = await diagnosticFixture(t, async () => ({
+      authenticated: true,
+      signedOut: false,
+      loginVisible: false,
+    }));
+    if (kind === "network") {
+      f.defaultSession.webRequest.handler(
+        { url: "https://outside.invalid/?state=SYNTHETIC_PRIVATE" },
+        (reply) => f.replies.push(reply),
+      );
+      assert.deepEqual(f.replies, [{ cancel: true }]);
+    } else if (kind === "os")
+      await f.electron.shell.openExternal(
+        "https://outside.invalid/SYNTHETIC_PRIVATE",
+      );
+    else {
+      f.channel.send = () => {
+        throw Error("SYNTHETIC_PRIVATE_CHANNEL");
+      };
+      f.held();
+      assert.deepEqual(f.replies, [{ cancel: true }]);
+    }
+    assert.deepEqual(f.failures, [
+      {
+        reason: {
+          network: "request_denied",
+          os: "external_open_denied",
+          channel: "channel_send_failed",
+        }[kind],
+        lastProjection: null,
+        completedReads: 0,
+        inFlight: false,
+      },
+    ]);
+    assert.ok(!JSON.stringify(f.failures).includes("SYNTHETIC_PRIVATE"));
+  }
+});
+
+test("stop and normal disconnect suppress pending DOM failures and late success", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  for (const reject of [true, false]) {
+    let settle;
+    const f = await diagnosticFixture(
+      t,
+      () =>
+        new Promise((resolve, fail) => {
+          settle = reject ? fail : resolve;
+        }),
+    );
+    f.held();
+    f.guest.emit("destroyed");
+    f.guard.receive({ op: "stop", nonce });
+    f.guard.disconnected();
+    settle(
+      reject
+        ? Error("SYNTHETIC_PRIVATE_LATE")
+        : { authenticated: true, signedOut: false, loginVisible: false },
+    );
+    await new Promise(setImmediate);
+    t.mock.timers.tick(10000);
+    assert.deepEqual(f.failures, []);
+    assert.ok(
+      !f.channel.sent.some((message) => message.op === "authenticated"),
+    );
+    assert.equal(f.guard.safeStatus().stopping, true);
+  }
 });

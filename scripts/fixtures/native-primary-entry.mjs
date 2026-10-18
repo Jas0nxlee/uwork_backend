@@ -47,16 +47,19 @@ fs.writeFileSync(${JSON.stringify(join(evidenceDirectory, "native-runtime-info.j
 fs.writeFileSync(${JSON.stringify(join(evidenceDirectory, "native-runtime-info-"))}+process.pid+".json", JSON.stringify({pid:process.pid,ppid:process.ppid,isPackaged:app.isPackaged,appPath:app.getAppPath()}), {flag:"wx",mode:0o600});
 app.setAsDefaultProtocolClient = () => false;
 app.clearRecentDocuments = () => {};
+let rejectionWritten = false;
 try {
-  const { startPrimaryMainEntry } = await import("./native-primary-login-adapter.mjs");
+  const { startPrimaryMainEntry, projectPrimarySessionGuardDiagnostic } = await import("./native-primary-login-adapter.mjs");
   await startPrimaryMainEntry(electron, process, {
     appRoot: ${JSON.stringify(appRoot)},
     ownedRoot: ${JSON.stringify(ownedRoot)},
     origin: ${JSON.stringify(options.origin)},
-    onReject: (code) => {
+    onReject: (code, detail) => {
       try {
-        if (!["secondary_argv_shape","owned_workspace","session_guard","main_import","private_channel"].includes(code)) return;
-        fs.writeFileSync(${JSON.stringify(join(evidenceDirectory, "native-rejection-"))}+process.pid+".json", JSON.stringify({pid:process.pid,code}), {flag:"wx",mode:0o600});
+        if (rejectionWritten || !["secondary_argv_shape","owned_workspace","session_guard","main_import","private_channel"].includes(code)) return;
+        rejectionWritten = true;
+        const diagnostic = code === "session_guard" ? projectPrimarySessionGuardDiagnostic(detail) : null;
+        fs.writeFileSync(${JSON.stringify(join(evidenceDirectory, "native-rejection-"))}+process.pid+".json", JSON.stringify({pid:process.pid,code,...(diagnostic ? {diagnostic} : {})}), {flag:"wx",mode:0o600});
       } catch {}
     },
     loadMain: () => import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)})

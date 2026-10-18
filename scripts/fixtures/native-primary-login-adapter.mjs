@@ -18,6 +18,86 @@ const exact = (value, fields) =>
 const integer = (value) => Number.isSafeInteger(value) && value > 0;
 const validNonce = (value) =>
   typeof value === "string" && /^[A-Za-z0-9_-]{32,128}$/u.test(value);
+const guardReasons = new Set([
+  "auth_deadline",
+  "auth_exhausted",
+  "auth_read_rejected",
+  "auth_projection_invalid",
+  "request_denied",
+  "external_open_denied",
+  "channel_send_failed",
+  "private_control_rejected",
+]);
+const dataRecord = (value, fields) =>
+  exact(value, fields) &&
+  Reflect.ownKeys(value).length === fields.length &&
+  fields.every((field) =>
+    Object.hasOwn(Object.getOwnPropertyDescriptor(value, field), "value"),
+  );
+function publicAuthProjection(value) {
+  const fields = ["authenticated", "signedOut", "loginVisible"];
+  if (
+    !dataRecord(value, fields) ||
+    !fields.every((field) => typeof value[field] === "boolean")
+  )
+    return null;
+  return {
+    authenticated: value.authenticated,
+    signedOut: value.signedOut,
+    loginVisible: value.loginVisible,
+  };
+}
+
+// Diagnostic input is untrusted. Copy only the fixed fields; never serialize its source object.
+export function projectPrimarySessionGuardDiagnostic(value) {
+  try {
+    if (
+      !dataRecord(value, [
+        "reason",
+        "lastProjection",
+        "completedReads",
+        "inFlight",
+      ]) ||
+      !guardReasons.has(value.reason) ||
+      !Number.isSafeInteger(value.completedReads) ||
+      value.completedReads < 0 ||
+      value.completedReads > 25 ||
+      typeof value.inFlight !== "boolean"
+    )
+      return null;
+    const lastProjection =
+      value.lastProjection === null
+        ? null
+        : publicAuthProjection(value.lastProjection);
+    if (value.lastProjection !== null && !lastProjection) return null;
+    if (value.completedReads === 0 && lastProjection !== null) return null;
+    if (
+      value.reason === "auth_exhausted" &&
+      (value.completedReads !== 25 ||
+        value.inFlight ||
+        !lastProjection ||
+        (lastProjection.authenticated &&
+          !lastProjection.signedOut &&
+          !lastProjection.loginVisible))
+    )
+      return null;
+    if (
+      ["auth_read_rejected", "auth_projection_invalid"].includes(
+        value.reason,
+      ) &&
+      (value.completedReads === 0 || value.inFlight)
+    )
+      return null;
+    return {
+      reason: value.reason,
+      lastProjection,
+      completedReads: value.completedReads,
+      inFlight: value.inFlight,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function scrubPrimaryControlEnvironment(environment) {
   if (!environment) return;
@@ -245,14 +325,17 @@ export function installPrimaryMainGuard(
     sessions = 0,
     blocked = 0,
     authTimer,
-    authDeadline;
+    authDeadline,
+    lastProjection = null,
+    completedReads = 0,
+    inFlight = false;
   const send = (message) => {
     try {
       channel.send({ ...message, nonce }, (cause) => {
-        if (cause && !stopping) fail();
+        if (cause && !stopping) fail("channel_send_failed");
       });
     } catch {
-      fail();
+      fail("channel_send_failed");
     }
   };
   const cancelHeld = () => {
@@ -264,7 +347,7 @@ export function installPrimaryMainGuard(
       } catch {}
     }
   };
-  const fail = () => {
+  const fail = (reason) => {
     if (failed || stopping) return;
     failed = true;
     blocked++;
@@ -272,32 +355,59 @@ export function installPrimaryMainGuard(
     clearTimeout(authDeadline);
     cancelHeld();
     try {
-      onFailure();
+      onFailure(
+        projectPrimarySessionGuardDiagnostic({
+          reason,
+          lastProjection,
+          completedReads,
+          inFlight,
+        }),
+      );
     } catch {}
   };
   const authWitness = (owner, ownerId) => {
     let attempts = 0;
     // executeJavaScript 本身也可悬挂；独立绝对截止覆盖整个只读见证，不靠后续轮询计数兜底。
-    authDeadline = setTimeout(fail, 3000);
+    authDeadline = setTimeout(() => fail("auth_deadline"), 3000);
     const read = async () => {
       if (stopping || failed) return;
+      let value;
+      inFlight = true;
       try {
-        const value = await owner.executeJavaScript(PRIMARY_AUTH_EXPRESSION);
+        value = await owner.executeJavaScript(PRIMARY_AUTH_EXPRESSION);
+      } catch {
+        inFlight = false;
         if (stopping || failed) return;
+        completedReads++;
+        fail("auth_read_rejected");
+        return;
+      }
+      inFlight = false;
+      if (stopping || failed) return;
+      completedReads++;
+      try {
+        const projection = publicAuthProjection(value);
+        if (!projection) {
+          fail("auth_projection_invalid");
+          return;
+        }
+        lastProjection = projection;
         if (
-          !exact(value, ["authenticated", "signedOut", "loginVisible"]) ||
-          !Object.values(value).every((flag) => typeof flag === "boolean")
-        )
-          throw error();
-        if (value.authenticated && !value.signedOut && !value.loginVisible) {
+          projection.authenticated &&
+          !projection.signedOut &&
+          !projection.loginVisible
+        ) {
           clearTimeout(authDeadline);
           send({ op: "authenticated", ownerId, authenticated: true });
           return;
         }
-        if (++attempts >= 25) throw error();
+        if (++attempts >= 25) {
+          fail("auth_exhausted");
+          return;
+        }
         authTimer = setTimeout(read, 100);
       } catch {
-        fail();
+        fail("auth_projection_invalid");
       }
     };
     void read();
@@ -311,7 +421,7 @@ export function installPrimaryMainGuard(
       (details, callback) => {
         const deny = () => {
           callback({ cancel: true });
-          fail();
+          fail("request_denied");
         };
         if (failed || stopping) {
           callback({ cancel: true });
@@ -407,14 +517,14 @@ export function installPrimaryMainGuard(
   else app.once("ready", () => attach(session.defaultSession));
   // Do not call the OS shell or reject into production URL logging.
   shell.openExternal = () => {
-    fail();
+    fail("external_open_denied");
     return Promise.resolve();
   };
   return {
     safeStatus: () => ({ sessions, blocked, failed, stopping, held: !!held }),
     receive(message) {
       if (!message || message.nonce !== nonce) {
-        fail();
+        fail("private_control_rejected");
         return false;
       }
       if (exact(message, ["op", "nonce"]) && message.op === "stop") {
@@ -432,11 +542,11 @@ export function installPrimaryMainGuard(
         cancelHeld();
         return true;
       }
-      fail();
+      fail("private_control_rejected");
       return false;
     },
     disconnected() {
-      if (!stopping) fail();
+      if (!stopping) fail("private_control_rejected");
     },
   };
 }
@@ -449,11 +559,17 @@ export async function startPrimaryMainEntry(
 ) {
   const diagnostics = typeof onReject === "function";
   let rejectionReported = false;
-  const reportRejection = (code) => {
+  const reportRejection = (code, detail) => {
     if (!diagnostics || rejectionReported) return;
     rejectionReported = true;
     try {
-      void Promise.resolve(onReject(code)).catch(() => {});
+      const diagnostic =
+        code === "session_guard"
+          ? projectPrimarySessionGuardDiagnostic(detail)
+          : null;
+      void Promise.resolve(
+        diagnostic ? onReject(code, diagnostic) : onReject(code),
+      ).catch(() => {});
     } catch {}
   };
   const rethrow = (code, cause) => {
@@ -475,8 +591,8 @@ export async function startPrimaryMainEntry(
       installPrimaryMainGuard(electron, {
         appRoot,
         origin,
-        onFailure: () => {
-          reportRejection("session_guard");
+        onFailure: (diagnostic) => {
+          reportRejection("session_guard", diagnostic);
           electron.app.exit(70);
         },
       });
@@ -494,8 +610,8 @@ export async function startPrimaryMainEntry(
     let guard,
       initialized = false,
       receivingPrivateMessage = false;
-    const fail = (code = "private_channel") => {
-      reportRejection(code);
+    const fail = (code = "private_channel", diagnostic) => {
+      reportRejection(code, diagnostic);
       clearTimeout(timer);
       rejectEntry(error());
       electron.app.exit(70);
@@ -537,9 +653,10 @@ export async function startPrimaryMainEntry(
             origin,
             nonce: message.nonce,
             channel: runtime,
-            onFailure: () =>
+            onFailure: (diagnostic) =>
               fail(
                 receivingPrivateMessage ? "private_channel" : "session_guard",
+                diagnostic,
               ),
           });
           scrubPrimaryControlEnvironment(runtime.env);

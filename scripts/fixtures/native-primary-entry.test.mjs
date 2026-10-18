@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { Script } from "node:vm";
 import { pathToFileURL } from "node:url";
 import { createPrimaryMainEntry } from "./native-primary-entry.mjs";
+import * as primaryAdapter from "./native-primary-login-adapter.mjs";
 
 const options = {
   appRoot: "/owned/runtime/app",
@@ -55,11 +56,20 @@ function fixture(start) {
       "importMain",
       "process",
       source,
-    )(requireMock, async () => ({ startPrimaryMainEntry: start }), importMain, {
-      pid: 321,
-      ppid: 123,
-      env: {},
-    });
+    )(
+      requireMock,
+      async () => ({
+        startPrimaryMainEntry: start,
+        projectPrimarySessionGuardDiagnostic:
+          primaryAdapter.projectPrimarySessionGuardDiagnostic,
+      }),
+      importMain,
+      {
+        pid: 321,
+        ppid: 123,
+        env: {},
+      },
+    );
   return { run, writes, order, exits, app };
 }
 
@@ -162,6 +172,83 @@ test("entry diagnostics persist only fixed pid/code and never an import exceptio
   assert.deepEqual(reports[0][2], { flag: "wx", mode: 0o600 });
   assert.deepEqual(f.exits, [70]);
   assert.ok(!JSON.stringify(f.writes).includes("SYNTHETIC_PRIVATE"));
+});
+
+test("entry persists one validated Session diagnostic as a fixed wx0600 projection", async () => {
+  const diagnostic = {
+    reason: "auth_deadline",
+    lastProjection: null,
+    completedReads: 0,
+    inFlight: true,
+  };
+  const f = fixture(async (_electron, _runtime, value) => {
+    value.onReject("session_guard", diagnostic);
+    value.onReject("main_import");
+    value.onReject("session_guard", {
+      ...diagnostic,
+      url: "SYNTHETIC_PRIVATE",
+    });
+  });
+  await f.run(() => Promise.resolve());
+  const reports = f.writes.filter(([path]) =>
+    path.includes("native-rejection-"),
+  );
+  assert.equal(reports.length, 1);
+  assert.deepEqual(JSON.parse(reports[0][1]), {
+    pid: 321,
+    code: "session_guard",
+    diagnostic,
+  });
+  assert.deepEqual(reports[0][2], { flag: "wx", mode: 0o600 });
+  assert.ok(!JSON.stringify(f.writes).includes("SYNTHETIC_PRIVATE"));
+});
+
+test("entry drops malformed or non-Session diagnostics without persisting extra data", async () => {
+  const valid = {
+    reason: "auth_deadline",
+    lastProjection: null,
+    completedReads: 0,
+    inFlight: true,
+  };
+  for (const detail of [
+    { ...valid, url: "SYNTHETIC_PRIVATE" },
+    { ...valid, reason: "SYNTHETIC_PRIVATE" },
+    {
+      ...valid,
+      lastProjection: {
+        authenticated: 1,
+        signedOut: false,
+        loginVisible: false,
+      },
+    },
+    { ...valid, completedReads: 26 },
+    { ...valid, inFlight: "SYNTHETIC_PRIVATE" },
+  ]) {
+    const f = fixture(async (_electron, _runtime, value) =>
+      value.onReject("session_guard", detail),
+    );
+    await f.run(() => Promise.resolve());
+    const reports = f.writes.filter(([path]) =>
+      path.includes("native-rejection-"),
+    );
+    assert.equal(reports.length, 1);
+    assert.deepEqual(JSON.parse(reports[0][1]), {
+      pid: 321,
+      code: "session_guard",
+    });
+    assert.ok(!JSON.stringify(f.writes).includes("SYNTHETIC_PRIVATE"));
+  }
+  const f = fixture(async (_electron, _runtime, value) =>
+    value.onReject("main_import", valid),
+  );
+  await f.run(() => Promise.resolve());
+  const reports = f.writes.filter(([path]) =>
+    path.includes("native-rejection-"),
+  );
+  assert.deepEqual(JSON.parse(reports[0][1]), {
+    pid: 321,
+    code: "main_import",
+  });
 });
 
 test("actual common selects primary ESM and preserves default CJS bytes", async () => {
