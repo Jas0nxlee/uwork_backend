@@ -787,6 +787,7 @@ export async function liveFixture(
         }),
         enterpriseAssets: assets,
         enterpriseModels: hostRelay,
+        modelSelectionReadinessSource: runtime.modelSelection,
         requestTimeoutMs: 20000,
       });
       ownedCliCleanups.push(async () => {

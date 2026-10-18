@@ -12,6 +12,8 @@ Plugin enable changes are configuration changes. App creation/cold restoration r
 
 The actual Host createSession forwards session/create. server-operations creates a new session ID and materializes a new record; materialization calls createWorkspaceZCodeApp, which directly calls deps.createZCodeApp. create-app then resolves startup plugins from its configuration again. D and S therefore have different Apps even when ProcessManager reuses one workspace CLI. A new name attached to an existing App would not satisfy this test.
 
+The Host startup readiness source is the same owned, real `ProviderRuntime.modelSelection` facade that reads the private registry after the original Gateway provisioning. Pass this facade unchanged as `modelSelectionReadinessSource`; do not manufacture a ready result or bypass the production provider/model gate. The normal CLI reads the same private personal-provider file through its original environment and registry initialization. This UCAS file-backed slice does not use account providers: the optional `accountProviderConfigSource` remains absent under its original no-op sync contract, rather than supplying a fabricated account snapshot.
+
 Managed personal/plugin Skill operations require current filesystem, personal.skills and dangerousSkills allowances. Every discover/load re-reads the original Host catalog and authorizes before/after adapter I/O using the same private owner. With personal.skills=false, personal entries are omitted; an old explicit name reaches the original enterprise_skill_not_found path. A previously delivered body need not disappear from context. Use a second Skill B that has never been loaded to test denial without making an impossible retroactive-erasure claim.
 
 ```mermaid
