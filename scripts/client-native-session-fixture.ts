@@ -56,6 +56,12 @@ export interface ControlledSessionHooks {
     experts?: { name: string }[];
   }) => void;
   beforeAssetManifestResponse?: (traceId: string) => Promise<void>;
+  /** This owned bridge test keeps its private root and writes only fixed public facts. */
+  preserveOwnedRoot?: boolean;
+  ordinaryMember?: boolean;
+  projectedEvidenceOnly?: boolean;
+  ownedParentDirectory?: string;
+  onSupplierFailure?: () => void;
 }
 export async function liveFixture(
   t: TestContext,
@@ -68,10 +74,18 @@ export async function liveFixture(
   );
   await mkdir(evidence, { recursive: true });
   const directory = await realpath(
-    await mkdtemp(join(tmpdir(), "uwork-client-session-relay-")),
+    await mkdtemp(
+      join(
+        hooks.ownedParentDirectory ?? tmpdir(),
+        "uwork-client-session-relay-",
+      ),
+    ),
   );
   const earlyCleanup: (() => Promise<void> | void)[] = [
-    () => rm(directory, { recursive: true, force: true }),
+    () =>
+      hooks.preserveOwnedRoot
+        ? Promise.resolve()
+        : rm(directory, { recursive: true, force: true }),
   ];
   let fullCleanupInstalled = false;
   const ownedCliCleanups: (() => Promise<void>)[] = [];
@@ -175,7 +189,19 @@ export async function liveFixture(
         });
       });
     if (res.destroyed) return;
-    const controlled = hooks.reply?.(input);
+    let controlled:
+      | ReturnType<NonNullable<ControlledSessionHooks["reply"]>>
+      | undefined;
+    if (hooks.projectedEvidenceOnly) {
+      try {
+        controlled = hooks.reply?.(input);
+      } catch {
+        hooks.onSupplierFailure?.();
+        res.writeHead(400);
+        res.end("CONTROLLED_SUPPLIER_REJECTED");
+        return;
+      }
+    } else controlled = hooks.reply?.(input);
     if (input.stream) {
       res.setHeader("content-type", "text/event-stream");
       if (controlled?.toolCall)
@@ -379,11 +405,59 @@ export async function liveFixture(
     "POST",
     { email: "live-gateway-a@example.test", password },
   );
+  let subjectUserId = owner.userId;
+  let subjectFact = {
+    userId: owner.userId,
+    tenantId: owner.tenantId,
+    role: "owner",
+    seat: true,
+    adminUserId: owner.userId,
+  };
+  let subjectEmail = "live-gateway-a@example.test",
+    subjectPassword = password;
+  if (hooks.ordinaryMember) {
+    subjectEmail = "owned-plugin-member@example.test";
+    subjectPassword = randomBytes(24).toString("hex");
+    const member = await api<{ id: string }>(
+      `${p}/members`,
+      "POST",
+      {
+        email: subjectEmail,
+        name: "Owned plugin ordinary member",
+        password: subjectPassword,
+        role: "member",
+        seat: true,
+      },
+      adminLogin.token,
+      201,
+    );
+    subjectUserId = member.id;
+  }
   const login = await api<{ token: string; expiresAt: number }>(
     "/api/auth/login",
     "POST",
-    { email: "live-gateway-a@example.test", password },
+    { email: subjectEmail, password: subjectPassword },
   );
+  if (hooks.ordinaryMember) {
+    const me = await api<{
+      user: { id: string };
+      tenant: { id: string };
+      role: string;
+      seat: boolean;
+    }>("/api/auth/me", "GET", undefined, login.token);
+    assert.equal(me.role, "member");
+    assert.equal(me.user.id, subjectUserId);
+    assert.equal(me.tenant.id, owner.tenantId);
+    assert.equal(me.seat, true);
+    assert.notEqual(me.user.id, owner.userId);
+    subjectFact = {
+      userId: me.user.id,
+      tenantId: me.tenant.id,
+      role: me.role,
+      seat: me.seat,
+      adminUserId: owner.userId,
+    };
+  }
   const credential = await api(
     `${p}/credentials`,
     "POST",
@@ -436,7 +510,7 @@ export async function liveFixture(
     expiresAt: login.expiresAt,
     issuerOrigin: origin,
     profile: {
-      id: owner.userId,
+      id: subjectUserId,
       tenantId: owner.tenantId,
       provider: "wecom",
       displayName: "Live synthetic A",
@@ -580,7 +654,8 @@ export async function liveFixture(
         new Promise<void>((done) => proxy.close(() => done())),
       ]);
       setDefaultCACertificates(previousCAs);
-      await rm(directory, { recursive: true, force: true });
+      if (!hooks.preserveOwnedRoot)
+        await rm(directory, { recursive: true, force: true });
       paths.setDataBaseDir(null);
     }
     const closed = async (port: number) =>
@@ -606,18 +681,20 @@ export async function liveFixture(
             "real backend temp disk/TCP; actual identity/Gateway/ProviderRuntime/AiSdkModelAdapter+AI SDK source; real Host model relay HTTP; actual packaged CLI stdio without identity/vendor key or direct model network path; email/store bootstrap bridge only; actual packaged CLI acceptance (Native Electron is separate); no mocked fetch/WeCom/external MCP/drive/main env/paid vendor",
           checks,
           artifacts,
-          wires,
-          configurations,
-          observations,
-          privateFrames,
+          ...(hooks.projectedEvidenceOnly
+            ? {}
+            : { wires, configurations, observations, privateFrames }),
           ledger,
-          requests,
+          ...(hooks.projectedEvidenceOnly ? {} : { requests }),
           modelCalls,
           cliProcesses,
           node: process.version,
           cleanup: {
             portsClosed,
-            ownedDirectoryRemoved: true,
+            ownedDirectoryRemoved: !hooks.preserveOwnedRoot,
+            ...(hooks.preserveOwnedRoot
+              ? { ownedDirectoryPreserved: true }
+              : {}),
             identityAndProviderDisposed: true,
           },
         },
@@ -637,6 +714,117 @@ export async function liveFixture(
     p,
     privateFrames,
     requests,
+    // PLUGIN_BRIDGE_FACTORY_BEGIN
+    realHost: async () => {
+      const [
+        { createZCodeAgentService },
+        { createPluginManagementService },
+        { createEnterpriseAssetsHost },
+        { createUWorkToolAuthorizationResolver },
+      ] = await Promise.all([
+        source("zcode-agent/zcodeAgentService.ts"),
+        source("plugins/pluginManagementService.ts"),
+        source("enterprise-assets/enterpriseAssetsHost.ts"),
+        source("enterprise-identity/uworkToolAuthorization.ts"),
+      ]);
+      const workspacePath = join(directory, "host-workspace"),
+        home = join(directory, "host-home"),
+        storageDirectory = join(directory, "host-cli-storage"),
+        assetDirectory = join(directory, "host-assets");
+      for (const path of [
+        workspacePath,
+        home,
+        storageDirectory,
+        assetDirectory,
+      ])
+        await mkdir(path, { mode: 0o700 });
+      await promisify(execFile)("/usr/bin/git", [
+        "init",
+        "--quiet",
+        workspacePath,
+      ]);
+      const bundle = join(
+        clientRoot,
+        "packages/desktop/bundled-agents/darwin-arm64/glm/zcode.cjs",
+      );
+      const cliBytes = await readFile(bundle),
+        sourceBytes = await readFile(
+          join(clientRoot, "apps/zcode-cli/packages/cli/dist/zcode.cjs"),
+        );
+      assert.ok(
+        cliBytes.equals(sourceBytes),
+        "Normal CLI and staged bytes must match",
+      );
+      assert.equal(
+        createHash("sha256").update(cliBytes).digest("hex"),
+        "dd0a2693311cacf7cbf6e3482246761e8a6de7c27b598a8a896a2c791add5196",
+      );
+      const assets = createEnterpriseAssetsHost({
+        backendSession: backend,
+        storageDirectory: assetDirectory,
+      });
+      const agent = createZCodeAgentService({
+        commandResolver: () => ({
+          command: process.execPath,
+          args: [bundle, "app-server", "--stdio"],
+          env: {
+            HOME: home,
+            USERPROFILE: home,
+            UWORK_DATA_BASE_DIR: join(directory, "host-cli-data"),
+            ZCODE_STORAGE_DIR: storageDirectory,
+            ZCODE_ENV: "production",
+            ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
+            ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: join(
+              clientRoot,
+              "config/provider/zcode-builtin.json",
+            ),
+            ZCODE_ENTERPRISE_POLICY_REQUIRED: "1",
+            ZCODE_MODEL_TELEMETRY_ENABLED: "false",
+          },
+        }),
+        enterpriseToolAuthorization: createUWorkToolAuthorizationResolver({
+          backendSession: backend,
+        }),
+        enterpriseAssets: assets,
+        enterpriseModels: hostRelay,
+        requestTimeoutMs: 20000,
+      });
+      ownedCliCleanups.push(async () => {
+        await agent.disposeAllAndWait();
+        await assets.disposeAllAndWait();
+      });
+      return {
+        agent,
+        plugins: createPluginManagementService({ zcodeAgentService: agent }),
+        workspace: { workspacePath },
+        storageDirectory,
+        modelSelection: { providerId: "ucas", modelId: String(model.id) },
+        ownedPorts: [
+          Number(new URL(origin).port),
+          Number(new URL(backendOrigin).port),
+          providerPort,
+        ],
+        subject: subjectFact,
+        readAccounting: () => ({
+          gatewayCalls: app.services.db.all(
+            "SELECT tenant_id,request_key,user_id FROM gateway_calls WHERE tenant_id=? AND user_id=? ORDER BY request_key",
+            owner.tenantId,
+            subjectUserId,
+          ),
+          ledger: app.services.db.all(
+            "SELECT id,tenant_id,request_key,user_id,model_id,status,amount,input_tokens,output_tokens FROM ledger WHERE tenant_id=? AND user_id=? ORDER BY id",
+            owner.tenantId,
+            subjectUserId,
+          ),
+          traces: app.services.db.all(
+            "SELECT id,tenant_id,user_id,model_id,status,input_tokens,output_tokens FROM traces WHERE tenant_id=? AND user_id=? ORDER BY id",
+            owner.tenantId,
+            subjectUserId,
+          ),
+        }),
+      };
+    },
+    // PLUGIN_BRIDGE_FACTORY_END
     packaged: async (
       automaticSelection = false,
       options: {
