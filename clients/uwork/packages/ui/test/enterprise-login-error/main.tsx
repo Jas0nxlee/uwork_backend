@@ -9,10 +9,8 @@ import {
   type EnterpriseIdentityView,
   type IPlatformService,
 } from "@zcode/shared";
-import {
-  EnterpriseIdentityProvider,
-  useEnterpriseIdentity,
-} from "@/hooks/useEnterpriseIdentity.js";
+import { EnterpriseIdentityProvider } from "@/hooks/useEnterpriseIdentity.js";
+import { createNativeRaceProbe } from "./nativeRaceFixture.js";
 import { PlatformProvider } from "@/hooks/usePlatform.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import "@/styles.css";
@@ -20,8 +18,10 @@ import "@/styles.css";
 // A finite synthetic service/platform port, not Native or real authentication.
 const params = new URLSearchParams(location.search);
 const scenario = params.get("case") ?? "reopen";
+const deferNativeResult = ["poll-native-null", "poll-native-aborted"].includes(scenario);
 const channel = new BroadcastChannel("owned-login-error-" + params.get("channel"));
 const changed = new Emitter<void>();
+const probe = createNativeRaceProbe(() => changed.fire());
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
   let reject!: (error: Error) => void;
@@ -179,6 +179,7 @@ class SyntheticHost {
     beginLogin: () => this.begin(),
     pollLogin: async () => {
       this.pollGate ??= deferred<EnterpriseIdentityView>();
+      probe.enterPoll();
       return this.pollGate.promise;
     },
     completeLogin: async () => {
@@ -227,6 +228,8 @@ const commands = [
   "reject-selection",
   "owner-b",
   "authenticate",
+  "resolve-native-null",
+  "reject-native-aborted",
   "reject-cancel",
   "reject-logout",
 ] as const;
@@ -279,13 +282,25 @@ function control(command: Command) {
       currentOwner = "B";
       switchOwner?.();
       break;
-    case "authenticate":
-      h.publish({
-        status: "authenticated",
-        profile: { id: "owned", tenantId: "owned", provider: "wecom", displayName: "合成用户" },
-        pending: null,
-        error: null,
-      });
+    case "authenticate": {
+      const view = h.publish(
+        {
+          status: "authenticated",
+          profile: { id: "owned", tenantId: "owned", provider: "wecom", displayName: "合成用户" },
+          pending: null,
+          error: null,
+        },
+        !deferNativeResult,
+      );
+      // C3 只交付原 poll promise，不发身份事件绕过待测 effect。
+      if (deferNativeResult) h.pollGate?.resolve(view);
+      break;
+    }
+    case "resolve-native-null":
+      native.resolve(null);
+      break;
+    case "reject-native-aborted":
+      native.reject(Error("ERR_ABORTED"));
       break;
     case "reject-cancel":
       hosts.A.cancelGate?.reject(Error("Old owner cancellation failed"));
@@ -322,24 +337,18 @@ if (params.has("controller")) {
       opened.push(request.id);
       native = deferred<string | null>();
       changed.fire();
-      return native.promise;
+      return deferNativeResult ? probe.open(native.promise) : native.promise;
     },
-    cancelEnterpriseLogin: () => native.resolve(null),
+    cancelEnterpriseLogin: (id: string) => {
+      probe.close(id);
+      if (!deferNativeResult) native.resolve(null);
+    },
     updateEnterpriseLogin: () => {},
   } as unknown as IPlatformService;
   const providerSettings = {
     refresh: async () => ({ revision: 1, providers: [] }),
     setUcasApiKeyIfMissing: async () => ({}),
   } as unknown as IProviderSettingsService;
-  function Launcher() {
-    const identity = useEnterpriseIdentity();
-    return (
-      <>
-        <button onClick={() => identity?.openLogin()}>打开登录</button>
-        <button onClick={() => void identity?.logout()}>退出合成会话</button>
-      </>
-    );
-  }
   function Fixture() {
     const [, render] = useState(0);
     const [owner, setOwner] = useState<"A" | "B">("A");
@@ -357,6 +366,7 @@ if (params.has("controller")) {
       runtimeErrors,
       externalOpens,
       opened,
+      ...probe.facts,
       A: {
         view: hosts.A.view,
         reads: hosts.A.reads,
@@ -379,9 +389,10 @@ if (params.has("controller")) {
           <EnterpriseIdentityProvider
             service={hosts[owner].service}
             providerSettingsService={providerSettings}
+            ucasGatewayService={deferNativeResult ? probe.gateway : undefined}
             showOnStartup
           >
-            <Launcher />
+            <probe.Launcher />
             <output data-testid="fixture-facts">{JSON.stringify(state)}</output>
           </EnterpriseIdentityProvider>
         </ZCodeIntlProvider>

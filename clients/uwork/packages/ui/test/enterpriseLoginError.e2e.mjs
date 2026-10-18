@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { spawn, execFileSync } from "node:child_process";
-import { access, mkdtemp, mkdir, readFile, readdir, writeFile, rm } from "node:fs/promises";
+import { spawn, execFile, spawnSync } from "node:child_process";
+import { promisify } from "node:util";
+import { access, chmod, mkdtemp, mkdir, readFile, readdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -8,6 +9,15 @@ import { createServer as createPortProbe } from "node:net";
 import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import {
+  browserEnvironment,
+  inspectRootFds,
+  retireRoots,
+  watchChildExit,
+  within,
+} from "./enterprise-login-error/runnerSafety.mjs";
+
+const exec = promisify(execFile);
 
 // Shared React UI only. A new localhost server, Chrome profile, CDP and BH per run.
 const client = resolve(import.meta.dirname, "../../..");
@@ -20,6 +30,8 @@ await mkdir(dirname(evidence), { recursive: true });
 await mkdir(evidence, { mode: 0o700 });
 const scratch = await mkdtemp(join(tmpdir(), "uwork-login-error-"));
 const daemonHome = await mkdtemp(join(tmpdir(), "bh-login-"));
+await chmod(scratch, 0o700);
+await chmod(daemonHome, 0o700);
 const fixture = join(client, "packages/ui/test/enterprise-login-error/main.tsx");
 await writeFile(
   join(scratch, "index.html"),
@@ -46,8 +58,25 @@ const server = await createServer({
   logLevel: "error",
 });
 const children = new Map();
-function processRows() {
-  return execFileSync("ps", ["-axo", "pid=,ppid=,lstart=,command="], { encoding: "utf8" })
+const maxOwnedProcesses = 256;
+async function processRows(pids) {
+  assert.ok(pids.length > 0 && pids.length <= maxOwnedProcesses, "Bounded owned PID query");
+  let output;
+  try {
+    ({ stdout: output } = await exec(
+      "ps",
+      ["-p", pids.join(","), "-o", "pid=,ppid=,lstart=,command="],
+      {
+        encoding: "utf8",
+        maxBuffer: 512 * 1024,
+        timeout: 1000,
+      },
+    ));
+  } catch (error) {
+    if (error.code === 1 && !error.stdout && !error.stderr) return [];
+    throw error;
+  }
+  return output
     .trim()
     .split("\n")
     .map((line) => {
@@ -58,36 +87,92 @@ function processRows() {
     })
     .filter(Boolean);
 }
-function track() {
-  const rows = processRows();
-  let added;
-  do {
-    added = false;
-    for (const row of rows)
-      if (
-        !children.has(row.pid) &&
-        row.command !== "ps -axo pid=,ppid=,lstart=,command=" &&
-        (row.ppid === process.pid || children.has(row.ppid))
-      ) {
-        children.set(row.pid, row);
-        added = true;
-      }
-  } while (added);
+const owner = (await processRows([process.pid])).find((row) => row.pid === process.pid);
+assert.ok(owner, "This runner must have its own PID/birth identity");
+async function alive(row) {
+  return (await processRows([row.pid])).some(
+    (current) => current.pid === row.pid && current.birth === row.birth,
+  );
 }
-function alive(row) {
-  return processRows().some((current) => current.pid === row.pid && current.birth === row.birth);
+async function rememberSpawn(child) {
+  if (!child.pid) return;
+  const row = (await processRows([child.pid])).find((current) => current.ppid === owner.pid);
+  if (row) children.set(row.pid, row);
 }
-let chrome, browser, cdpPort, origin;
-let daemon;
-function lsof(args) {
+async function childPids(pid) {
   try {
-    return execFileSync("lsof", ["-nP", ...args], { encoding: "utf8" });
+    const { stdout: output } = await exec("pgrep", ["-P", String(pid)], {
+      encoding: "utf8",
+      maxBuffer: 16 * 1024,
+      timeout: 1000,
+    });
+    const pids = output.trim().split(/\s+/).filter(Boolean).map(Number);
+    assert.ok(
+      pids.length <= maxOwnedProcesses && pids.every((id) => Number.isInteger(id) && id > 0),
+    );
+    return pids;
   } catch (error) {
-    if (error.status === 1 && !error.stdout) return "";
+    if (error.code === 1 && !error.stdout && !error.stderr) return [];
     throw error;
   }
 }
-const tracker = setInterval(track, 100);
+async function track() {
+  const queue = [owner, ...children.values()];
+  for (let index = 0; index < queue.length; index++) {
+    const parent = queue[index];
+    if (stopTracking) return;
+    if (!(await alive(parent))) continue;
+    if (stopTracking) return;
+    const pids = await childPids(parent.pid);
+    // 停止或 parent 被复用时不再扩树；每个异步查询均有 1 秒上限。
+    if (stopTracking) return;
+    if (!pids.length || !(await alive(parent))) continue;
+    if (stopTracking) return;
+    for (const row of await processRows(pids)) {
+      if (stopTracking) return;
+      if (row.ppid !== parent.pid) continue;
+      const previous = children.get(row.pid);
+      assert.ok(!previous || previous.birth === row.birth, "Owned descendant PID was reused");
+      if (previous) continue;
+      assert.ok(children.size + 1 < maxOwnedProcesses, "Owned process tree exceeded its bound");
+      children.set(row.pid, row);
+      queue.push(row);
+    }
+  }
+}
+let trackingError, trackingTask;
+let stopTracking = false;
+function trackSafely() {
+  if (stopTracking || trackingError) return Promise.resolve();
+  trackingTask ??= track()
+    .catch((error) => {
+      trackingError = error;
+    })
+    .finally(() => {
+      trackingTask = null;
+    });
+  return trackingTask;
+}
+let chrome, browser, cdpPort, origin, browserWatch;
+let daemon;
+let driverSucceeded = false;
+async function lsof(args) {
+  try {
+    return (
+      await exec("lsof", ["-nP", ...args], {
+        encoding: "utf8",
+        timeout: 1000,
+        maxBuffer: 256 * 1024,
+      })
+    ).stdout;
+  } catch (error) {
+    if (error.code === 1 && !error.stdout && !error.stderr) return "";
+    throw error;
+  }
+}
+const tracker = setInterval(() => {
+  void trackSafely();
+}, 100);
 try {
   await server.listen();
   origin = `http://127.0.0.1:${server.httpServer.address().port}`;
@@ -111,6 +196,7 @@ try {
     ],
     { stdio: "ignore" },
   );
+  await rememberSpawn(chrome);
   for (let attempt = 0; attempt < 200; attempt++) {
     try {
       cdpPort = Number(
@@ -147,111 +233,139 @@ try {
   );
   browser = spawn("browser-harness", [], {
     cwd: scratch,
-    env: {
-      ...process.env,
-      BH_HOME: daemonHome,
-      BH_RUNTIME_DIR: join(daemonHome, "runtime"),
-      BH_TMP_DIR: join(daemonHome, "tmp"),
-      BH_AGENT_WORKSPACE: join(daemonHome, "agent-workspace"),
-      BH_CONFIG_DIR: daemonHome,
-      BU_NAME: "default",
-      BU_CDP_URL: `http://127.0.0.1:${cdpPort}`,
-      BH_RECORD: "0",
-    },
+    env: browserEnvironment(process.env, { scratch, daemonHome }, cdpPort),
     stdio: ["pipe", "inherit", "inherit"],
   });
-  const browserExit = new Promise((done) => {
-    // 先结算为值，避免 daemon 归属等待期间的 spawn error 变成未处理 rejection。
-    browser.once("error", (error) => done({ error }));
-    browser.once("exit", (exit) => done({ exit }));
-  });
+  browserWatch = watchChildExit(browser, 180000);
+  await rememberSpawn(browser);
   browser.stdin.end(
     `EVIDENCE=${JSON.stringify(evidence)}\nORIGIN=${JSON.stringify(origin)}\nCASES=${JSON.stringify(cases)}\n` +
       driver,
   );
   // BH daemon may reparent before the driver exits. Its owned PID file and socket,
   // not a generic command name or ancestry alone, establish cleanup ownership.
-  for (let attempt = 0; attempt < 200 && !daemon; attempt++) {
-    try {
-      const runtime = join(daemonHome, "runtime");
-      const files = (await readdir(runtime)).filter((name) => /^bu(?:-[\w-]+)?\.pid$/.test(name));
-      assert.equal(files.length, 1, "Exactly one daemon PID file in this run's owned runtime");
-      const pid = Number((await readFile(join(runtime, files[0]), "utf8")).trim());
-      const row = processRows().find((current) => current.pid === pid);
-      assert.ok(
-        row && /(?:^|\s)-m browser_harness\.daemon(?:\s|$)/.test(row.command),
-        "Owned daemon PID must still name BH daemon",
-      );
-      const sockets = lsof(["-a", "-p", String(pid), "-U", "-Fn"]);
-      if (!sockets.includes(join(runtime, "bu.sock"))) {
-        await delay(25);
-        continue;
+  await within(5000, "OWNED_DAEMON_TIMEOUT", async (signal) => {
+    while (!daemon) {
+      signal.throwIfAborted();
+      try {
+        const runtime = join(daemonHome, "runtime");
+        const files = (await readdir(runtime)).filter((name) => /^bu(?:-[\w-]+)?\.pid$/.test(name));
+        assert.equal(files.length, 1, "Exactly one daemon PID file in this run's owned runtime");
+        const pid = Number((await readFile(join(runtime, files[0]), "utf8")).trim());
+        assert.ok(Number.isInteger(pid) && pid > 0, "Owned daemon PID file must hold one PID");
+        signal.throwIfAborted();
+        const row = (await processRows([pid])).find((current) => current.pid === pid);
+        signal.throwIfAborted();
+        assert.ok(
+          row && /(?:^|\s)-m browser_harness\.daemon(?:\s|$)/.test(row.command),
+          "Owned daemon PID must still name BH daemon",
+        );
+        const sockets = await lsof(["-a", "-p", String(pid), "-U", "-Fn"]);
+        signal.throwIfAborted();
+        if (!sockets.includes(join(runtime, "bu.sock"))) {
+          await delay(25, undefined, { signal });
+          continue;
+        }
+        daemon = { ...row, pidFile: join(runtime, files[0]), sockets };
+        assert.ok(children.size + 1 < maxOwnedProcesses, "Owned process tree exceeded its bound");
+        children.set(pid, row);
+        await writeFile(join(evidence, "daemon-owner.json"), JSON.stringify(daemon, null, 2));
+      } catch (error) {
+        if (error.code !== "ENOENT" && !(error.code === "ERR_ASSERTION" && !daemon)) throw error;
+        await delay(25, undefined, { signal });
       }
-      daemon = { ...row, pidFile: join(runtime, files[0]), sockets };
-      children.set(pid, row);
-      await writeFile(join(evidence, "daemon-owner.json"), JSON.stringify(daemon, null, 2));
-    } catch (error) {
-      if (error.code !== "ENOENT" && !(error.code === "ERR_ASSERTION" && !daemon)) throw error;
-      await delay(25);
     }
-  }
-  const result = await browserExit;
-  if (result.error) throw result.error;
+  });
   assert.ok(daemon, "Unverified BH daemon; preserve owned roots on cleanup");
-  if (result.exit !== 0) process.exitCode = Number(result.exit ?? 1);
+  const result = await browserWatch.promise;
+  if (result.error) throw result.error;
+  if (result.timedOut) throw new Error("OWNED_DRIVER_TIMEOUT");
+  driverSucceeded = result.exit === 0;
+  if (!driverSucceeded) process.exitCode = Number(result.exit ?? 1);
 } finally {
+  browserWatch?.dispose();
   clearInterval(tracker);
-  track();
-  await server.close();
+  stopTracking = true;
+  await trackingTask;
+  let serverCloseCompleted = false;
+  try {
+    await within(3000, "OWNED_VITE_CLOSE_TIMEOUT", () => server.close());
+    serverCloseCompleted = true;
+  } catch {
+    // Vite 仍可能等待 transform；关闭不确定也继续清理已知进程，并保留两新根。
+  }
   if (browser?.exitCode === null && browser?.signalCode === null) browser.kill("SIGTERM");
   if (chrome?.exitCode === null && chrome?.signalCode === null) chrome.kill("SIGTERM");
   for (const row of [...children.values()].reverse())
-    if (alive(row)) {
+    if (await alive(row)) {
       try {
         process.kill(row.pid, "SIGTERM");
       } catch {}
     }
   await delay(300);
   for (const row of [...children.values()].reverse())
-    if (alive(row)) {
+    if (await alive(row)) {
       try {
         process.kill(row.pid, "SIGKILL");
       } catch {}
     }
   await delay(100);
-  const remaining = [...children.values()].filter(alive);
+  const remaining = [];
+  for (const row of children.values()) if (await alive(row)) remaining.push(row);
   const ports = [origin && Number(new URL(origin).port), cdpPort].filter(Boolean);
-  const tcp = ports.map((port) => ({ port, descriptors: lsof([`-iTCP:${port}`, "-Fpcn"]) }));
-  const unixSockets = lsof(["-U", "-Fpcn"])
+  const liveOwnedPids = [process.pid, ...remaining.map((row) => row.pid)].join(",");
+  const tcp = await Promise.all(
+    ports.map(async (port) => ({
+      port,
+      descriptors: await lsof(["-a", "-p", liveOwnedPids, `-iTCP:${port}`, "-Fpcn"]),
+    })),
+  );
+  const unixSockets = (await lsof(["-a", "-p", liveOwnedPids, "-U", "-Fpcn"]))
     .split("\n")
     .filter((line) => line.includes(daemonHome));
   const allClosed =
+    serverCloseCompleted &&
+    !trackingError &&
     !!daemon &&
     remaining.length === 0 &&
     tcp.every((item) => !item.descriptors) &&
     unixSockets.length === 0;
-  if (allClosed) {
-    await rm(daemonHome, { recursive: true, force: true });
-    await rm(scratch, { recursive: true, force: true });
-  }
+  const rootFds = inspectRootFds(
+    { scratch, daemonHome },
+    new Set([process.pid, ...remaining.map((row) => row.pid)]),
+    spawnSync,
+  );
+  const rootsRetired = await retireRoots(
+    { scratch, daemonHome },
+    { driverSucceeded, resourcesClosed: allClosed, rootFds },
+    { rm, chmod },
+  );
   await writeFile(
     join(evidence, "cleanup.json"),
     JSON.stringify(
       {
-        ownViteClosed: !server.httpServer.listening,
+        ownViteClosed: serverCloseCompleted,
         knownProcesses: [...children.values()],
         remaining,
+        trackingFailed: !!trackingError,
+        processQueryScope: "owned-pid-ppid-birth-tree",
         ports,
         daemon,
         tcp,
         unixSockets,
         allClosed,
-        ownScratchRemoved: allClosed,
+        driverSucceeded,
+        rootFds,
+        rootsRetired,
+        ownScratchRemoved: rootsRetired.removed,
         nativeTouched: false,
       },
       null,
       2,
     ),
   );
-  assert.ok(allClosed, "Own process or listener remains; scratch preserved");
+  assert.ok(
+    driverSucceeded && allClosed && rootsRetired.removed,
+    "Driver failed or cleanup unverified; owned roots preserved",
+  );
 }

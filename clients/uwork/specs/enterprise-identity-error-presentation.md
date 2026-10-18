@@ -88,3 +88,39 @@ sequenceDiagram
 产品控件全部用真实BH鼠标/键盘、DOM/AX只读核对。延期/释放与owner替换属于有限合成port控制：可放独立fixture控制页，正常按钮操作后经同源有限fixture消息驱动，避免被产品modal遮罩；driver不DOM.click、不window.release、不直接调用service/React/store。这个控制面不能移植到Native或称真实认证验证。
 
 实现后按Root安排跑纯测试、共享UI browser、client typecheck/lint/architecture/改动格式检查，记录真实baseline。该slice不build、不启动Native/CLI，不改正式Desktop/Host/CLI字节。Root独审/gates后才统一正式构建并另起Native复测；新结果不覆盖旧145/252证明。
+
+## C3：poll 成功先于 Native open IPC 交付
+
+沿用 `enterprise-login-error` 的真实 React Provider、现有 deferred poll/native 门及 runner。单一合成 Host 仍拥有身份事实，fixture companion 只记录 Hook 公开投影、Native close 与 gateway sync 调用，不成为第二个身份 owner。两个新 case 都通过原登录按钮进入，先证明 open 仍未决且原 waiting effect 已进入 poll，再仅 resolve 原 poll promise 为 authenticated，不发合成认证事件绕过 effect。
+
+| 场景                  | 必要断言                                                                                                                                                       |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `poll-native-null`    | poll 先成功，原认证 effect 自然 close 一次；之后旧 open resolve(null)，owner.cancelLogin/completeLogin 均未进入，身份不回退、无失败提示、startup sync 仅一次。 |
+| `poll-native-aborted` | 同一顺序，之后旧 open reject(ERR_ABORTED)；旧 generation 的异常不能再次 close/cancel/sync 或复活失败。                                                         |
+
+成功后持续观察超过原 1500ms poll 周期；投影从 authenticated 起不能出现回退。此处的 native port 是 UI fixture，不能把这些合成控制消息注入真实 Native，也不能称为 Electron IPC、真实 WeCom、后台 claim 或原生登录验收。
+
+```mermaid
+sequenceDiagram
+    participant U as 正式React Provider
+    participant H as 合成Host端口
+    participant N as 既有deferred Native端口
+    U->>H: 原beginLogin
+    H-->>U: waiting及实际attempt
+    U->>N: await open（保持pending）
+    U->>H: 原waiting effect poll
+    H-->>U: authenticated返回值（无身份事件）
+    U->>U: 清activeAttemptId / generation++
+    U->>N: 原effect自然close一次
+    U->>U: startup sync一次
+    N-->>U: 之后旧resolve(null)或reject(ERR_ABORTED)
+    U->>U: stale generation退出，身份保持authenticated
+```
+
+## 本次共享 UI runner 的有限生命周期
+
+每次运行新建独占 evidence、Vite、Chrome profile/CDP 与 BH 私有根。BH 子环境清除继承的 BU*/BH*/Browser Use 连接配置，只绑定本次 CDP；BH_RECORD=0、BH_TELEMETRY=0、debug clicks 为空串，外部 DNS 拒绝。一次同 run 执行新 2 与旧 23，共 25 个有限 case，不作业务重试；首次 case 失败仍先关闭两个 fixture tab，写失败结果并退出，交 runner finally 清理与保根。
+
+进程只按本次 runner、spawn PID 和私有 daemon PID 文件起点核对 PID/PPID/birth，最多 256 条、每个查询 1 秒，禁止全局进程表/外部 holder 发现。100ms tracker 不重入，finally 停止扩树并等当前有界查询。daemon 需在 5 秒内通过私有 PID 文件与精确 socket 核验；driver 自 spawn 起 180 秒总截止；所有总 timer 在 finally 清理。Vite 完整 close 另有 3 秒截止，失败后仍继续已知 Chrome/BH/PID 清理；只有 close resolve 才能标记完成，不能把 HTTP listening=false 当作完整 close。
+
+删除前只对本次两个新根执行 scoped lsof 的 PID/FD 元数据聚合，不输出未知持有者身份、不 signal 未知 PID。只有 driver 明确成功、完整 Vite close 与本次已知资源均收口、两根 FD 查询完整且为零时才删除；失败、超时、未知 FD 或查询不确定时都保留两根 0700，即使已知资源已关闭。FD 检查只证明删除前的两根快照，不扩大为 OS 隔离或未来写入不存在。

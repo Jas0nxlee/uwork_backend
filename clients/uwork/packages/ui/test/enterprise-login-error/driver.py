@@ -90,6 +90,38 @@ for case in CASES.split(','):
             wait("!!document.querySelector('[role=alert]')")
             if case == 'late-id': assert facts()['opened'] == [], 'known failed ID opened a stale native surface'
             if case.endswith('event'): assert facts()['completePending' if case.startswith('complete') else 'pollPending']
+        elif case in ['poll-native-null', 'poll-native-aborted']:
+            login()
+            wait("JSON.parse(document.querySelector('[data-testid=fixture-facts]').textContent).opened.length===1 && JSON.parse(document.querySelector('[data-testid=fixture-facts]').textContent).polls===1")
+            wait("document.querySelector('[data-testid=identity-status]').textContent==='waiting'")
+            initial = facts()
+            assert initial['nativePending'] and initial['pollPending'], 'poll must enter while original Native open is unresolved'
+            assert initial['opened'] == ['A-1'] and initial['A']['view']['status'] == 'waiting'
+            assert initial['nativeCloses'] == initial['A']['cancelled'] == initial['gatewaySyncs'] == []
+            # Only resolve the deferred poll result; do not broadcast an authenticated event.
+            command('authenticate')
+            wait("document.querySelector('[data-testid=identity-status]').textContent==='authenticated' && !document.querySelector('[data-testid=enterprise-login-page]')")
+            wait("JSON.parse(document.querySelector('[data-testid=fixture-facts]').textContent).nativeCloses.length===1 && JSON.parse(document.querySelector('[data-testid=fixture-facts]').textContent).gatewaySyncs.length===1")
+            authenticated = facts()
+            assert authenticated['nativePending'], 'natural close must precede explicit old IPC delivery'
+            assert authenticated['nativeCloses'] == ['A-1'] and authenticated['A']['cancelled'] == []
+            assert authenticated['gatewaySyncs'] == ['startup'] and not authenticated['completePending']
+            auth_index = authenticated['projectedStatuses'].index('authenticated')
+            command('resolve-native-null' if case == 'poll-native-null' else 'reject-native-aborted')
+            wait("!JSON.parse(document.querySelector('[data-testid=fixture-facts]').textContent).nativePending")
+            # Observe past one original 1500ms poll interval to catch stale work or replay.
+            until = time.monotonic() + 1.6
+            while time.monotonic() < until:
+                current = facts()
+                assert current['A']['view']['status'] == 'authenticated', 'old IPC result reverted Host identity'
+                assert current['projectedStatuses'][auth_index:] == ['authenticated'], 'old IPC result reverted Hook projection'
+                assert current['A']['cancelled'] == [], 'poll success must not cancel the completed attempt'
+                assert current['nativeCloses'] == ['A-1'], 'success must naturally close Native surface exactly once'
+                assert current['gatewaySyncs'] == ['startup'], 'old IPC completion repeated gateway sync'
+                assert current['polls'] == 1 and current['opened'] == ['A-1'] and not current['completePending']
+                assert not current['nativePending'] and current['runtimeErrors'] == 0
+                assert not alert() and not js("!!document.querySelector('[data-testid=enterprise-login-page]')"), 'old IPC completion revived login failure UI'
+                time.sleep(.025)
         elif case.startswith('old-start'):
             login(); wait("JSON.parse(document.querySelector('[data-testid=fixture-facts]').textContent).A.starts===1")
             click('重新选择公司'); click('公司 B', 'radio'); login()
@@ -178,6 +210,7 @@ for case in CASES.split(','):
     except Exception as error:
         snapshot(case+'-failed')
         results.append({'case':case, 'status':'FAIL', 'error':str(error)})
+        break  # Root runtime合同：首个失败先走finally清理，不继续业务场景。
     finally:
         cdp('Target.closeTarget', targetId=primary)
         cdp('Target.closeTarget', targetId=controller)
