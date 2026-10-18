@@ -195,15 +195,15 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 
 [真实 React 回归](client-enterprise-login-polling-test-2026-10-18.md) 已一次通过新2和旧23：open未决时原poll effect先认证，随后旧null/ERR_ABORTED不回退、无cancel/重复close或sync。类型/Lint/架构/改动格式通过，已知进程/端口与临时根收口，正常out全部原SHA恢复；生产Hook未改。该组件合同补足原生测试的时序前置证明，与插件 G04f 分开编号，不能代替下述 G04h 的完整 Native 身份验收。
 
-## G04h 客户端空身份原生登录进展（完整链路未验收）
+## G04h 客户端空身份原生登录进展（退出链路待验）
 
-[v1–v6 进展与公开证据](client-native-primary-login-progress-2026-10-18.md)保留各轮首错边界。最新 v6 全新空身份 baseline0、原 Main/file renderer、独占 BH、原工作区入口和七个原首跑动作通过；prelogin attempt/callback/model/ledger/Trace/Credit 均为0。唯一原登录操作后，原 held/pending、受控 callback1、claim、guest 关闭、publicAuthenticated 和 guardSatisfied 实际通过。原页面身份与配置就绪，后端身份、配置、模型目录、额度及用量请求均为200，没有预种 Native 身份。
+[v1–v7 进展与公开证据](client-native-primary-login-progress-2026-10-18.md)保留各轮首错边界。最新v7使用[新草稿模型初始化修复](client-fresh-draft-model-selection-test-2026-10-18.md)后的正常构建：全新空身份、七个原首跑动作、唯一原登录与受控callback、原claim/guest关闭/公开身份通过；无需手选模型即精确匹配授权ID和名称，原发送成功。
 
-随后 `prepare_question` 在认领动作前 exit1，未调用发送。原模型名称和ID匹配为false，尚需区分真实空选择、控件与异步更新；网关设置页未打开时额度/用量不适用，不能作为该功能失败。实际模型转发、本人计量、认证冷恢复、退出拒发和再次冷启均未完成，不能用原登录成功或HTTP200替代。
+实际主回复与原标题共2次受控模型请求，2笔settled账本、2条Trace、44 Credit，全部归当前普通成员；supplier Key匹配2、拒绝0。同profile停止Main后全新Main恢复身份，无新SSO attempt或模型请求。原公司菜单及网关页姓名、部门、角色、有效额度999,956、请求2/成功率100%/费用44/Token44均与后台相符。组件15项、标准类型/Lint/架构和正常Desktop构建是另层验证，不与这些实际请求数量相加。
 
-后续[真实React复现与修复](client-fresh-draft-model-selection-test-2026-10-18.md)确认空目录先初始化mode、迟到合法模型无法补入的新草稿缺陷。原draft资格与codec窄修后，新14项加旧名称回归15/15通过，标准类型/Lint/架构和正常Desktop构建通过；尚需新的Native运行验证，不以组件结果提前勾选。
+随后测试直接点击被设置页遮挡的原任务行，原point hit=false，`return_conversation` 在物理输入前拒绝。源码确认应先点原返回工作区按钮；属于测试导航遗漏。原退出、旧task拒发和再次冷启保持退出未执行，G04h/U02–U05保持开放。
 
-v6 共91份公开文件、2,271,382字节逐SHA独核，manifest `0b9327d274a1d706f7b1ad8af9aa967da6881e02ab35a941fe4bb0406c3fe730`。四个已知PID/四port及BH连接均收口；Main原stop exit0、BH工具exit1、Common精确SIGKILL后原工具exit1如实保留。R0700保留且handoff后不再访问。G04h、U02/U03/U04/U05继续开放，真实企微、外部MCP/网盘及平台验收边界不变。
+v7共127份公开文件、2,662,849字节逐SHA独核，manifest `5a4f21ebade6c868a580c620a7ad27e2ceecdd126ac3c32108b024fd52dcabf5`。六个已知PID/四port/两BH连接均收口；不完整handoff被拒后由Root独核Common并精确停止，实际exit如实保留。私有根保留且handoff后不访问。真实企微、外部MCP/网盘、真实模型供应商和平台验收边界不变。
 
 ## G07d Read 返回结果的权限与账号复验
 
