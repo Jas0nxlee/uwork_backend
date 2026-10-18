@@ -34,6 +34,14 @@ relay 使用现有 workspace/runtime/session 绑定及取消框架，不另建�
 
 验收：无 Key 配置可序列化/反序列化及完整校验；密钥字段被严格拒绝；旧配置切换后不残留 API Key；真实 HTTP/stdio/Native JSON、SSE、取消、退出及权限变更；实际客户端目录、配置、RPC 和日志中均无模型 Key 或私有登录 Token。
 
+## Legacy 创建的完整模型选择
+
+`session/create.model` 是完整的 ModelSelection，包含用户明确提交的 `options.reasoningLevel`。原 App/Runtime 继续是会话选择唯一所有者；创建入口经原 `App.setModel` 传递完整对象，不转为仅含 provider/model 的显示字符串，不新增默认值或第二份选型状态。创建后的严格 snapshot 与原会话选型持久化必须保留该档位。
+
+顺序保持为：原 Registry 初始化校验 → App 设置完整 model → 原独立 thoughtLevel 处理 → snapshot。另传受支持的 thoughtLevel 时仍覆盖 model 中的档位；不受支持的独立 thoughtLevel 沿既有规则忽略并保留完整 model 的原档位。缺失或非法 model 档位仍由原 Registry 拒绝，不因本修复补默认档位或放宽准入。
+
+定向合同调用真实 legacy create handler、生产 App/Runtime/Registry 与严格 snapshot schema，使用独占临时配置和内存存储端口；核对返回当前选择与原持久化数据，覆盖独立 thoughtLevel 的覆盖/忽略及缺档位/非法档位拒绝，不发送模型请求。v4 ACK、Native 或后台联测不替代该 legacy 合同。
+
 ## 登录后资料、权限与额度投影
 
 后台 `/api/auth/me` 的本人当前组织 membership 提供企微 UserId 和部门，客户端只展示实际返回资料；自有模式保留 owner/admin/operator/auditor/member 角色并本地化，不合并成普通成员。旧 UCAS 角色仍原样兼容。未实现的职位及 USD 月度预算不在自有 Credit 模式显示为虚构资料。

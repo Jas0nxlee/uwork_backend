@@ -85,7 +85,6 @@ import {
 import {
   buildSessionSnapshot,
   buildWorkspaceRef,
-  formatProtocolModelSelection,
   mapSessionEventForProtocol,
   mapSessionInfo,
   resolveSessionContextUsage,
@@ -1289,7 +1288,8 @@ async function createSessionWithProjection<T>(
     await runSessionModelConfigMutation(record.app, async () => {
       if (initialModel) {
         const setInitialModelStartedAt = Date.now();
-        await record.app.setModel(formatProtocolModelSelection(initialModel));
+        // model 是完整会话选择；转成 provider/model 字符串会丢失已校验的 reasoning 档位。
+        await record.app.setModel(initialModel);
         setInitialModelDurationMs = Date.now() - setInitialModelStartedAt;
         record.stateRevision++;
       }
