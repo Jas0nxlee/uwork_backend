@@ -758,7 +758,7 @@ export async function liveFixture(
       );
       assert.equal(
         createHash("sha256").update(cliBytes).digest("hex"),
-        "dd0a2693311cacf7cbf6e3482246761e8a6de7c27b598a8a896a2c791add5196",
+        "03adc56b7687a0ca74ce7839aea13f42fef9bdb2fdc5e6d94a439c5a047e84dd",
       );
       const selectionView: ModelSelectionView =
         await runtime.modelSelection.getView();
