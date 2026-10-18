@@ -74,6 +74,8 @@ primary 启动器使用真正的 entry.mjs，先执行环境守卫，再以顶�
 
 原生产快照、stopNative 和 owned openWorkspace 仍使用原有限接口；不提供通用 RPC。primary supplier 只接受精确 models/chat 路径和本次正常 API 创建的后台 Key；拒绝未知路径、query 变体或错误凭据，Trace 与默认模式保持原行为。公开证据只输出匹配计数、角色/额度及本人账本归属布尔。
 
+冷启后，原身份菜单打开时精确核对公司；原网关设置页打开后核对姓名、部门、角色、额度与用量。页面所属字段不可见时记为不适用，不能当成功或故障。设置页覆盖期间，原 workspace 保留布局但不可交互；返回任务必须先执行独立的 `back_to_workspace`，点击原 `TID_SETTINGS_BACK_BUTTON`，只读等待覆盖退去且原任务行可点，再执行既有 `return_conversation` 选择已固定的原 task。两个原动作各有输入前的独占 journal 与一次结果收据，失败不能重放。不得点击遮挡中的任务行、直接改 tab store、注入状态或以新任务代替原任务。该补充来自 v7 的真实 `CONTROL_NOT_READY` 边界，仅修正测试导航，不改变产品行为。
+
 ## 接受边界
 
 1. 全新 Native 原按钮完成一次登录，真实 attempts/pending/callback/claim/auth-me 与原 guest 自然关闭均有证据。
