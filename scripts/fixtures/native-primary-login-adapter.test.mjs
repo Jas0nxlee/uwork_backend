@@ -623,3 +623,289 @@ test("actual common primary logging branch drains counters and never constructs 
   );
   assert.equal(created, 1);
 });
+
+test("optional entry rejection reports only fixed early secondary codes", async (t) => {
+  for (const code of [
+    "secondary_argv_shape",
+    "owned_workspace",
+    "session_guard",
+    "main_import",
+  ]) {
+    const f = await electronFixture(t);
+    const workspace = join(f.root, "project");
+    await mkdir(workspace);
+    await mkdir(join(workspace, ".git"));
+    const reports = [];
+    const privateError = Error("SYNTHETIC_PRIVATE_CAUSE_DO_NOT_REPORT");
+    if (code === "session_guard")
+      f.defaultSession.webRequest.onBeforeRequest = () => {
+        throw privateError;
+      };
+    const argv = [
+      "electron",
+      "app",
+      "--open-workspace",
+      code === "owned_workspace" ? f.appRoot : workspace,
+    ];
+    if (code === "secondary_argv_shape")
+      argv.push("https://example.invalid/?state=SYNTHETIC_PRIVATE_STATE");
+    await assert.rejects(
+      startPrimaryMainEntry(
+        f.electron,
+        { argv },
+        {
+          appRoot: f.appRoot,
+          ownedRoot: f.root,
+          origin,
+          onReject: (...args) => reports.push(args),
+          loadMain: () => {
+            if (code === "main_import") throw privateError;
+          },
+        },
+      ),
+      (cause) =>
+        cause.message === "Primary private adapter rejected" &&
+        cause.cause === undefined,
+    );
+    assert.deepEqual(reports, [[code]]);
+    for (const forbidden of [
+      privateError.message,
+      "SYNTHETIC_PRIVATE_STATE",
+      workspace,
+    ])
+      assert.ok(!JSON.stringify(reports).includes(forbidden));
+  }
+});
+
+test("primary import failures report once without serializing the rejected exception", async (t) => {
+  const f = await electronFixture(t),
+    runtime = child(),
+    reports = [];
+  const entry = startPrimaryMainEntry(f.electron, runtime, {
+    appRoot: f.appRoot,
+    ownedRoot: f.root,
+    origin,
+    onReject: (...args) => reports.push(args),
+    loadMain: async () => {
+      throw Error("SYNTHETIC_PRIVATE_MAIN_IMPORT");
+    },
+  });
+  runtime.emit("message", { op: "init", nonce, origin });
+  await assert.rejects(
+    entry,
+    (cause) =>
+      cause.message === "Primary private adapter rejected" &&
+      cause.cause === undefined,
+  );
+  runtime.emit("disconnect");
+  assert.deepEqual(reports, [["main_import"]]);
+  assert.ok(!JSON.stringify(reports).includes(nonce));
+});
+
+test("malformed init, invalid private stop and hello send failure report private_channel", async (t) => {
+  for (const kind of ["init", "stop", "send"]) {
+    const f = await electronFixture(t),
+      runtime = child(),
+      reports = [];
+    if (kind === "send")
+      runtime.send = () => {
+        throw Error("SYNTHETIC_PRIVATE_CHANNEL_CAUSE");
+      };
+    const entry = startPrimaryMainEntry(f.electron, runtime, {
+      appRoot: f.appRoot,
+      ownedRoot: f.root,
+      origin,
+      onReject: (...args) => reports.push(args),
+      loadMain: async () => {},
+    });
+    if (kind === "stop") {
+      runtime.emit("message", { op: "init", nonce, origin });
+      await entry;
+      runtime.emit("message", { op: "stop", nonce: "SYNTHETIC_PRIVATE_NONCE" });
+    } else {
+      if (kind === "init")
+        runtime.emit("message", {
+          op: "init",
+          nonce,
+          origin,
+          privateCause: "SYNTHETIC_PRIVATE_CHANNEL_CAUSE",
+        });
+      await assert.rejects(entry, /Primary private adapter rejected/u);
+    }
+    assert.deepEqual(reports, [["private_channel"]]);
+    assert.ok(!JSON.stringify(reports).includes("SYNTHETIC_PRIVATE"));
+  }
+});
+
+test("installed Session guard failure reports session_guard independently of Main import", async (t) => {
+  const f = await electronFixture(t),
+    runtime = child(),
+    reports = [];
+  const entry = startPrimaryMainEntry(f.electron, runtime, {
+    appRoot: f.appRoot,
+    ownedRoot: f.root,
+    origin,
+    onReject: (...args) => reports.push(args),
+    loadMain: async () => {},
+  });
+  runtime.emit("message", { op: "init", nonce, origin });
+  await entry;
+  f.defaultSession.webRequest.handler(
+    { url: "https://outside.invalid/?state=SYNTHETIC_PRIVATE_STATE" },
+    () => {},
+  );
+  runtime.emit("disconnect");
+  assert.deepEqual(reports, [["session_guard"]]);
+  assert.ok(!JSON.stringify(reports).includes("SYNTHETIC_PRIVATE"));
+});
+
+test("absent diagnostics preserve default rejection; throwing diagnostics cannot replace it", async (t) => {
+  const f = await electronFixture(t),
+    workspace = join(f.root, "project");
+  await mkdir(workspace);
+  await mkdir(join(workspace, ".git"));
+  const original = Error("SYNTHETIC_ORIGINAL_DEFAULT_ERROR");
+  await assert.rejects(
+    startPrimaryMainEntry(
+      f.electron,
+      { argv: ["electron", "app", "--open-workspace", workspace] },
+      {
+        appRoot: f.appRoot,
+        ownedRoot: f.root,
+        origin,
+        loadMain: async () => {
+          throw original;
+        },
+      },
+    ),
+    (cause) => cause === original,
+  );
+  for (const onReject of [
+    () => {
+      throw original;
+    },
+    async () => {
+      throw original;
+    },
+  ]) {
+    await assert.rejects(
+      startPrimaryMainEntry(
+        f.electron,
+        { argv: ["electron", "app"] },
+        {
+          appRoot: f.appRoot,
+          ownedRoot: f.root,
+          origin,
+          onReject,
+          loadMain: async () => {},
+        },
+      ),
+      (cause) =>
+        cause.message === "Primary private adapter rejected" &&
+        cause.cause === undefined,
+    );
+  }
+  await new Promise(setImmediate);
+  const ready = await electronFixture(t),
+    runtime = child(),
+    reports = [];
+  const entry = startPrimaryMainEntry(ready.electron, runtime, {
+    appRoot: ready.appRoot,
+    ownedRoot: ready.root,
+    origin,
+    onReject: (...args) => reports.push(args),
+    loadMain: async () => {},
+  });
+  runtime.emit("message", { op: "init", nonce, origin });
+  await entry;
+  runtime.emit("message", { op: "stop", nonce });
+  runtime.emit("disconnect");
+  assert.deepEqual(reports, []);
+  assert.equal(ready.exits(), 0);
+});
+
+test("primary common writes only pid/code diagnostics and preserves actual exit signal", async () => {
+  const source = await readFile(
+    new URL("./client-native-enterprise.mjs", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf(
+    'await writeFile(\n  join(appRoot, "entry.cjs"),',
+  );
+  const end = source.indexOf("\n);", start) + 3;
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  let content;
+  await new AsyncFunction(
+    "writeFile",
+    "join",
+    "appRoot",
+    "root",
+    "origin",
+    "evidence",
+    "pathToFileURL",
+    "primaryLoginEnabled",
+    source.slice(start, end),
+  )(
+    async (_path, bytes) => {
+      content = bytes;
+    },
+    join,
+    "/owned/app",
+    "/owned",
+    origin,
+    "evidence/owned",
+    pathToFileURL,
+    true,
+  );
+  const callbackStart = content.indexOf("onReject:");
+  const callbackEnd = content.indexOf(",loadMain:", callbackStart);
+  assert.ok(callbackStart > 0 && callbackEnd > callbackStart);
+  const writes = [];
+  const onReject = new Script(
+    "(" + content.slice(callbackStart + "onReject:".length, callbackEnd) + ")",
+  ).runInNewContext({
+    process: { pid: 321 },
+    require: (name) => {
+      assert.equal(name, "node:fs");
+      return { writeFileSync: (...args) => writes.push(args) };
+    },
+  });
+  onReject("main_import");
+  onReject("https://outside.invalid/?state=SYNTHETIC_PRIVATE_STATE");
+  assert.equal(writes.length, 1);
+  assert.ok(writes[0][0].endsWith("native-rejection-321.json"));
+  assert.deepEqual(JSON.parse(writes[0][1]), { pid: 321, code: "main_import" });
+  assert.deepEqual(JSON.parse(JSON.stringify(writes[0][2])), {
+    flag: "wx",
+    mode: 0o600,
+  });
+  const owned = child();
+  owned.pid = 321;
+  let disposed = 0;
+  const events = [];
+  const exitStart = source.indexOf('    ownedChild.once("exit",');
+  const exitEnd = source.indexOf("    await ownedBridge.ready;", exitStart);
+  const current = new Function(
+    "ownedChild",
+    "ownedBridge",
+    "console",
+    "electron",
+    source.slice(exitStart, exitEnd) + ";return()=>electron;",
+  )(
+    owned,
+    {
+      dispose: () => {
+        disposed++;
+      },
+    },
+    { log: (value) => events.push(JSON.parse(value)) },
+    owned,
+  );
+  owned.emit("exit", null, "SIGTERM");
+  owned.emit("exit", 0, null);
+  assert.deepEqual(events, [
+    { event: "native-primary-exit", pid: 321, code: null, signal: "SIGTERM" },
+  ]);
+  assert.equal(disposed, 1);
+  assert.equal(current(), undefined);
+});

@@ -445,40 +445,83 @@ export function installPrimaryMainGuard(
 export async function startPrimaryMainEntry(
   electron,
   runtime,
-  { appRoot, ownedRoot, origin, loadMain, onStop },
+  { appRoot, ownedRoot, origin, loadMain, onStop, onReject },
 ) {
+  const diagnostics = typeof onReject === "function";
+  let rejectionReported = false;
+  const reportRejection = (code) => {
+    if (!diagnostics || rejectionReported) return;
+    rejectionReported = true;
+    try {
+      void Promise.resolve(onReject(code)).catch(() => {});
+    } catch {}
+  };
+  const rethrow = (code, cause) => {
+    reportRejection(code);
+    // Diagnostics carry one fixed code only; default callers retain the original rejection.
+    throw diagnostics ? error() : cause;
+  };
   if (typeof runtime.send !== "function" || !runtime.connected) {
     const args = runtime.argv.slice(2);
-    if (args.length !== 2 || args[0] !== "--open-workspace") throw error();
-    await validateOwnedNativeWorkspace(ownedRoot, args[1]);
-    scrubPrimaryControlEnvironment(runtime.env);
-    installPrimaryMainGuard(electron, {
-      appRoot,
-      origin,
-      onFailure: () => electron.app.exit(70),
-    });
-    await loadMain();
+    if (args.length !== 2 || args[0] !== "--open-workspace")
+      rethrow("secondary_argv_shape", error());
+    try {
+      await validateOwnedNativeWorkspace(ownedRoot, args[1]);
+    } catch (cause) {
+      rethrow("owned_workspace", cause);
+    }
+    try {
+      scrubPrimaryControlEnvironment(runtime.env);
+      installPrimaryMainGuard(electron, {
+        appRoot,
+        origin,
+        onFailure: () => {
+          reportRejection("session_guard");
+          electron.app.exit(70);
+        },
+      });
+    } catch (cause) {
+      rethrow("session_guard", cause);
+    }
+    try {
+      await loadMain();
+    } catch (cause) {
+      rethrow("main_import", cause);
+    }
     return;
   }
   await new Promise((resolveEntry, rejectEntry) => {
     let guard,
-      initialized = false;
-    const fail = () => {
+      initialized = false,
+      receivingPrivateMessage = false;
+    const fail = (code = "private_channel") => {
+      reportRejection(code);
       clearTimeout(timer);
       rejectEntry(error());
       electron.app.exit(70);
     };
     const timer = setTimeout(fail, 5000);
     runtime.on("disconnect", () => {
-      if (guard) guard.disconnected();
-      else fail();
+      if (guard) {
+        receivingPrivateMessage = true;
+        try {
+          guard.disconnected();
+        } finally {
+          receivingPrivateMessage = false;
+        }
+      } else fail();
     });
     runtime.on("message", (message) => {
       try {
         if (initialized) {
           // 私有stop必须先被守卫完整接受，错误nonce不能触发宽松的测试退出回调。
-          if (guard.receive(message) && message.op === "stop" && onStop)
-            onStop();
+          receivingPrivateMessage = true;
+          try {
+            if (guard.receive(message) && message.op === "stop" && onStop)
+              onStop();
+          } finally {
+            receivingPrivateMessage = false;
+          }
           return;
         }
         if (
@@ -488,22 +531,44 @@ export async function startPrimaryMainEntry(
           message.origin !== origin
         )
           throw error();
-        guard = installPrimaryMainGuard(electron, {
-          appRoot,
-          origin,
-          nonce: message.nonce,
-          channel: runtime,
-          onFailure: fail,
-        });
-        scrubPrimaryControlEnvironment(runtime.env);
+        try {
+          guard = installPrimaryMainGuard(electron, {
+            appRoot,
+            origin,
+            nonce: message.nonce,
+            channel: runtime,
+            onFailure: () =>
+              fail(
+                receivingPrivateMessage ? "private_channel" : "session_guard",
+              ),
+          });
+          scrubPrimaryControlEnvironment(runtime.env);
+        } catch {
+          fail("session_guard");
+          return;
+        }
         initialized = true;
         clearTimeout(timer);
         runtime.send({ op: "ready", nonce: message.nonce });
-        Promise.resolve(loadMain(message)).then(resolveEntry, fail);
+        let importing;
+        try {
+          importing = loadMain(message);
+        } catch {
+          fail("main_import");
+          return;
+        }
+        Promise.resolve(importing).then(resolveEntry, () =>
+          fail("main_import"),
+        );
       } catch {
         fail();
       }
     });
-    runtime.send({ op: "hello" });
+    try {
+      runtime.send({ op: "hello" });
+    } catch (cause) {
+      if (diagnostics) fail("private_channel");
+      else throw cause;
+    }
   });
 }

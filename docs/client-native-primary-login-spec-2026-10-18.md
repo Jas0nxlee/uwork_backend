@@ -8,6 +8,7 @@
 - 管理者仅用正常后台 API 建立受控模型、普通 member、部门、席位、身份映射和额度；成员限额必须写给实际待登录成员并 GET 回读。
 - 原 Host 继续持有 attempt proof、会话、issuer、加密存储及当前用户事实。Renderer 只使用原公开投影；模型供应商 Key 由后台 Vault 持有和派发。
 - 原 201 attempts、claim、callback 和生产加密提交保持原逻辑，测试观察器不主动 claim、签发会话或修改响应。
+- 私有控制器的 ready 早于生产 Main 导入完成，不能作为单实例锁或界面就绪证明。原 launch 后先记录实际 Main 的 PID/PPID/birth、per-PID 入口、cwd 与 CDP 归属；在该独占端点的唯一受信任 renderer 中用固定公开布尔确认登录页就绪，才允许一次原 openWorkspace。命令收集器先持久保存原始安全进程事件，再处理命令失败。
 
 ```mermaid
 sequenceDiagram
@@ -36,6 +37,8 @@ sequenceDiagram
 原 Main 导入前安装唯一 Session 请求守卫。只允许已绑定的原窗口/guest/Session/main-frame GET；父夹具在 RAM 对齐原 attempt、nonce、六项 SSO 参数、回调、TTL 和请求标识。官方 SSO 一直暂挂，确认 held 后确有原 pending claim 才允许一次无参受控 callback；原 Hook 成功后自然关闭 guest，守卫不抢先取消成功路径。
 
 nonce/state/URL 只过匿名 IPC RAM。原 Main 导入前清除私有 channel bootstrap 环境与测试 flag，Host/CLI 不继承控制 fd。消息、输出、初始化、授权见证和 callback 均有数量/字节/绝对截止；primary 原始 Electron stdout/stderr 只计数，不解码落盘。默认夹具分支保持原行为。
+
+测试入口诊断仅允许 secondary_argv_shape、owned_workspace、session_guard、main_import、private_channel 五种固定拒绝码，以及已拥有进程的实际退出 code/signal。拒绝收据用 wx0600 保留第一次结果，不记录原异常、cause、argv、URL 或请求详情。这些测试收据不能作为产品认证或用户权限的来源。
 
 登录输入前锁定敏感观察；随后只允许固定公开布尔、文本和原控件几何及 Browser Harness 物理输入。禁止读取或输出原始 AX/截图/DOM、链接、网络明文、Cookie、Storage、proof、Token 和 OAuth 参数。冷启动的新 Root 必须重新核对实际 PID/PPID/birth/appPath/CDP 与受信任 renderer，不沿用旧 attachment。
 
