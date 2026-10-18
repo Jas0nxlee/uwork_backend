@@ -191,6 +191,14 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 
 下一缺口包括客户端空身份的原 Native 登录成功、文件引用实际发送并进入 Read 工具及模型，以及可运行的独立 Web DOM 链路。此前加密会话预种恢复、文件预览/添加/移除和 HTTP/静态资源/直连 WS 各保留原范围，不代替这些待验项。真实企微、外部 MCP、网盘、远端权限及平台安装边界继续保留，U02/U03/U04/U05不整体关闭。
 
-## G04f 登录 poll 与 Native IPC 交付顺序
+## G04g 登录 poll 与 Native IPC 交付顺序
 
-[真实 React 回归](client-enterprise-login-polling-test-2026-10-18.md) 已一次通过新2和旧23：open未决时原poll effect先认证，随后旧null/ERR_ABORTED不回退、无cancel/重复close或sync。类型/Lint/架构/改动格式通过，已知进程/端口与临时根收口，正常out全部原SHA恢复；生产Hook未改。该组件合同补足原生测试的时序前置证明，空身份Native主链仍在执行，整体验收项保持开放。
+[真实 React 回归](client-enterprise-login-polling-test-2026-10-18.md) 已一次通过新2和旧23：open未决时原poll effect先认证，随后旧null/ERR_ABORTED不回退、无cancel/重复close或sync。类型/Lint/架构/改动格式通过，已知进程/端口与临时根收口，正常out全部原SHA恢复；生产Hook未改。该组件合同补足原生测试的时序前置证明，与插件 G04f 分开编号，不能代替下述 G04h 的完整 Native 身份验收。
+
+## G04h 客户端空身份原生登录进展（未验收）
+
+[v1–v4 进展与公开证据](client-native-primary-login-progress-2026-10-18.md) 保留各轮首错边界。v4 的全新空身份 baseline0、精确 ESM 入口、真实 Main/file renderer、owned BH/socket、登录页固定 DOM 和原 workspace 第二实例 exit0 均通过；原登录输入后确有 held/pending，同次执行唯一无参 callback 成功，安全状态观察到原 claim 成功与 guest 关闭。没有预种 Native 身份。
+
+随后首次 post-callback 固定公开 UI 观察包装 exit1，Main 固定拒绝码 session_guard；publicAuthenticated/guardSatisfied 为 false，生产加密提交尚未证明。原配置、模型/权限、本人额度用量、实际模型请求及后台 Key/本人账本、认证冷恢复、退出拒发和再次冷启保持退出均未验收。现场 supplier/ledger0 是未发送的结果，不能据此声称模型转发或 provider 通过。
+
+v4 共56份公开工件、2,021,795字节，manifest SHA `c0b3dfa1374980b12cd0a73b0f7d3662e542098dd0b9a430a47f36d30729205f` 已逐项独核；四个已知PID/四port/BH socket与工具句柄收口。Main 由原 stopNative 实际 SIGKILL，Common 经 Root 独核后 SIGKILL、原工具 exit1；R0700保留且handoff后不再访问。G04h、U02/U03/U04/U05 继续开放，真实企微、外部 MCP/网盘、真实外部模型服务及平台验收范围不变。

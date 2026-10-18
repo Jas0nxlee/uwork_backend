@@ -1,4 +1,4 @@
-# 企业登录轮询与窗口迟到结果回归
+# G04g 企业登录轮询与窗口迟到结果回归
 
 2026-10-18。当前真实 React Provider/Hook 在独立浏览器一次通过 **25/25**：新增两个交付顺序场景及原有 23 项回归。身份、Native 和 Gateway 为有限合成端口，未运行真实 Native、企微或模型服务。
 
@@ -14,4 +14,4 @@
 
 证据为 `evidence/client-native-primary-login-hook-live-20261018/`，核心 manifest SHA `6f244a6d5732c75f741c688f04134e064c37ba196223df0bc2b7c1c9ade571c3`；十份关键收据和八份当前来源已独立校验。Root 收据位于 `evidence/client-sharing-followup-root-review-20261018/primary-login-hook-*.json`。
 
-本项证明当前组件交付顺序。客户端空身份→原生登录→Host 私有 claim/存储→后台配置、模型及用量→冷恢复与退出仍在独立接线和运行验证，不能据此勾为完成。分享 guest 的受控成员登录已另行通过，见[原生分享联测](client-native-member-viewer-test-2026-10-18.md)。真实企微、外部 MCP 和网盘继续排除。
+本项 G04g 证明当前组件交付顺序，与插件 G04f 分开编号。空身份 Native v4 已到原登录输入、held/pending、唯一 callback、claim 和 guest 关闭，但随后公开身份见证未通过并出现 session_guard；加密提交、配置/模型/本人用量、冷恢复与退出尚未验收，详见 [G04h 进展](client-native-primary-login-progress-2026-10-18.md)。不能据组件合同勾 G04h 或 U02–U05。分享 guest 的受控成员登录已另行通过，见[原生分享联测](client-native-member-viewer-test-2026-10-18.md)。真实企微、外部 MCP 和网盘继续排除。
