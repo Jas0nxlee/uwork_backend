@@ -1,0 +1,625 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { Script } from "node:vm";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+  PRIMARY_ADAPTER_REVIEWED,
+  PRIMARY_AUTH_EXPRESSION,
+  assertPrimaryCommand,
+  createPrimaryParentBridge,
+  installPrimaryMainGuard,
+  startPrimaryMainEntry,
+} from "./native-primary-login-adapter.mjs";
+import {
+  createPrimaryLoginHold,
+  primaryLimitMemberId,
+  primaryLoginModeEnabled,
+} from "./native-primary-login.mjs";
+
+const origin = "https://127.0.0.1:50301",
+  nonce = "N".repeat(43);
+function child() {
+  const child = new EventEmitter();
+  child.connected = true;
+  child.sent = [];
+  child.kills = 0;
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.send = (message, done) => {
+    child.sent.push(message);
+    done?.();
+  };
+  child.kill = () => {
+    child.kills++;
+  };
+  return child;
+}
+async function electronFixture(t) {
+  const root = await mkdtemp(join(import.meta.dirname, "adapter-owned-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const appRoot = join(root, "app");
+  await mkdir(appRoot);
+  await writeFile(join(appRoot, "page.html"), "owned");
+  const session = () => ({
+    installs: 0,
+    webRequest: {
+      onBeforeRequest(_filter, handler) {
+        this.handler = handler;
+      },
+    },
+  });
+  const defaultSession = session(),
+    loginSession = session();
+  const app = new EventEmitter();
+  let exits = 0;
+  app.isReady = () => true;
+  app.exit = () => {
+    exits++;
+  };
+  const owner = new EventEmitter();
+  owner.id = 7;
+  const expressions = [];
+  owner.executeJavaScript = async (expression) => {
+    expressions.push(expression);
+    return { authenticated: true, signedOut: false, loginVisible: false };
+  };
+  const guest = new EventEmitter();
+  guest.id = 8;
+  guest.session = loginSession;
+  const channel = child();
+  const electron = {
+    app,
+    session: { defaultSession },
+    BrowserWindow: {
+      getAllWindows: () => [
+        {
+          webContents: owner,
+          contentView: { children: [{ webContents: guest }] },
+        },
+      ],
+    },
+    webContents: { fromId: (id) => (id === guest.id ? guest : undefined) },
+    shell: {
+      openExternal() {
+        throw Error("OS must not be called");
+      },
+    },
+  };
+  return {
+    root,
+    appRoot,
+    defaultSession,
+    loginSession,
+    app,
+    owner,
+    guest,
+    channel,
+    electron,
+    expressions,
+    exits: () => exits,
+  };
+}
+function url() {
+  const u = new URL("https://login.work.weixin.qq.com/wwlogin/sso/login");
+  for (const [key, value] of Object.entries({
+    appid: "ww-synthetic-never-called",
+    agentid: "1",
+    redirect_uri: origin + "/api/auth/wecom/callback",
+    state: "finite-state",
+    login_type: "CorpApp",
+    lang: "zh",
+  }))
+    u.searchParams.set(key, value);
+  return u.href;
+}
+
+test("reviewed adapter still requires the explicit isolated primary opt-in", () => {
+  assert.equal(PRIMARY_ADAPTER_REVIEWED, true);
+  assert.equal(
+    primaryLoginModeEnabled("enabled", undefined, undefined, undefined),
+    false,
+  );
+  assert.equal(
+    primaryLoginModeEnabled("enabled", undefined, undefined, "controlled"),
+    true,
+  );
+  assert.throws(() =>
+    primaryLoginModeEnabled(undefined, undefined, undefined, "controlled"),
+  );
+  assert.throws(() =>
+    primaryLoginModeEnabled("enabled", undefined, "controlled", "controlled"),
+  );
+});
+
+test("PTY whitelist preserves only owned workspace shape and bounded snapshot names", () => {
+  for (const c of [
+    { op: "launch" },
+    { op: "stopNative" },
+    { op: "completePrimaryLogin" },
+    { op: "primaryLoginStatus" },
+    { op: "openWorkspace", workspacePath: "/owned/project" },
+    { op: "experienceSnapshot", name: "after-login" },
+  ])
+    assertPrimaryCommand(c);
+  for (const c of [
+    null,
+    [],
+    { op: "launch", token: "bad" },
+    { op: "openWorkspace", workspacePath: "relative" },
+    { op: "openWorkspace", workspacePath: "/owned/../elsewhere" },
+    { op: "openWorkspace", workspacePath: "/owned/project", state: "bad" },
+    { op: "experienceSnapshot", name: "../escape" },
+    { op: "arbitraryRpc" },
+  ])
+    assert.throws(() => assertPrimaryCommand(c));
+});
+
+test("parent private init uses anonymous messages; raw output becomes bounded byte counters", async (t) => {
+  const c = child();
+  let aborts = 0;
+  const bridge = createPrimaryParentBridge(c, {
+    nonce,
+    origin,
+    hold: {
+      abort() {
+        aborts++;
+      },
+    },
+  });
+  t.after(() => bridge.dispose());
+  c.emit("message", { op: "hello" });
+  assert.deepEqual(c.sent, [{ op: "init", nonce, origin }]);
+  c.emit("message", { op: "ready", nonce });
+  await bridge.ready;
+  c.stdout.write(Buffer.from(nonce));
+  c.stderr.write(Buffer.from(url()));
+  const safe = JSON.stringify(bridge.safeStatus());
+  assert.ok(!safe.includes(nonce));
+  assert.ok(!safe.includes(url()));
+  assert.equal(bridge.safeStatus().stdoutBytes, nonce.length);
+  assert.equal(aborts, 0);
+  bridge.expectStop();
+  c.emit("disconnect");
+  assert.equal(c.kills, 0);
+});
+
+test("private malformed/replayed frames and output overflow stop only the owned child", async (t) => {
+  for (const kind of ["extra", "replay", "overflow"]) {
+    const c = child();
+    let aborted = 0;
+    const bridge = createPrimaryParentBridge(c, {
+      nonce,
+      origin,
+      hold: {
+        abort() {
+          aborted++;
+        },
+      },
+    });
+    t.after(() => bridge.dispose());
+    c.emit("message", { op: "hello" });
+    c.emit("message", { op: "ready", nonce });
+    await bridge.ready;
+    if (kind === "extra")
+      c.emit("message", { op: "ready", nonce, token: "hidden" });
+    if (kind === "replay") c.emit("message", { op: "ready", nonce });
+    if (kind === "overflow") c.stdout.write(Buffer.alloc(2 * 1024 * 1024 + 1));
+    assert.equal(bridge.safeStatus().failed, true);
+    assert.equal(c.kills, 1);
+    assert.equal(aborted, 1);
+  }
+});
+
+test("Session guard precedes production import, covers every new Session and never sends SSO externally", async (t) => {
+  const f = await electronFixture(t);
+  let failed = 0;
+  const guard = installPrimaryMainGuard(f.electron, {
+    origin,
+    nonce,
+    channel: f.channel,
+    appRoot: f.appRoot,
+    onFailure: () => {
+      failed++;
+    },
+  });
+  f.app.emit("session-created", f.loginSession);
+  f.app.emit("web-contents-created", {}, f.guest);
+  assert.equal(guard.safeStatus().sessions, 2);
+  const replies = [];
+  f.loginSession.webRequest.handler(
+    {
+      id: 11,
+      method: "GET",
+      resourceType: "mainFrame",
+      webContentsId: 8,
+      url: url(),
+    },
+    (value) => replies.push(value),
+  );
+  assert.deepEqual(replies, []);
+  assert.equal(guard.safeStatus().held, true);
+  assert.equal(f.channel.sent[0].op, "sso");
+  assert.equal(failed, 0);
+  f.guest.emit("destroyed");
+  await new Promise(setImmediate);
+  assert.deepEqual(
+    f.channel.sent.map((m) => m.op),
+    ["sso", "guest-closed", "authenticated"],
+  );
+  assert.deepEqual(f.expressions, [PRIMARY_AUTH_EXPRESSION]);
+  assert.deepEqual(replies, []);
+});
+
+test("owned file and backend origin are allowed, unknown origins and OS external opens are blocked", async (t) => {
+  const f = await electronFixture(t);
+  let failed = 0;
+  const guard = installPrimaryMainGuard(f.electron, {
+    origin,
+    nonce,
+    channel: f.channel,
+    appRoot: f.appRoot,
+    onFailure: () => {
+      failed++;
+    },
+  });
+  const replies = [];
+  const send = (value) =>
+    f.defaultSession.webRequest.handler({ url: value }, (result) =>
+      replies.push(result),
+    );
+  send(pathToFileURL(join(f.appRoot, "page.html")).href);
+  send(origin + "/owned");
+  assert.deepEqual(replies, [{ cancel: false }, { cancel: false }]);
+  send("https://unknown.example.test/");
+  assert.deepEqual(replies.at(-1), { cancel: true });
+  assert.equal(failed, 1);
+  assert.equal(guard.safeStatus().failed, true);
+  await f.electron.shell.openExternal(url());
+  assert.equal(failed, 1);
+});
+
+test("SSO from owner window instead of the original owned guest cannot be held", async (t) => {
+  const f = await electronFixture(t);
+  let failed = 0;
+  installPrimaryMainGuard(f.electron, {
+    origin,
+    nonce,
+    channel: f.channel,
+    appRoot: f.appRoot,
+    onFailure: () => {
+      failed++;
+    },
+  });
+  const replies = [];
+  f.defaultSession.webRequest.handler(
+    {
+      id: 11,
+      method: "GET",
+      resourceType: "mainFrame",
+      webContentsId: 7,
+      url: url(),
+    },
+    (value) => replies.push(value),
+  );
+  assert.deepEqual(replies, [{ cancel: true }]);
+  assert.equal(f.channel.sent.length, 0);
+  assert.equal(failed, 1);
+});
+
+test("secondary entry requires the original exact owned workspace and local Git directory", async (t) => {
+  const f = await electronFixture(t);
+  const workspace = join(f.root, "project");
+  await mkdir(workspace);
+  await mkdir(join(workspace, ".git"));
+  let imports = 0;
+  await startPrimaryMainEntry(
+    f.electron,
+    { argv: ["electron", "app", "--open-workspace", workspace] },
+    {
+      appRoot: f.appRoot,
+      ownedRoot: f.root,
+      origin,
+      loadMain: async () => {
+        imports++;
+      },
+    },
+  );
+  assert.equal(imports, 1);
+  assert.ok(f.defaultSession.webRequest.handler);
+  for (const argv of [
+    ["electron", "app"],
+    ["electron", "app", "--open-workspace", workspace, "extra"],
+    ["electron", "app", "--open-workspace", f.appRoot],
+  ]) {
+    await assert.rejects(
+      startPrimaryMainEntry(
+        f.electron,
+        { argv },
+        {
+          appRoot: f.appRoot,
+          ownedRoot: f.root,
+          origin,
+          loadMain: async () => {
+            throw Error("must not import");
+          },
+        },
+      ),
+    );
+  }
+});
+
+test("parent-to-child cancellation and disconnect never release an SSO allow", async (t) => {
+  const f = await electronFixture(t);
+  let failed = 0;
+  const guard = installPrimaryMainGuard(f.electron, {
+    origin,
+    nonce,
+    channel: f.channel,
+    appRoot: f.appRoot,
+    onFailure: () => {
+      failed++;
+    },
+  });
+  f.app.emit("session-created", f.loginSession);
+  const replies = [];
+  f.loginSession.webRequest.handler(
+    {
+      id: 11,
+      method: "GET",
+      resourceType: "mainFrame",
+      webContentsId: 8,
+      url: url(),
+    },
+    (value) => replies.push(value),
+  );
+  guard.receive({ op: "cancel", nonce, id: 11 });
+  guard.disconnected();
+  assert.deepEqual(replies, [{ cancel: true }]);
+  assert.equal(failed, 1);
+});
+
+test("fixed DOM witness has only three visibility booleans and no authority reads", () => {
+  for (const forbidden of [
+    "href",
+    "token",
+    "cookie",
+    "innerHTML",
+    "fetch",
+    "service",
+    "window.zcode",
+  ])
+    assert.ok(!PRIMARY_AUTH_EXPRESSION.includes(forbidden));
+  assert.equal(
+    (PRIMARY_AUTH_EXPRESSION.match(/data-testid=/gu) ?? []).length,
+    3,
+  );
+});
+
+test("stalled fixed DOM witness has an absolute finite deadline", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const f = await electronFixture(t);
+  let failures = 0;
+  f.owner.executeJavaScript = () => new Promise(() => {});
+  const guard = installPrimaryMainGuard(f.electron, {
+    origin,
+    nonce,
+    channel: f.channel,
+    appRoot: f.appRoot,
+    onFailure: () => {
+      failures++;
+    },
+  });
+  f.app.emit("session-created", f.loginSession);
+  f.loginSession.webRequest.handler(
+    {
+      id: 11,
+      method: "GET",
+      resourceType: "mainFrame",
+      webContentsId: 8,
+      url: url(),
+    },
+    () => {},
+  );
+  f.guest.emit("destroyed");
+  t.mock.timers.tick(3000);
+  assert.equal(failures, 1);
+  assert.equal(guard.safeStatus().failed, true);
+  assert.ok(!f.channel.sent.some((message) => message.op === "authenticated"));
+});
+
+test("invalid private stop cannot run the graceful-stop callback", async (t) => {
+  const f = await electronFixture(t),
+    runtime = child();
+  let stops = 0;
+  const entry = startPrimaryMainEntry(f.electron, runtime, {
+    appRoot: f.appRoot,
+    ownedRoot: f.root,
+    origin,
+    loadMain: async () => {},
+    onStop: () => {
+      stops++;
+    },
+  });
+  runtime.emit("message", { op: "init", nonce, origin });
+  await entry;
+  runtime.emit("message", { op: "stop", nonce: "wrong" });
+  assert.equal(stops, 0);
+  assert.equal(f.exits(), 1);
+});
+
+test("private bootstrap env is scrubbed before production Main import, while Main IPC remains live", async (t) => {
+  const f = await electronFixture(t),
+    runtime = child();
+  runtime.env = {
+    NODE_CHANNEL_FD: "3",
+    NODE_CHANNEL_SERIALIZATION_MODE: "json",
+    UWORK_NATIVE_PRIMARY_LOGIN: "controlled",
+    UWORK_NATIVE_VIEWER_AUTH: "controlled",
+    PATH: "/owned/bin",
+    ZCODE_CREDENTIAL_SECRET: "finite-cipher",
+  };
+  let imported = false;
+  const entry = startPrimaryMainEntry(f.electron, runtime, {
+    appRoot: f.appRoot,
+    ownedRoot: f.root,
+    origin,
+    loadMain: async () => {
+      assert.deepEqual(Object.keys(runtime.env).sort(), [
+        "PATH",
+        "ZCODE_CREDENTIAL_SECRET",
+      ]);
+      assert.equal(typeof runtime.send, "function");
+      imported = true;
+    },
+  });
+  runtime.emit("message", { op: "init", nonce, origin });
+  await entry;
+  assert.equal(imported, true);
+  assert.ok(runtime.sent.some((message) => message.op === "ready"));
+});
+
+test("staged common writes the exact primary member quota while default remains unchanged", async () => {
+  const source = await readFile(
+    new URL("./client-native-enterprise.mjs", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("const limitMemberId = primaryLimitMemberId(");
+  const end = source.indexOf("let workflowTestLimits;", start);
+  assert.ok(start > 0 && end > start);
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  const execute = new AsyncFunction(
+    "primaryLoginEnabled",
+    "primaryLimitMemberId",
+    "member",
+    "primaryMember",
+    "api",
+    "p",
+    "initialLimitAmounts",
+    source.slice(start, end),
+  );
+  for (const primary of [false, true]) {
+    const calls = [];
+    await execute(
+      primary,
+      primaryLimitMemberId,
+      { id: "journey-a" },
+      { id: "primary-member" },
+      async (path, method, body) => {
+        calls.push({ path, method, body });
+        return { ok: true };
+      },
+      "/tenant",
+      { member: 123 },
+    );
+    assert.deepEqual(calls, [
+      {
+        path: "/tenant/limits",
+        method: "PUT",
+        body: {
+          subjectType: "member",
+          subjectId: primary ? "primary-member" : "journey-a",
+          amount: 123,
+        },
+      },
+    ]);
+  }
+});
+
+test("generated primary CJS entry parses, imports the guard first and contains no RAM bindings", async () => {
+  const source = await readFile(
+    new URL("./client-native-enterprise.mjs", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf(
+    'await writeFile(\n  join(appRoot, "entry.cjs"),',
+  );
+  const end = source.indexOf("\n);", start) + 3;
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  let content;
+  await new AsyncFunction(
+    "writeFile",
+    "join",
+    "appRoot",
+    "root",
+    "origin",
+    "evidence",
+    "pathToFileURL",
+    "primaryLoginEnabled",
+    source.slice(start, end),
+  )(
+    async (_path, bytes) => {
+      content = bytes;
+    },
+    join,
+    "/owned/app",
+    "/owned",
+    origin,
+    "evidence/owned",
+    pathToFileURL,
+    true,
+  );
+  new Script(content);
+  assert.ok(content.includes("startPrimaryMainEntry"));
+  assert.ok(
+    content.indexOf("native-primary-login-adapter.mjs") <
+      content.indexOf("loadMain:()=>import"),
+  );
+  for (const forbidden of ["primaryNonce", "primarySupplierKey", nonce])
+    assert.ok(!content.includes(forbidden));
+  const snapshotStart = source.indexOf(
+    "async function saveExperienceProof(name)",
+  );
+  const snapshotEnd = source.indexOf("let closing = false;", snapshotStart);
+  assert.equal(
+    createHash("sha256")
+      .update(source.slice(snapshotStart, snapshotEnd))
+      .digest("hex"),
+    "f17ae3d5813b4c24e91f43e1732197ebd652d8726138eebe92340e893594240c",
+  );
+});
+
+test("actual common primary logging branch drains counters and never constructs a raw log sink", async () => {
+  const source = await readFile(
+    new URL("./client-native-enterprise.mjs", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf(
+    "  if (primaryLoginEnabled) {\n    const ownedChild = electron;",
+  );
+  const end = source.indexOf(
+    '  console.log(\n    JSON.stringify({ event: "launched"',
+    start,
+  );
+  assert.ok(start > 0 && end > start);
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  const c = child();
+  let created = 0;
+  c.stdout.pipe = c.stderr.pipe = () => {
+    throw Error("raw log pipe forbidden");
+  };
+  await new AsyncFunction(
+    "primaryLoginEnabled",
+    "electron",
+    "createPrimaryParentBridge",
+    "primaryNonce",
+    "origin",
+    "primaryLoginHold",
+    "let primaryBridge;\n" + source.slice(start, end),
+  )(
+    true,
+    c,
+    () => {
+      created++;
+      return { ready: Promise.resolve(), dispose() {} };
+    },
+    nonce,
+    origin,
+    {},
+  );
+  assert.equal(created, 1);
+});
