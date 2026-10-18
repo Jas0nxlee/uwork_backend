@@ -107,7 +107,12 @@ def key(name, code, modifiers=0, keycode=None):
     params = dict(key=name, code=code, modifiers=modifiers)
     if keycode is not None:
         params["windowsVirtualKeyCode"] = keycode
-    cdp("Input.dispatchKeyEvent", type="keyDown", **params)
+    down = dict(params)
+    # 同 Electron 实测：纯 down/up 不触发表单默认提交；普通 Enter 需要回车文本。
+    # 仅补无修饰键的主 Enter，组合键与 keyUp 保持原协议，避免快捷键误输入文本。
+    if name == "Enter" and code == "Enter" and modifiers == 0:
+        down.update(text="\r", unmodifiedText="\r")
+    cdp("Input.dispatchKeyEvent", type="keyDown", **down)
     cdp("Input.dispatchKeyEvent", type="keyUp", **params)
 
 
