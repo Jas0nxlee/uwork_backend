@@ -104,7 +104,10 @@
 - [x] G04e 同页真实私有配置 pending 保留P→约10s超时清旧D→正常读取恢复P；退出时关闭新在途读取，恢复传输后63次/31,570ms旧排序无回灌。53条观察记录、11份模型/账本快照零Native增量；含正常scope失效，不冒称独立catch、直接插件版本交付或成功晚到。见 `docs/client-native-configuration-lifecycle-test-2026-10-18.md`。
 - [x] G04f 自有插件 Native 12阶段与3代冷启：安装/禁用与label/V2更新/orphan/重添Source/取消不变/确认清全部版本owner/不复活；15完整模型/账本快照零Native增量，设置“浏览插件”导航修复实际通过。34已知PID/5ports独立收口，外部写FD保0700及fixture非优雅边界、运行后out副本漂移另行隔离重建均如实记录；见 `docs/client-native-owned-plugin-test-2026-10-18.md`。不替代官方安装、插件执行、全部Workspace覆盖或三平台安装。
 - [x] G07c Native文件预览/添加/移除原范围保留；v3另经原mention→返回任务→发送，A指定Read call带行号正文进入后继模型（3Native/66），同task B在FS=false发布回读后Read拒绝且新B marker缺失（新增2Native/44）。Native5请求/5settled/5Trace/110，另2B/44基线分列；69公开文件及资源终态封存。发送前撤权不冒充OS Read等待中撤权，见 `docs/client-native-file-context-test-2026-10-19.md`。
+- [ ] G07e 原Composer本机附件→真实NSOpenPanel→独立附件正文消费的企业filesystem准入。源码确认ordinary/steering本地附件不经builtin Read门，先真实Runtime RED，再补同原port/managed owner释放前复验；覆盖text/image/video/PDF、派生artifact写前与取消，标准构建后原OS选择/允许/拒绝/取消真实验收。见 `clients/uwork/specs/enterprise-attachment-consumption.md`。
 
 - [x] Standalone Web v8在Electron41内嵌Chromium完成11项原DOM业务，含Cookie/FirstRun/目录/文件预览/reload恢复；uiDriver0、275已知PID/2ports闭。controller1为FD不完整保根，旧Chrome超时/未知根因保留，不冒称Chrome、自动reconnect或Web企业认证；见 `docs/client-web-standalone-dom-test-2026-10-19.md`。
 
 - [x] G04i v5普通member经原PluginManagementService/正常新CLI完成非默认manifest根三文件、D/S禁启catalog及别名；同S A正文/baseDirectory进入后继模型，personal.skills=false后未消费B拒绝且无B正文，恢复目录零额外模型。baseline0、原发送2次，5模型/5settled/5Trace、25 input/10 output、45 Credit，request↔ledger真实复合键关联，Trace/supplier独立；v1–v4零模型失败保留，不重演G04f Native生命周期，见 `docs/client-plugin-skill-bridge-test-2026-10-19.md`。
+
+- [ ] W03 原server-cli前台serve/status/restart/stop与Supervisor/Core真实生命周期：单独正常server-cli构建，owned root/loopback File/System哨兵、Core代次更换、重复serve拒绝与资源收口；不冒称Cookie/企业authority、daemon/OS服务或Node runtime下载。W01/W02直接Server入口不替代。
