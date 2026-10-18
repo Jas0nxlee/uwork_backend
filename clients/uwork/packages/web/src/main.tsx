@@ -11,6 +11,11 @@ import {
 } from "@zcode/ui";
 import "@zcode/ui/styles.css";
 import { connectViaWebSocket } from "@zcode/client";
+import {
+  connectWebBootstrap,
+  WebBootstrapErrorScreen,
+  type WebBootstrapFailureKind,
+} from "./webBootstrapConnection.js";
 import { WebCallbackPage } from "./auth/WebCallbackPage.js";
 import { createWebAuthService } from "./auth/webAuthService.js";
 import { WEB_ZAI_OAUTH_CONFIG, resolveWebAuthDevReturnTo } from "./auth/webZaiOAuthConfig.js";
@@ -388,37 +393,14 @@ async function resolveWebBootstrap(): Promise<WebBootstrapResult> {
   }
 }
 
-function WebBootstrapErrorScreen({ message }: { message: string }) {
-  return (
-    <div className="h-dvh min-h-dvh w-screen bg-background text-foreground">
-      <div className="mx-auto flex h-full w-full max-w-lg items-center px-4">
-        <section className="w-full rounded-xl border border-card-border bg-card p-5">
-          <div className="flex items-center gap-3">
-            <span className="size-2 rounded-full bg-destructive" />
-            <h1 className="text-ui-xs font-medium">
-              {/^zh\b/i.test(navigator.language) ? "Web 启动失败" : "Web bootstrap failed"}
-            </h1>
-          </div>
-          <p className="mt-2 break-all text-ui-xs/relaxed text-foreground-subtle">{message}</p>
-          <button
-            type="button"
-            className="mt-4 rounded-lg border border-border bg-surface px-3 py-2 text-ui-xs text-foreground-subtle hover:bg-surface-hover"
-            onClick={() => {
-              window.location.reload();
-            }}
-          >
-            {/^zh\b/i.test(navigator.language) ? "重试" : "Retry"}
-          </button>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function renderWebBootstrapError(error: unknown): void {
+function renderWebBootstrapError(kind: WebBootstrapFailureKind = "bootstrap"): void {
   document.title = "UWork - Web";
   root.render(
-    <WebBootstrapErrorScreen message={error instanceof Error ? error.message : String(error)} />,
+    <WebBootstrapErrorScreen
+      kind={kind}
+      language={navigator.language}
+      onRetry={() => window.location.reload()}
+    />,
   );
 }
 
@@ -437,42 +419,45 @@ async function bootstrapWebApp() {
   let bootstrap: WebBootstrapResult;
   try {
     bootstrap = await resolveWebBootstrap();
-  } catch (error) {
-    renderWebBootstrapError(error);
+  } catch {
+    renderWebBootstrapError();
     return;
   }
 
   try {
-    const services = await connectViaWebSocket(bootstrap.wsUrl, {
-      onClose: () => {},
-    });
-    const platform = createWebPlatform();
-    document.title = "UWork - Web + Server";
+    await connectWebBootstrap({
+      connect: (onClose) => connectViaWebSocket(bootstrap.wsUrl, { onClose }),
+      renderConnected: (services) => {
+        const platform = createWebPlatform();
+        document.title = "UWork - Web + Server";
 
-    root.render(
-      <AppErrorBoundary>
-        <ZCodeIntlProvider
-          settingService={services.settingService}
-          broadcastService={services.broadcastService}
-        >
-          <Root
-            enterpriseIdentityReadOnly={bootstrap.enterpriseIdentityReadOnly}
-            services={services}
-            platform={platform}
-            initialWorkspaceAbsPath={bootstrap.initialWorkspaceAbsPath}
-            initialWorkspaceIdentity={bootstrap.initialWorkspaceIdentity}
-            initialTaskId={bootstrap.initialTaskId}
-            restoreSession={bootstrap.restoreSession}
-            allowOpenWorkspace={bootstrap.allowOpenWorkspace}
-            preferDirectoryBrowser
-            supportsEmbeddedBrowser={false}
-            allowRemoteWorkspace={false}
-          />
-        </ZCodeIntlProvider>
-      </AppErrorBoundary>,
-    );
-  } catch (error) {
-    renderWebBootstrapError(error);
+        root.render(
+          <AppErrorBoundary>
+            <ZCodeIntlProvider
+              settingService={services.settingService}
+              broadcastService={services.broadcastService}
+            >
+              <Root
+                enterpriseIdentityReadOnly={bootstrap.enterpriseIdentityReadOnly}
+                services={services}
+                platform={platform}
+                initialWorkspaceAbsPath={bootstrap.initialWorkspaceAbsPath}
+                initialWorkspaceIdentity={bootstrap.initialWorkspaceIdentity}
+                initialTaskId={bootstrap.initialTaskId}
+                restoreSession={bootstrap.restoreSession}
+                allowOpenWorkspace={bootstrap.allowOpenWorkspace}
+                preferDirectoryBrowser
+                supportsEmbeddedBrowser={false}
+                allowRemoteWorkspace={false}
+              />
+            </ZCodeIntlProvider>
+          </AppErrorBoundary>,
+        );
+      },
+      renderDisconnected: () => renderWebBootstrapError("disconnected"),
+    });
+  } catch {
+    renderWebBootstrapError();
   }
 }
 
