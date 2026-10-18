@@ -26,6 +26,7 @@ npm start
 - [企业内会话分享规格](SPEC-enterprise-sharing.md)
 - [企业成员分享真实客户端与浏览页联测](docs/client-member-sharing-test-2026-10-18.md)
 - [Native 分享打开与匿名访问保护](docs/client-native-share-browser-test-2026-10-18.md)
+- [Native 分享页成员登录、只读阅读与退出](docs/client-native-member-viewer-test-2026-10-18.md)
 - [企业用量界面异步视图修复](docs/client-gateway-view-delivery-test-2026-10-18.md)
 - [Native 测试驱动 Enter 与超时修复](docs/client-native-test-driver-2026-10-18.md)
 - [自有插件 Native 生命周期验收](docs/client-native-owned-plugin-test-2026-10-18.md)

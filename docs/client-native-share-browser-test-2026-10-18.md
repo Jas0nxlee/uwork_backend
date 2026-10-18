@@ -2,6 +2,8 @@
 
 2026-10-18。实际 Electron 生产构建通过原分享按钮发布一次会话，再通过成功面板原“浏览器打开”按钮打开同一产物；本轮已验证打开与匿名保护，登录后阅读和退出没有完成。
 
+后续已在全新独立运行补齐成员登录、只读阅读和退出，见[新增联测](client-native-member-viewer-test-2026-10-18.md)。下文保留本次历史运行的原始范围与失败。
+
 这次核实了打开入口的真实 owner：Desktop 的 `SessionPane → useAppPanels → UnifiedBrowserView` 打开应用内 webview，使用独立的 `persist:zcode-embedded-browser` 会话。它没有调用系统默认浏览器，也不能把 Host 私有企业身份当作浏览页已登录。
 
 正常对话实际产生主请求和标题请求各一次，新增两笔 settled、44 内部 Credit；连同初始化共四次、88 Credit。原 ShareService/CLI 投影/私有 scope 产生 prepare 201、confirm 200，各一次，新增 confirmed 恰一条、三行投影、零附件，身份及摘要吻合。分享和浏览阶段模型与账本没有增量；供应商为本机受控服务。
