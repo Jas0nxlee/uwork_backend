@@ -57,6 +57,11 @@ import {
   createNativeConfigurationCapture,
   isNativeConfigurationWitnessEnabled,
 } from "./native-configuration-capture.mjs";
+import {
+  createNativeGatewayUsageHold,
+  gatewayUsageHoldModeEnabled,
+  isNativeGatewayUsageHoldCommand,
+} from "./native-gateway-usage-hold.mjs";
 const fixtureName =
   process.env.UWORK_NATIVE_FIXTURE_NAME ?? "client-native-enterprise-20261017";
 if (!/^client-native-[a-z0-9-]+$/.test(fixtureName))
@@ -91,6 +96,20 @@ const fileContextEnabled = fileContextModeEnabled(
   process.env.UWORK_NATIVE_PRIMARY_LOGIN,
   process.env.UWORK_NATIVE_FILE_CONTEXT,
 );
+const gatewayUsageRaceEnabled = gatewayUsageHoldModeEnabled(
+  experienceMode,
+  Boolean(
+    dynamicWorkflowMode ||
+      viewerAuthEnabled ||
+      primaryLoginEnabled ||
+      fileContextEnabled,
+  ),
+  process.env.UWORK_NATIVE_GATEWAY_USAGE_HOLD,
+  fixtureName,
+);
+const gatewayUsageHold = gatewayUsageRaceEnabled
+  ? createNativeGatewayUsageHold()
+  : undefined;
 if (
   fileContextEnabled &&
   !fixtureName.startsWith("client-native-file-context-")
@@ -608,6 +627,7 @@ function observeConfigurationResponse(req, res, save) {
 const proxy = httpsServer(
   { key: await readFile(key), cert: await readFile(cert) },
   (req, res) => {
+    const usageRequestStartedAtMs = gatewayUsageHold ? Date.now() : undefined;
     if (adminSnapshot?.serve(req, res)) return;
     const configurationReceipt =
       req.method === "GET" &&
@@ -636,7 +656,16 @@ const proxy = httpsServer(
           reply.pause();
           configurationReplies.add(deliver);
           res.once("close", () => configurationReplies.delete(deliver));
-        } else deliver();
+        } else if (
+          !gatewayUsageHold?.hold(
+            req,
+            res,
+            reply,
+            deliver,
+            usageRequestStartedAtMs,
+          )
+        )
+          deliver();
       },
     );
     target.on("error", () => {
@@ -1488,6 +1517,7 @@ async function close() {
   controlledPrimaryAuth?.dispose();
   primaryLoginHold?.dispose();
   primarySupplierWitness?.dispose();
+  gatewayUsageHold?.dispose();
   primaryBridge?.expectStop();
   const errors = [];
   const attempt = async (operation) => {
@@ -1526,7 +1556,8 @@ async function close() {
     { mode: 0o600 },
   );
   paths.setDataBaseDir(null);
-  if (!errors.length)
+  // 本用例的 EOF/TERM 也必须保留新根，不能因旧 close() 无错误就删除未知 FD 仍可能持有的资料。
+  if (!errors.length && !gatewayUsageRaceEnabled)
     await attempt(() => rm(root, { recursive: true, force: true }));
   await writeFile(
     evidence + "/cleanup.json",
@@ -1535,7 +1566,8 @@ async function close() {
         errors,
         electronExited: !electron,
         serversClosed: !upstream.listening && !proxy.listening,
-        ownedRootRemoved: !errors.length,
+        ownedRootRemoved: !errors.length && !gatewayUsageRaceEnabled,
+        ...(gatewayUsageRaceEnabled ? { ownedRootPreserved: true } : {}),
       },
       null,
       2,
@@ -1602,7 +1634,10 @@ rl.on("line", async (line) => {
       await (fileContextEnabled
         ? saveFileContextProof(c.name)
         : saveExperienceProof(c.name));
-    else if (c.op === "pauseConfiguration") configurationPaused = true;
+    else if (gatewayUsageHold && isNativeGatewayUsageHoldCommand(c)) {
+      console.log(JSON.stringify(gatewayUsageHold.command(c)));
+      return;
+    } else if (c.op === "pauseConfiguration") configurationPaused = true;
     else if (c.op === "resumeConfiguration") {
       configurationPaused = false;
       for (const deliver of configurationReplies) deliver();
