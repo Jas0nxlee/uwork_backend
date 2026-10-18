@@ -30,6 +30,20 @@ import {
 } from "./native-controlled-viewer-auth.mjs";
 import { validateOwnedNativeWorkspace } from "./native-owned-workspace.mjs";
 import {
+  primaryLoginModeEnabled,
+  runNativeEmailBootstrap,
+  primaryLoginPublicConfig,
+  preparePrimaryLoginMember,
+  createPrimaryLoginHold,
+  primaryLimitMemberId,
+  createPrimarySupplierWitness,
+} from "./native-primary-login.mjs";
+import {
+  PRIMARY_ADAPTER_REVIEWED,
+  assertPrimaryCommand,
+  createPrimaryParentBridge,
+} from "./native-primary-login-adapter.mjs";
+import {
   MAX_NATIVE_CONFIGURATION_BYTES,
   createNativeConfigurationCapture,
   isNativeConfigurationWitnessEnabled,
@@ -50,6 +64,12 @@ const viewerAuthEnabled = viewerAuthModeEnabled(
   experienceMode,
   dynamicWorkflowMode,
   process.env.UWORK_NATIVE_VIEWER_AUTH,
+);
+const primaryLoginEnabled = primaryLoginModeEnabled(
+  experienceMode,
+  dynamicWorkflowMode,
+  process.env.UWORK_NATIVE_VIEWER_AUTH,
+  process.env.UWORK_NATIVE_PRIMARY_LOGIN,
 );
 const configurationWitnessEnabled = isNativeConfigurationWitnessEnabled(
   experienceMode,
@@ -175,7 +195,25 @@ const messageText = (message) =>
     : Array.isArray(message?.content)
       ? message.content.map((part) => part.text ?? "").join("")
       : "";
+const primarySupplierKey = primaryLoginEnabled
+  ? randomBytes(24).toString("hex")
+  : undefined;
+const primarySupplierWitness = primaryLoginEnabled
+  ? createPrimarySupplierWitness(primarySupplierKey)
+  : undefined;
 const upstream = httpServer(async (req, res) => {
+  if (
+    primarySupplierWitness &&
+    !primarySupplierWitness.check(req.url, req.headers.authorization)
+  ) {
+    req.resume();
+    res
+      .writeHead(401, { "content-type": "application/json" })
+      .end(
+        JSON.stringify({ error: "Controlled supplier authorization rejected" }),
+      );
+    return;
+  }
   const traceRequestStartedAtMs =
     configurationWitnessEnabled && req.url === "/v1/traces"
       ? Date.now()
@@ -543,6 +581,13 @@ const origin = `https://127.0.0.1:${proxy.address().port}`;
 const controlledViewerAuth = viewerAuthEnabled
   ? createNativeControlledViewerAuth()
   : undefined;
+const controlledPrimaryAuth = primaryLoginEnabled
+  ? createNativeControlledViewerAuth()
+  : undefined;
+const primaryNonce = primaryLoginEnabled
+  ? randomBytes(32).toString("base64url")
+  : undefined;
+let primaryLoginHold, primaryMember, primaryBridge;
 const app = await createApp({
   database: join(root, "backend.sqlite"),
   masterKey: randomBytes(32),
@@ -550,8 +595,26 @@ const app = await createApp({
   ...(controlledViewerAuth
     ? { wecomProvider: controlledViewerAuth.provider }
     : {}),
+  ...(controlledPrimaryAuth
+    ? { wecomProvider: controlledPrimaryAuth.provider }
+    : {}),
   allowPrivateUpstreams: true,
   worker: true,
+});
+// 仅被动投影原响应；解析/绑定失败记录到测试守卫，不能重写认证响应。
+app.addHook("onSend", async (req, reply, payload) => {
+  if (primaryLoginHold && req.method === "POST") {
+    try {
+      primaryLoginHold.observeResponse({
+        path: req.raw.url?.split(/[?#]/u, 1)[0],
+        status: reply.statusCode,
+        payload,
+      });
+    } catch {
+      primaryLoginHold.abort();
+    }
+  }
+  return payload;
 });
 app.addHook("onResponse", async (req, reply) => {
   const routeTemplate = req.routeOptions.url ?? null;
@@ -562,14 +625,16 @@ app.addHook("onResponse", async (req, reply) => {
     routeTemplate,
     pathname: controlledViewerAuth
       ? viewerAuthSafePath(req.raw.url)
-      : pathOnly?.startsWith("/")
-        ? pathOnly
-        : null,
+      : controlledPrimaryAuth
+        ? viewerAuthSafePath(req.raw.url)
+        : pathOnly?.startsWith("/")
+          ? pathOnly
+          : null,
     status: reply.statusCode,
   });
 });
 const password = randomBytes(24).toString("hex");
-if (experienceMode)
+if (experienceMode && !primaryLoginEnabled)
   await writeFile(
     join(root, "browser-login.json"),
     JSON.stringify({ email: "desktop-owner@example.test", password }),
@@ -611,7 +676,7 @@ admin = (await login()).token;
 const p = "/api/tenants/" + owner.tenantId;
 const credential = await api(p + "/credentials", "POST", {
   name: "controlled",
-  value: randomBytes(24).toString("hex"),
+  value: primarySupplierKey ?? randomBytes(24).toString("hex"),
 });
 const model = await api(p + "/models", "POST", {
   name: "联动受控模型",
@@ -650,6 +715,23 @@ if (controlledViewerAuth) {
   });
   controlledViewerAuth.observeOwnAttempts(app.server, { origin });
 }
+if (controlledPrimaryAuth) {
+  primaryMember = await preparePrimaryLoginMember({
+    controller: controlledPrimaryAuth,
+    api,
+    tenantPrefix: p,
+    tenantId: owner.tenantId,
+    departmentId: dA.id,
+  });
+  controlledPrimaryAuth.observeOwnAttempts(app.server, { origin });
+  primaryLoginHold = createPrimaryLoginHold({
+    origin,
+    tenantId: owner.tenantId,
+    nonce: primaryNonce,
+    completeBackend: async () =>
+      controlledPrimaryAuth.complete({ origin, ca: await readFile(cert) }),
+  });
+}
 const initialLimitAmounts = {
   department:
     dynamicWorkflowMode === "alwaysOn" || experienceMode ? 3000000 : 200000,
@@ -661,19 +743,24 @@ const departmentLimitAcknowledgement = await api(p + "/limits", "PUT", {
   subjectId: dA.id,
   amount: initialLimitAmounts.department,
 });
+const limitMemberId = primaryLimitMemberId(
+  primaryLoginEnabled,
+  member.id,
+  primaryMember?.id,
+);
 const memberLimitAcknowledgement = await api(p + "/limits", "PUT", {
   subjectType: "member",
-  subjectId: member.id,
+  subjectId: limitMemberId,
   amount: initialLimitAmounts.member,
 });
 let workflowTestLimits;
-if (dynamicWorkflowMode === "alwaysOn") {
+if (dynamicWorkflowMode === "alwaysOn" || primaryLoginEnabled) {
   const limits = await api(p + "/limits");
   const department = limits.find(
     (row) => row.subject_type === "department" && row.subject_id === dA.id,
   );
   const memberLimit = limits.find(
-    (row) => row.subject_type === "member" && row.subject_id === member.id,
+    (row) => row.subject_type === "member" && row.subject_id === limitMemberId,
   );
   if (
     departmentLimitAcknowledgement.ok !== true ||
@@ -685,11 +772,11 @@ if (dynamicWorkflowMode === "alwaysOn") {
   workflowTestLimits = {
     at: new Date().toISOString(),
     fixtureName,
-    mode: dynamicWorkflowMode,
+    mode: dynamicWorkflowMode ?? "primary-login",
     configuredVia: "tenant limits PUT and GET APIs",
     verifiedByGet: true,
     department: { subjectId: dA.id, amount: department.amount },
-    member: { subjectId: member.id, amount: memberLimit.amount },
+    member: { subjectId: limitMemberId, amount: memberLimit.amount },
   };
   await writeFile(
     join(evidence, "initial-test-limits.json"),
@@ -697,59 +784,64 @@ if (dynamicWorkflowMode === "alwaysOn") {
     { mode: 0o600 },
   );
 }
-const bobPassword = randomBytes(24).toString("hex");
-await api(p + "/members", "POST", {
-  email: "journey-b@example.test",
-  name: "企业用户乙",
-  password: bobPassword,
-  role: "member",
-  departmentId: dB.id,
-  seat: true,
-});
-const bobToken = (
-  await api(
-    "/api/auth/login",
-    "POST",
-    { email: "journey-b@example.test", password: bobPassword },
-    undefined,
-  )
-).token;
-for (let i = 0; i < 2; i++)
-  await api(
-    "/v1/chat/completions",
-    "POST",
-    {
-      model: model.id,
-      messages: [{ role: "user", content: "other-user-test" }],
-      max_tokens: 16,
-    },
-    bobToken,
-  );
-await api("/api/auth/logout", "POST", undefined, bobToken);
-const identity = (
+let identity, me;
+await runNativeEmailBootstrap(primaryLoginEnabled, async () => {
+  const bobPassword = randomBytes(24).toString("hex");
+  await api(p + "/members", "POST", {
+    email: "journey-b@example.test",
+    name: "企业用户乙",
+    password: bobPassword,
+    role: "member",
+    departmentId: dB.id,
+    seat: true,
+  });
+  const bobToken = (
+    await api(
+      "/api/auth/login",
+      "POST",
+      { email: "journey-b@example.test", password: bobPassword },
+      undefined,
+    )
+  ).token;
+  for (let i = 0; i < 2; i++)
+    await api(
+      "/v1/chat/completions",
+      "POST",
+      {
+        model: model.id,
+        messages: [{ role: "user", content: "other-user-test" }],
+        max_tokens: 16,
+      },
+      bobToken,
+    );
+  await api("/api/auth/logout", "POST", undefined, bobToken);
+  identity = (
     await api(
       "/api/auth/login",
       "POST",
       { email: "journey-a@example.test", password: memberPassword },
       undefined,
     )
-  ).token,
+  ).token;
   me = await api("/api/auth/me", "GET", undefined, identity);
+});
 const configDir = join(home, ".uwork", "v2");
 await mkdir(configDir, { recursive: true, mode: 0o700 });
-const publicConfig = {
-  backend: "uwork",
-  apiBaseUrl: origin,
-  callbackUrl: origin + "/api/auth/wecom/callback",
-  organizations: [
-    {
-      orgId: owner.tenantId,
-      corpId: "ww-controlled-unused",
-      agentId: "1",
-      label: "本机联动测试",
-    },
-  ],
-};
+const publicConfig = primaryLoginEnabled
+  ? primaryLoginPublicConfig(origin, owner.tenantId)
+  : {
+      backend: "uwork",
+      apiBaseUrl: origin,
+      callbackUrl: origin + "/api/auth/wecom/callback",
+      organizations: [
+        {
+          orgId: owner.tenantId,
+          corpId: "ww-controlled-unused",
+          agentId: "1",
+          label: "本机联动测试",
+        },
+      ],
+    };
 await writeFile(
   join(configDir, "enterprise-identity.json"),
   JSON.stringify(publicConfig),
@@ -760,41 +852,43 @@ await writeFile(
   JSON.stringify({ httpProxyCaCertPath: cert }),
   { mode: 0o600 },
 );
-const load = (path) => import(pathToFileURL(join(client, path)).href);
-const paths = await load("packages/services/src/paths.ts");
-paths.setDataBaseDir(home);
-const { createCredentialService } = await load(
-  "packages/services/src/credential/credentialService.ts",
-);
-const { createCredentialCipherProvider } = await load(
-  "packages/services/src/credential/providers/credentialCipherProvider.ts",
-);
-const { createSharedIdentitySessionStore } = await load(
-  "packages/services/src/enterprise-identity/identitySessionStore.ts",
-);
-const credentials = createCredentialService({
-  cipherProvider: createCredentialCipherProvider({
-    env: { ZCODE_CREDENTIAL_SECRET: credentialSecret },
-  }),
-});
-const store = createSharedIdentitySessionStore(credentials, (operation) =>
-  operation(),
-);
-await store.write(
-  {
-    token: identity,
-    issuerOrigin: origin,
-    expiresAt: me.expiresAt,
-    profile: {
-      id: me.user.id,
-      tenantId: me.tenant.id,
-      displayName: me.user.name,
-      provider: "wecom",
+await runNativeEmailBootstrap(primaryLoginEnabled, async () => {
+  const load = (path) => import(pathToFileURL(join(client, path)).href);
+  const paths = await load("packages/services/src/paths.ts");
+  paths.setDataBaseDir(home);
+  const { createCredentialService } = await load(
+    "packages/services/src/credential/credentialService.ts",
+  );
+  const { createCredentialCipherProvider } = await load(
+    "packages/services/src/credential/providers/credentialCipherProvider.ts",
+  );
+  const { createSharedIdentitySessionStore } = await load(
+    "packages/services/src/enterprise-identity/identitySessionStore.ts",
+  );
+  const credentials = createCredentialService({
+    cipherProvider: createCredentialCipherProvider({
+      env: { ZCODE_CREDENTIAL_SECRET: credentialSecret },
+    }),
+  });
+  const store = createSharedIdentitySessionStore(credentials, (operation) =>
+    operation(),
+  );
+  await store.write(
+    {
+      token: identity,
+      issuerOrigin: origin,
+      expiresAt: me.expiresAt,
+      profile: {
+        id: me.user.id,
+        tenantId: me.tenant.id,
+        displayName: me.user.name,
+        provider: "wecom",
+      },
     },
-  },
-  0,
-  () => true,
-);
+    0,
+    () => true,
+  );
+});
 await writeFile(
   join(appRoot, "package.json"),
   JSON.stringify({
@@ -803,9 +897,22 @@ await writeFile(
     main: "entry.cjs",
   }),
 );
+if (primaryLoginEnabled) {
+  for (const name of [
+    "native-primary-login-adapter.mjs",
+    "native-owned-workspace.mjs",
+  ])
+    await copyFile(
+      join(process.cwd(), "scripts/fixtures", name),
+      join(appRoot, name),
+      fsConstants.COPYFILE_EXCL,
+    );
+}
 await writeFile(
   join(appRoot, "entry.cjs"),
-  `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,appPath:app.getAppPath(),helpFallbackPath:require('node:path').join(app.getAppPath(),'../../config/default.json'),dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null,defaultProtocolRegistrationSuppressed:true,recentDocumentsClearSuppressed:true}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;app.clearRecentDocuments=()=>{};import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
+  primaryLoginEnabled
+    ? `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,appPath:app.getAppPath(),helpFallbackPath:require('node:path').join(app.getAppPath(),'../../config/default.json'),dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null,defaultProtocolRegistrationSuppressed:true,recentDocumentsClearSuppressed:true}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;app.clearRecentDocuments=()=>{};const electron=require('electron');import('./native-primary-login-adapter.mjs').then(({startPrimaryMainEntry})=>startPrimaryMainEntry(electron,process,{appRoot:__dirname,ownedRoot:${JSON.stringify(root)},origin:${JSON.stringify(origin)},loadMain:()=>import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)})})).catch(()=>app.exit(70));`
+    : `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,appPath:app.getAppPath(),helpFallbackPath:require('node:path').join(app.getAppPath(),'../../config/default.json'),dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null,defaultProtocolRegistrationSuppressed:true,recentDocumentsClearSuppressed:true}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;app.clearRecentDocuments=()=>{};import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
 );
 // 未打包的 Main 会搜索开发环境文件；拷贝正式产物到隔离根，不能借源目录启动。
 const outSnapshot = await copyNativeOutSnapshot({
@@ -868,12 +975,13 @@ const meta = {
   copiedProductionMain: true,
   supplierOrigin: `http://127.0.0.1:${upstream.address().port}`,
   tenantId: owner.tenantId,
-  memberId: member.id,
+  memberId: primaryMember?.id ?? member.id,
   departmentId: dA.id,
   cdpPort,
   pid: process.pid,
-  identityInitialization:
-    "email HTTP session encrypted with production credential/shared-store; no WeCom request",
+  identityInitialization: primaryLoginEnabled
+    ? "empty native identity; public backend config only; no member email/store/model bootstrap"
+    : "email HTTP session encrypted with production credential/shared-store; no WeCom request",
   nativeBoundary:
     "default URL protocol registration and recent-document clearing suppressed in owned launcher only; no OS registration/recent-document acceptance claimed",
 };
@@ -1007,6 +1115,11 @@ function nativeEnvironment() {
   });
 }
 async function launch() {
+  // 完整测试适配器保留独审锁；Root独立代码审查通过后才可解除，不以有限合同冒充Native通过。
+  if (primaryLoginEnabled && !PRIMARY_ADAPTER_REVIEWED)
+    throw Error(
+      "Primary login adapter awaits independent review before Native Go",
+    );
   if (electron) throw Error("Already launched");
   electron = spawn(
     runtime.electron,
@@ -1021,23 +1134,46 @@ async function launch() {
       cwd: appRoot,
       detached: true,
       env: nativeEnvironment(),
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: primaryLoginEnabled
+        ? ["ignore", "pipe", "pipe", "ipc"]
+        : ["ignore", "pipe", "pipe"],
     },
   );
-  const { createWriteStream } = await import("node:fs");
-  const log = createWriteStream(evidence + "/electron.log", {
-    mode: 0o600,
-    ...(dynamicWorkflowMode === "alwaysOn" || experienceMode
-      ? { flags: "a" }
-      : {}),
-  });
-  electron.stdout.pipe(log);
-  electron.stderr.pipe(log);
-  electron.once("exit", (code) => {
-    console.log(JSON.stringify({ event: "electron-exit", code }));
-    electron = undefined;
-    log.end();
-  });
+  if (primaryLoginEnabled) {
+    const ownedChild = electron;
+    const ownedBridge = createPrimaryParentBridge(ownedChild, {
+      nonce: primaryNonce,
+      origin,
+      hold: primaryLoginHold,
+      onFailure: () => {
+        if (ownedChild.exitCode === null && ownedChild.signalCode === null)
+          try {
+            process.kill(-ownedChild.pid, "SIGTERM");
+          } catch {}
+      },
+    });
+    primaryBridge = ownedBridge;
+    ownedChild.once("exit", () => {
+      ownedBridge.dispose();
+      if (electron === ownedChild) electron = undefined;
+    });
+    await ownedBridge.ready;
+  } else {
+    const { createWriteStream } = await import("node:fs");
+    const log = createWriteStream(evidence + "/electron.log", {
+      mode: 0o600,
+      ...(dynamicWorkflowMode === "alwaysOn" || experienceMode
+        ? { flags: "a" }
+        : {}),
+    });
+    electron.stdout.pipe(log);
+    electron.stderr.pipe(log);
+    electron.once("exit", (code) => {
+      console.log(JSON.stringify({ event: "electron-exit", code }));
+      electron = undefined;
+      log.end();
+    });
+  }
   console.log(
     JSON.stringify({ event: "launched", pid: electron.pid, cdpPort }),
   );
@@ -1107,6 +1243,7 @@ async function openWorkspace(workspacePath) {
 async function stopNative() {
   const child = electron;
   if (!child) return;
+  if (primaryLoginEnabled) primaryBridge?.expectStop();
   const wait = (milliseconds) =>
     new Promise((resolve) => {
       if (child.exitCode !== null || child.signalCode !== null) {
@@ -1201,6 +1338,10 @@ async function close() {
   if (closing) return;
   closing = true;
   controlledViewerAuth?.dispose();
+  controlledPrimaryAuth?.dispose();
+  primaryLoginHold?.dispose();
+  primarySupplierWitness?.dispose();
+  primaryBridge?.expectStop();
   const errors = [];
   const attempt = async (operation) => {
     try {
@@ -1262,7 +1403,29 @@ const rl = createInterface({ input: process.stdin });
 rl.on("line", async (line) => {
   try {
     const c = JSON.parse(line);
-    if (c.op === "launch") await launch();
+    if (primaryLoginEnabled) assertPrimaryCommand(c);
+    if (c.op === "completePrimaryLogin" && primaryLoginHold) {
+      await primaryLoginHold.completeCallback();
+    } else if (c.op === "primaryLoginStatus" && primaryLoginHold) {
+      const ledger = app.services.db.all(
+        "SELECT user_id FROM ledger WHERE tenant_id=?",
+        owner.tenantId,
+      );
+      console.log(
+        JSON.stringify({
+          ...primaryLoginHold.safeStatus(),
+          adapter: primaryBridge?.safeStatus() ?? null,
+          supplier: primarySupplierWitness.safeStatus(),
+          primaryLedger: {
+            rows: ledger.length,
+            allBelongToMember: ledger.length
+              ? ledger.every((row) => row.user_id === primaryMember.id)
+              : null,
+          },
+        }),
+      );
+      return;
+    } else if (c.op === "launch") await launch();
     else if (c.op === "openWorkspace" && experienceMode)
       await openWorkspace(c.workspacePath);
     else if (
