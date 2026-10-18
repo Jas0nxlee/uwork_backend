@@ -32,9 +32,10 @@ class NativeFileContextUi:
  const rect=e=>{if(!shown(e))return null;const r=e.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2,h=document.elementFromPoint(x,y);return{x,y,hit:!!h&&(h===e||e.contains(h)),disabled:e.matches(':disabled')||e.getAttribute('aria-disabled')==='true'};};
  const mentions=s=>input?Array.from(input.querySelectorAll('[data-mention-category=files]')).filter(e=>e.dataset.mentionId==='dropped-file:'+names[s]).length:0;
  const menu=one(list(document,'[role=menuitem]').filter(e=>shown(e)&&e.textContent.trim()==='添加到聊天'));
+ const back=one(list(tid('workspace-file-tree-panel'),':scope > div:first-child > button').filter(e=>shown(e)&&e.textContent.trim()==='返回任务'));
  const reply=marker=>list(pane,'[data-testid^="v4-row-"][class~="group/assistant-row"] > [data-conversation-selectable="true"]').some(e=>shown(e)&&e.textContent.includes(marker));
  const model=one(list(tid('chat-model-select-trigger'),'.composer-provider-prefix + span'));
- return{authenticated:!!tid('enterprise-identity-name'),composerVisible:!!input,composerEmpty:text.trim()==='',promptA:text.includes(prompts.a),promptB:text.includes(prompts.b),mentionA:mentions('a'),mentionB:mentions('b'),workspaceMatches:tid('composer-workspace-trigger')?.innerText.trim()==='project-file-context',modelMatches:model?.textContent.trim()==='联动受控模型',stopPresent:!!tid('v4-stop'),replyA:reply('NATIVE_G07C_READ_CONFIRMED'),replyB:reply('NATIVE_G07C_DENIAL_CONFIRMED'),taskId,controls:{composer:rect(input),workspace:rect(tid(ids.workspace)),tree:rect(tid(ids.tree)),a:rect(tid(ids.a)),b:rect(tid(ids.b)),add:rect(menu)}};
+ return{authenticated:!!tid('enterprise-identity-name'),composerVisible:!!input,composerEmpty:text.trim()==='',promptA:text.includes(prompts.a),promptB:text.includes(prompts.b),mentionA:mentions('a'),mentionB:mentions('b'),workspaceMatches:tid('composer-workspace-trigger')?.innerText.trim()==='project-file-context',modelMatches:model?.textContent.trim()==='联动受控模型',stopPresent:!!tid('v4-stop'),replyA:reply('NATIVE_G07C_READ_CONFIRMED'),replyB:reply('NATIVE_G07C_DENIAL_CONFIRMED'),taskId,controls:{composer:rect(input),workspace:rect(tid(ids.workspace)),tree:rect(tid(ids.tree)),a:rect(tid(ids.a)),b:rect(tid(ids.b)),add:rect(menu),back:rect(back)}};
 })()""".replace("IDS", json.dumps(ids)).replace("PROMPTS", json.dumps(PROMPTS)).replace("NAMES", json.dumps(NAMES))
 
     def _own(self):
@@ -54,7 +55,7 @@ class NativeFileContextUi:
         if value["taskId"] is not None and (value["taskId"] == "draft" or not isinstance(value["taskId"], str) or not re.fullmatch(r"[A-Za-z0-9:_-]{1,160}", value["taskId"])):
             raise ValueError("FILE_UI_TASK_REJECTED")
         controls = value["controls"]
-        if not isinstance(controls, dict) or set(controls) != {"composer", "workspace", "tree", "a", "b", "add"}:
+        if not isinstance(controls, dict) or set(controls) != {"composer", "workspace", "tree", "a", "b", "add", "back"}:
             raise ValueError("FILE_UI_CONTROL_REJECTED")
         for rect in controls.values():
             if rect is not None and (not isinstance(rect, dict) or set(rect) != {"x", "y", "hit", "disabled"} or any(type(rect[k]) not in (int, float) or not math.isfinite(rect[k]) or abs(rect[k]) > 100000 for k in ("x", "y")) or type(rect["hit"]) is not bool or type(rect["disabled"]) is not bool):
@@ -120,6 +121,9 @@ class NativeFileContextUi:
             self._wait(lambda s: s["controls"]["add"] is not None)
             self._click("add")
             value = self._wait(lambda s: s["mention" + stage.upper()] == 1)
+            # 原文件树会隐藏账号侧栏；通过原返回按钮恢复可见性，不放宽发送前的身份检查。
+            self._click("back")
+            value = self._wait(lambda s: s["authenticated"] and all(s["controls"][key] is None for key in ("a", "b", "back")))
         else:
             if not value["prompt" + stage.upper()] or value["mention" + stage.upper()] != 1 or value["stopPresent"]:
                 raise ValueError("FILE_UI_DRAFT_REJECTED")

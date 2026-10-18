@@ -20,6 +20,8 @@
 
 UI 模块只定义 observe/prepare/mention/send A/B 固定动作，复用已审文件助手的 TID 和原右键流程，不重复文件预览，也不为预览自定义 protocol 放宽 guard。只读固定公开布尔、匹配结果、实际 task ID 与控件几何；没有任意 JS/Input 参数、DOM.click、React/editor 状态注入、Storage、Token、原始日志、AX 或截图。业务动作一次，任一失败停止依赖动作，不能重发以补足计数。
 
+文件树打开时，原侧栏会设置 `aria-hidden=true`，因此可见账号标识暂时消失。每次 mention 插入后，在同一动作内物理点击原“返回任务”按钮一次，等待账号标识重新可见且文件树关闭，再允许后续发送。保持原身份选择器、当前任务和发送前鉴权门槛；关闭文件树后身份仍缺失时必须停止，不能沿用旧身份布尔值。
+
 工作区 chip 属于原 ChatEmptyState，首轮只在其真实工作区匹配时输入；原发送后须取得非 draft 的实际 SessionPane task ID。第二轮沿此 ID 固定同一任务，不假定首发后工作区 chip 仍存在，也不把 draft 占位 ID 当作真实任务。原 UI 回复只在当前 pane 的正式 assistant selectable 行中匹配，stop 使用正式 v4-stop。
 
 ## 账本与有限事实
