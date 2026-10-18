@@ -54,11 +54,15 @@
 - [ ] U04 远程/移动、云/助理渠道及其余真实客户端入口逐项核验；支持的现有入口实际运行，缺环境/未实现项记明，不以本地 metadata 或布尔配置代替。
 - [ ] U05 每个缺口修复后定向复测，相关全量类型/Lint/格式/架构/构建通过，保留原始失败和清理证据，最终逐能力完成审计。
 
+已完成的本机阶段结果见 `docs/client-local-integration-acceptance-2026-10-19.md`。尚待G04i插件安装到Skill正文消费桥实测，U02–U05保持未勾；未实现/无入口、缺目标平台与用户排除项另列，不扩大为无穷测试组合。
+
 已完成的持续覆盖子项（不据此勾整个 U02/U03）：
 
-- [x] G07d 正式Read返回前绑定原账号/端口复验，撤权或换人扣留正文，原deadline/取消覆盖不合作授权端口且迟到allow不重复终态；Core119/Host292及标准类型/Lint/格式/架构通过。新正常CLI/Desktop构建后的真实后台+OS五阶段复测，实际11笔账本、55 input/22 output Token、99 Credit，凭据隔离与临时资源收口通过；Native G07c/G04h另待原界面验收，见 `docs/client-read-result-authorization-test-2026-10-18.md`。
+- [x] G04h 全新空身份原Native三epoch通过：七原FirstRun/prelogin全0，原登录/唯一callback/Host claim/guest关闭/自动选模；原主+标题2模型/2本人settled/2Trace/44，后台Key匹配2。同profile冷恢复无新attempt；公司/Gateway exact，原Back→原task→logout后拒发零增量、再冷启保持退出。受控provider/外部与平台边界保留，见 `docs/client-native-primary-login-progress-2026-10-18.md`。
 
-- [x] G04g 真实 React 登录 Provider 在 Native open未决时由poll先认证，之后旧null/ERR_ABORTED均不回退、不cancel/重复close或sync；新2+旧23一次25/25，类型/Lint（113既有警告）/架构/改动格式通过。运行器有限等待、已知进程与未知FD保根合同已修，90进程身份/两端口/两临时根独立收口；正常out6631逐SHA恢复。仅组件端口合同，客户端空身份原生登录仍待独立验收，详见 `docs/client-enterprise-login-polling-test-2026-10-18.md`。
+- [x] G07d 正式Read返回前绑定原账号/端口复验，撤权或换人扣留正文，原deadline/取消覆盖不合作授权端口且迟到allow不重复终态；Core119/Host292及标准类型/Lint/格式/架构通过。新正常CLI/Desktop构建后的真实后台+OS五阶段复测，实际11笔账本、55 input/22 output Token、99 Credit，凭据隔离与临时资源收口通过；Native G07c v3/G04h v8已另行完成原界面验收，见 `docs/client-read-result-authorization-test-2026-10-18.md`。
+
+- [x] G04g 真实 React 登录 Provider 在 Native open未决时由poll先认证，之后旧null/ERR_ABORTED均不回退、不cancel/重复close或sync；新2+旧23一次25/25，类型/Lint（113既有警告）/架构/改动格式通过。运行器有限等待、已知进程与未知FD保根合同已修，90进程身份/两端口/两临时根独立收口；正常out6631逐SHA恢复。仅组件端口合同，客户端空身份原生登录已由G04h v8独立完成，详见 `docs/client-enterprise-login-polling-test-2026-10-18.md`。
 
 - [x] G01 真实交互身份、跨企业/issuer 资产缓存、迟到下载、冷恢复及退出：2 项、279 次 HTTP、4 CLI。
 - [x] G02a 正式 CLI Agent 子任务继承私有 relay/目录与子派发前席位撤权：2 项及原 5 项回归。
@@ -73,7 +77,7 @@
 - [x] G08c 实际 Header/IdentityProvider/ShareMenu 浏览器回归复现旧 OAuth 入口门槛 4 项失败，单组件修复后同 8 场景通过；覆盖当前企业认证、退出、owner 切换、残留旧 user、任务及 Desktop 约束与无 context 兼容。类型/Lint/架构/严格 fixture 类型及新正常 Desktop 构建通过；实际 Native 发布已由 G08d 另行验收。
 - [x] G08d 实际 Electron 生产构建正常会话→原 ShareService/CLI 投影/私有 scope→后端 confirmed1/三公开行，prepare201/confirm200；原生一次发送含主/标题两本机请求与44新增内部Credit，分享零增量；同企业无席位reader200、匿名/退出401、只读continuation403。原错误码辅助断言仅对原响应离线修正，未重发/恢复随机凭据；13已知PID/5端口独立收口，retained0700及默认浏览器/剪贴板/安装包边界见 `docs/client-member-sharing-test-2026-10-18.md`。
 - [x] G08e 原 Native 成功面板打开同一分享产物，实际应用内 guest/独立 partition/同源 TLS 页与 JS/CSS/匿名 preview401通过；四请求、416px无溢出，分享浏览零模型增量。地址栏后续导航未形成有效证据，登录后阅读/退出仍开放，三原失败及两 followup 如实封存；14已知PID/5端口收口、外部写FD保留0700和软阈值停止见 `docs/client-native-share-browser-test-2026-10-18.md`。
-- [x] G08f 原 Native 发布→原打开→同 guest 成员登录/只读阅读→原退出通过，实际 preview401/200/401、logout204；普通 member 无席位、无撤销入口，分享/阅读模型账本与 Trace 零增量。受控 provider、原 TLS callback/Cookie claim各层保持，真实企微排除。五已知PID/五端口收口、私有根0700保留；取证误读隐藏状态文字已补十项回归，详见 `docs/client-native-member-viewer-test-2026-10-18.md`。客户端空身份原登录成功链路仍单列待验，不关闭整体U03。
+- [x] G08f 原 Native 发布→原打开→同 guest 成员登录/只读阅读→原退出通过，实际 preview401/200/401、logout204；普通 member 无席位、无撤销入口，分享/阅读模型账本与 Trace 零增量。受控 provider、原 TLS callback/Cookie claim各层保持，真实企微排除。五已知PID/五端口收口、私有根0700保留；取证误读隐藏状态文字已补十项回归，详见 `docs/client-native-member-viewer-test-2026-10-18.md`。客户端空身份原登录成功链路由G04h v8单列完成，不关闭整体U03。
 - [x] G09a 实际企业用量 Panel 的迟到 getView/sync、用户/服务换域、周期退休及 busy 隔离：永久同十场景旧9 RED/冷同步1 PASS→修复10/10 GREEN，首次layout和新B请求不被旧A finally清除均实测；类型/Lint/架构/格式、11既有Gateway回归及正常Desktop构建通过。组件端口交付不替代Native真实注销/网络竞态，详见 `docs/client-gateway-view-delivery-test-2026-10-18.md`。
 
 - [x] G02c 实际企业专家 v1/v2、同 session 冷恢复、撤权后禁止同名个人回退和个人 canonical 选择再撤权：4 项，当前正式 CLI 及相关15项回归通过；修复前实际子模型泄漏个人正文，修复后复测通过。
@@ -96,4 +100,8 @@
 - [x] G04d 正式新CLI与真实公开目录46项的Native分类/类内排序：草稿不生效、发布后两mode独立顺序、ghost缺失、搜索对照及null恢复；补修自定义CA移除默认根问题，Source严格TLS与正式单证书目录复测通过。完整12,972文件树、零Native模型/账本增量及13PID/5端口清理边界见 `docs/client-native-public-store-test-2026-10-18.md`；公司/个人空库存、Featured/已安装正向、身份迟到及外部/平台项不冒领。
 - [x] G04e 同页真实私有配置 pending 保留P→约10s超时清旧D→正常读取恢复P；退出时关闭新在途读取，恢复传输后63次/31,570ms旧排序无回灌。53条观察记录、11份模型/账本快照零Native增量；含正常scope失效，不冒称独立catch、直接插件版本交付或成功晚到。见 `docs/client-native-configuration-lifecycle-test-2026-10-18.md`。
 - [x] G04f 自有插件 Native 12阶段与3代冷启：安装/禁用与label/V2更新/orphan/重添Source/取消不变/确认清全部版本owner/不复活；15完整模型/账本快照零Native增量，设置“浏览插件”导航修复实际通过。34已知PID/5ports独立收口，外部写FD保0700及fixture非优雅边界、运行后out副本漂移另行隔离重建均如实记录；见 `docs/client-native-owned-plugin-test-2026-10-18.md`。不替代官方安装、插件执行、全部Workspace覆盖或三平台安装。
-- [x] G07c Native 自有文件正常预览、右键添加到聊天、真实按键移除引用并保留非空草稿；63字节/权限/hash不变，无模型发送。路径由实际绝对文件行、当前工作区和唯一相对mention共同核对，不替代正文进入模型或FS撤权竞态；清理及保留根目录边界见同报告。
+- [x] G07c Native文件预览/添加/移除原范围保留；v3另经原mention→返回任务→发送，A指定Read call带行号正文进入后继模型（3Native/66），同task B在FS=false发布回读后Read拒绝且新B marker缺失（新增2Native/44）。Native5请求/5settled/5Trace/110，另2B/44基线分列；69公开文件及资源终态封存。发送前撤权不冒充OS Read等待中撤权，见 `docs/client-native-file-context-test-2026-10-19.md`。
+
+- [x] Standalone Web v8在Electron41内嵌Chromium完成11项原DOM业务，含Cookie/FirstRun/目录/文件预览/reload恢复；uiDriver0、275已知PID/2ports闭。controller1为FD不完整保根，旧Chrome超时/未知根因保留，不冒称Chrome、自动reconnect或Web企业认证；见 `docs/client-web-standalone-dom-test-2026-10-19.md`。
+
+- [ ] G04i 插件安装到Skill正文消费桥：通过原安装记录/启用状态/manifest根装配及别名，验证真实Host/正常CLI/FS正文消费与规格要求的拒绝。已有G04f仅证明生命周期，显式admin/remote根的既有正文合同不能替代插件独有装配；不重演已过12阶段UI生命周期。

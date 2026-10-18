@@ -1,6 +1,14 @@
 # 实现与验收台账
 
-2026-10-18，Asia/Shanghai（历史分轮证据保留原日期）。构建结果代表本地自有实现，不代表 WorkBuddy 完整服务端复现、生产上线或外部供应商批准。
+2026-10-19，Asia/Shanghai（历史分轮证据保留原日期）。构建结果代表本地自有实现，不代表 WorkBuddy 完整服务端复现、生产上线或外部供应商批准。
+
+## 2026-10-19 当前客户端状态
+
+G04h v8已从全新空身份完成原Native登录、自动选模、原主/标题2模型请求与2本人settled/2Trace/44 Credit、认证冷恢复、原退出后旧task拒发及再次冷启保持退出。G07c v3已完成原文件mention→正式Read→指定正文后继模型，及同task FS撤权后的拒绝；Native A/B共5请求/110 Credit，另2B/44初始化基线分列。分别见[登录报告](client-native-primary-login-progress-2026-10-18.md)、[文件联测](client-native-file-context-test-2026-10-19.md)。
+
+Standalone Web v8已在Electron41内嵌Chromium下完成原FirstRun、目录选择、文件预览与reload恢复等11项业务，uiDriver exit0；Root独核275已知PID/两端口闭合。controller exit1仅为FD扫描不完整的保根策略，旧Chrome失败与未知根因保留；不宣称Chrome、自动重连或Web企业认证通过。见[Web报告](client-web-standalone-dom-test-2026-10-19.md)。
+
+[本机已完成项见阶段报告](client-local-integration-acceptance-2026-10-19.md)，G04i插件安装到Skill正文消费的独有桥仍待有限实测。U02–U05未整体勾选；真实企微、外部MCP、网盘、外部供应商与签名三平台安装按各自边界。Root最终核主PID42125/health200、九表及四部署资源不变，后台首页/JS/CSS均200且字节匹配；未作管理员登录或模型调用。
 
 | 模块                       | 实现位置                                                            | 本轮证据                                                                                                                                                           | 边界                                                                                                                         |
 | -------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -10,7 +18,7 @@
 | model-gateway              | models.ts / gateway.ts / network.ts                                 | 真实本机 HTTP、JSON/SSE、异常终态、SSRF 拒绝、密钥出口权限                                                                                                         | OpenAI-compatible；一个真实文本/代码工具/视觉/思考参数模型已验，供应商发票待核实                                             |
 | credential-vault           | vault.ts                                                            | 数据库无原文、吊销、列表脱敏                                                                                                                                       | 环境主密钥，需生产密钥托管/轮换运维                                                                                          |
 | ai-assets                  | assets.ts / connectors.ts                                           | 不可变版本、审核发布、撤权、MCP session 与工具白名单                                                                                                               | 技能文本包；不执行任意上传代码                                                                                               |
-| client-policy              | policy.ts / client.ts                                               | 草稿不生效、旧修订冲突、发布版本、安全优先级、CIDR/deny-all                                                                                                        | 后端执行入口生效；完整终端本地 enforcement 待验                                                                              |
+| client-policy              | policy.ts / client.ts                                               | 草稿不生效、旧修订冲突、发布版本、安全优先级、CIDR/deny-all                                                                                                        | 现有Host/CLI及具名Native策略已验；OS隔离、managed远端与平台另列                                                              |
 | agent-runtime              | runtime.ts / agent-\*.ts / automation.ts / evaluation.ts / sandbox/ | SDK 计量端口、真实 Docker/MCP 工具循环、取消/撤权/预算/去重、代码及远端工具 SIGKILL 恢复                                                                           | MCP 为受控工具子集；真实模型代码循环已验，其他供应商能力待验                                                                 |
 | telemetry                  | telemetry.ts / client-usage.ts                                      | 审计/Trace/CSV/聚合、成员统计隔离、改状态端点审计不变量（静态+行为测试）、企业留存窗口（7–3650 天 + 每小时仅清理已配置企业 + 管理端面板）                          | 原始 prompt 不入日志；任务内容加密；日志归档到外部对象存储按企业部署补齐                                                     |
 | external-integrations      | integrations.ts                                                     | 未配置 503、实际 Docker 能力检查                                                                                                                                   | 网盘适配网关合同；支付 unavailable，自有沙箱非外部云服务                                                                     |
@@ -24,7 +32,7 @@
 
 实际 Native 发布补验：新正常 Desktop 候选完整副本在本机 Electron 运行，经正常工作区入口发送一次文本，再点击原分享入口、选择、披露确认并发布；真实 ShareService/CLI 投影/私有 scope 完成 prepare 201、confirm 200，新增 confirmed 恰一条、三公开行、摘要一致。主对话和标题共两次本机受控模型请求、44 内部 Credit 已在分享前结算，发布零增量。同一 Native 产物由同企业无席位 reader 读取 200；匿名、退出旧 Cookie 401，只读 continuation 403。实际 Header 旧 OAuth 门槛的八场景由 4 失败/4 通过修复为 8/8。该 URL 仅后端派生，未点复制或打开；独立浏览页验收不冒充 Native 默认浏览器链路。十三个已知 PID、五端口独立收口，外部写 FD 下保留私有测试根。详见 `docs/client-member-sharing-test-2026-10-18.md`。
 
-后续独占 Native 已实际点击原打开按钮，确认 Desktop 是应用内浏览面板；新 guest 的同源中文分享页、JS/CSS 200、匿名正文隐藏/preview401及独立 session 网络记录通过。后续地址栏输入没有形成管理页导航，未运行登录、授权后阅读或退出，不拼接先前独立浏览器结果作为此链路完成。原三组失败、soft96 后停止业务与精确资源终态见 `docs/client-native-share-browser-test-2026-10-18.md`；系统默认浏览器、剪贴板及跨平台仍未覆盖。
+较早匿名浏览轮的独占 Native 已实际点击原打开按钮，确认 Desktop 是应用内浏览面板；新 guest 的同源中文分享页、JS/CSS 200、匿名正文隐藏/preview401及独立 session 网络记录通过。后续地址栏输入没有形成管理页导航，未运行登录、授权后阅读或退出，不拼接先前独立浏览器结果作为此链路完成。原三组失败、soft96 后停止业务与精确资源终态见 `docs/client-native-share-browser-test-2026-10-18.md`；系统默认浏览器、剪贴板及跨平台仍未覆盖。
 
 企业用量界面的迟到视图、用户与 service 更换、在途周期退休及 busy 隔离已修复：同一永久组件测试旧 Hook 为九项失败、一项冷同步对照通过，修复后十项全部通过；正常类型、Lint、架构、格式、十一项既有 Gateway 服务回归及 Desktop 构建通过。该测试控制合法公开 DTO 的交付次序，不替代真实 Native 注销或网络竞态发生频率；详见 `docs/client-gateway-view-delivery-test-2026-10-18.md`。共享 Enter 驱动另在同版本 Electron 三个表单验证，普通回车补文本及单次驱动等待上限已修复；它不改写历史 Native 导航失败，详见 `docs/client-native-test-driver-2026-10-18.md`。
 
@@ -141,8 +149,8 @@ REA：此前已复用 55 份页面和发布脚本证据并对 automation-fL5mZb_
 
 新增真实联动：资产跨企业/issuer 2 项（279 次 HTTP），缓存三故障 3 项（315 次 HTTP），Agent 子任务 2 项，builtin 文件/进程/网络策略 5 项（与原 stdio/Agent 合计 12 项回归），分享 5 项（299 次 HTTP，另 26 项回归）。实际 Native 又验证了技能正文 v1→v2→撤权进入/不进入模型上下文、菜单/欢迎与风险提示草稿发布、旧可见菜单被撤权后的点击拒绝、自动化派发/渠道拒绝/重启、个人模型创建/发现/运行及同会话撤权。修复“权限拒绝被写成格式错误”和“个人模型撤权显示内部码”两条 UI 提示，单元 RED→GREEN 与重建后 Native 复测通过，权限逻辑保持不变。
 
-目标尚未全部完成：指定企业专家、绑定任务 resume、个人技能/本机 MCP 的生产入口、缓存并发/安装崩溃组合、可运行 Web/remote 及平台边界仍逐项保留。真实企微、外部 MCP 和网盘继续排除。以 [持续覆盖矩阵](client-integration-coverage-2026-10-17.md) 为本目标当前任务状态，不以既有绿灯或新增数量代替全范围验收。
+后续具名报告已补齐企业专家/绑定任务resume、个人技能/本机MCP、缓存并发/崩溃及G04h/G07c的本机指定切片。当前Web DOM也已在Electron41完成；未实现入口、managed远端authority、目标平台与排除项分别记明，不从旧摘要重开已完成切片。真实企微、外部 MCP 和网盘继续排除。以 [持续覆盖矩阵](client-integration-coverage-2026-10-17.md) 为本目标当前任务状态，不以既有绿灯或新增数量代替全范围验收。
 
 ## 2026-10-18 Native 企业成员分享页增量
 
-原 Native 正常发布及打开后，同一应用内 guest 经原登录入口、受控身份兑换和原 callback/claim 取得 Cookie 会话，普通同企业无席位成员可只读查看；原退出后正文清空、访问拒绝，preview401→200→401、logout204。分享/登录/阅读/退出均不增加模型请求、账本或 Trace。原失败与资源收口见[成员阅读联测](client-native-member-viewer-test-2026-10-18.md)。本项补齐分享 guest 登录，客户端空身份原登录成功及其余持续覆盖项仍在执行；真实企微等排除项和整体 U02/U03/U04/U05 保持开放。
+原 Native 正常发布及打开后，同一应用内 guest 经原登录入口、受控身份兑换和原 callback/claim 取得 Cookie 会话，普通同企业无席位成员可只读查看；原退出后正文清空、访问拒绝，preview401→200→401、logout204。分享/登录/阅读/退出均不增加模型请求、账本或 Trace。原失败与资源收口见[成员阅读联测](client-native-member-viewer-test-2026-10-18.md)。本项补齐分享guest登录；客户端空身份原登录现由G04h v8另验，文件Read链由G07c v3另验，其余持续覆盖按当前矩阵；真实企微等排除项和整体 U02/U03/U04/U05 保持开放。

@@ -1,18 +1,28 @@
-# G04h 客户端空身份原生登录进展（未验收）
+# G04h 客户端空身份原生登录（v8 本机受控通过）
 
-2026-10-18 至 19 日跨日测试。最新 v7 已完成空身份原登录、自动选择授权模型、实际对话、本人计量、同 profile 认证冷恢复及公司/网关设置核对。随后测试直接点击设置页下方被遮挡的任务行，在实际输入前停止。**原退出、旧任务拒发及再次冷启保持退出仍未验收，G04h、U02–U05 保持开放。** 历史 v1–v6 的失败证据原样保留。
+2026-10-18 至 19 日跨日测试。最新 v8 已完成全新空身份原登录、自动选模、实际对话与本人计量、认证冷恢复、公司/网关核对、原退出后旧任务拒发及再次冷启保持退出。G04h 本机受控三epoch通过；真实企微/外部模型与整体 U02–U05 不据此关闭。历史 v1–v7 各保原首错边界。
+
+## v8 完整三epoch通过（2026-10-19）
+
+七个原FirstRun动作后，prelogin attempt/callback/model/ledger/Trace/Credit均0；原登录一次、held/pending后同次执行唯一无参受控callback、Host私有claim/guest关闭与原UI身份/模型ID和名称通过。原主回复及原标题共2个受控模型HTTP请求，2笔当前普通成员settled、2条Trace、44 Credit，后台Key匹配2/拒绝0，没有email/session预种或手动选模。
+
+同profile新Main恢复身份，无新attempt或模型请求；原公司菜单及Gateway姓名、部门、member、999,956 Credit、请求2/100%/44 Credit/44 Token均exact。原Settings Back与原task各独立journal通过；原UI退出后旧task固定发送拒绝，模型/账本/Trace零增量；第三epoch冷启保持signedOut。
+
+九阶段fresh facts通过，业务369,067ms、至Common工具终态480,803ms。三个Main、副实例及三个BH实际exit0；8已知PID/4端口/3BH连接全闭。strict handoff原失败保留，Root另独核后唯一SIGKILL Common，原PTY实际exit1；handoff后不读/stat R。170公开文件/3,655,098字节封存：[manifest](../evidence/client-native-primary-login-v8-20261019/manifest.json)，SHA `7ee47b3ef9872a0c73a212187bd37a6629ad6f43ca5c2c729f3720bd463413a6`。
+
+官方企微网页/二维码未加载；该成功限受控身份provider与supplier，不代表真实扫码、外部模型账单、签名发行包或三平台安装。
 
 ## v7 首次发送、计量与认证冷恢复通过
 
 使用 [新草稿初始化修复](client-fresh-draft-model-selection-test-2026-10-18.md)及其正常 Desktop 构建；验证 HEAD `3447050d776da878b6a2da73aa766d2d5d1d52d3`，7,440项来源与6,631个 out 文件逐SHA匹配。没有预种 Native 身份、手动选择模型或重新执行失败业务。
 
-| 原流程环节 | 实际结果 |
-| --- | --- |
-| 首跑与登录 | 七个原首跑动作通过；prelogin attempt/callback/model/ledger/Trace/Credit均0。原登录一次、受控callback一次、原claim/guest关闭/公开身份与guard通过。 |
-| 自动选模与原发送 | 固定模型ID和名称均精确匹配；有界只读ready后，原prepare/send各一次，原回复出现并固定实际task ID。 |
-| 后台转发与本人计量 | 本机受控supplier实收2请求，Key匹配2、拒绝0；2笔settled账本全部归本成员，2条Trace、44 Credit。原主回复及原标题各一请求。 |
-| 同profile冷恢复 | 第一Main停止后启动新的Main；原UI身份/模型恢复。实际SSO attempt仍为1，模型/账本仍2、Credit仍44，没有重做登录或发送。 |
-| 原公司菜单与网关页 | 原公司菜单精确匹配；网关页姓名、部门、成员角色、有效额度999,956 Credit、请求2、成功率100%、费用44 Credit、Token44均匹配实际后台。 |
+| 原流程环节         | 实际结果                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 首跑与登录         | 七个原首跑动作通过；prelogin attempt/callback/model/ledger/Trace/Credit均0。原登录一次、受控callback一次、原claim/guest关闭/公开身份与guard通过。 |
+| 自动选模与原发送   | 固定模型ID和名称均精确匹配；有界只读ready后，原prepare/send各一次，原回复出现并固定实际task ID。                                                  |
+| 后台转发与本人计量 | 本机受控supplier实收2请求，Key匹配2、拒绝0；2笔settled账本全部归本成员，2条Trace、44 Credit。原主回复及原标题各一请求。                           |
+| 同profile冷恢复    | 第一Main停止后启动新的Main；原UI身份/模型恢复。实际SSO attempt仍为1，模型/账本仍2、Credit仍44，没有重做登录或发送。                               |
+| 原公司菜单与网关页 | 原公司菜单精确匹配；网关页姓名、部门、成员角色、有效额度999,956 Credit、请求2、成功率100%、费用44 Credit、Token44均匹配实际后台。                 |
 
 首次失败为 epoch2 `return_conversation` 的 `CONTROL_NOT_READY`。原task行匹配，但其point为visible=true、hit=false，设置页仍打开；动作journal已认领但没有成功点击。源码明确设置覆盖期间workspace处于opacity-0/pointer-events-none/inert；测试遗漏了原 `TID_SETTINGS_BACK_BUTTON`，不能把这个失败记为产品返回按钮失效。后续测试须先独立原返回工作区，再选择原task，各自一次journal；原退出、拒发及cold3在本轮没有执行。
 

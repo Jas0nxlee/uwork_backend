@@ -2,13 +2,15 @@
 
 2026-10-17。当前目标为继续自动覆盖所有尚未验证的真实联动，发现问题修复并复测。真实企微、外部 MCP 和网盘按用户要求排除。本表保留未完成项；通过一个层次不自动证明其他层次或整个项目完成。
 
+2026-10-19 当前：G04h v8空身份原登录三epoch、freshDraft实际自动选模与G07c v3原文件A/B链已通过。Standalone Web v8已在Electron41内嵌Chromium完成11项原DOM业务；本机尚待G04i插件安装到Skill正文消费桥实测，跨环境边界及U02–U05保持开放，历史具名切片保留原日期/候选。
+
 判定依据是 `SPEC-uwork-client.md`、`SPEC-client-policy.md`、`SPEC-ai-assets.md` 及客户端 enterprise specs、实际 UI/Host/CLI 入口、测试代码和执行证据。原始审计在 ignored `evidence/client-coverage-audit-20261017/`。只审计当前支持的行为，不为了造通过而增加云服务、远端身份或协作产品。
 
 ## 既有能力与证据层次
 
 | 能力                                                   | 当前已证实层次                                                                                    | 仍需单列的边界                                                          |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 交互身份、issuer、企业/成员切换、私有会话存储与撤销    | 后端 HTTP、实际 Host/加密存储、CLI；Native 注销和重启                                             | 真实企微明确不测；原生企业选择对话框切换尚未等同私有 Host 测试          |
+| 交互身份、issuer、企业/成员切换、私有会话存储与撤销    | 后端 HTTP、实际 Host/加密存储、CLI；Native 原登录、认证冷恢复、退出拒发及再次冷启                 | 真实企微明确不测；原生企业选择对话框切换尚未等同私有 Host 测试          |
 | 成员角色/部门/企微映射、席位和有效额度                 | 249 项后端基线、129 次用户链路 HTTP、24 HTTPS/Host、Native 角色/额度/席位/会话                    | 基线报告 `client-user-journey-test-2026-10-17.md`；本轮未重复付费生成   |
 | 后端模型目录、默认选择、能力与参数、私有 Keyless relay | Registry/SDK、真实 HTTPS/Host、当前打包 CLI、Native 实际对话                                      | 当前正式 CLI 与 staged SHA 相同；安装包和远程模型出口分别验收           |
 | JSON/SSE、取消、私有输出防泄露、账务终态               | 真实 TCP、SDK、打包 CLI、Native 停止和退出                                                        | uncertain 是保守预留，不推断远端费用或副作用退款                        |
@@ -42,7 +44,7 @@
 
 ## 新增实测的具体边界
 
-Native 使用独立 HOME、数据根、真实后台文件 DB/TLS、自有 CA 和 production Electron/Main/Host/staged CLI。通过实际 DOM 输入、点击、可用的原生选择器及正式启动参数操作，锁屏后的系统选择器未验收；未注入 React 状态或替换业务响应。身份初始会话来自真实 email 登录 API，写入生产加密存储后由原身份 owner 恢复，**不是真实企微扫码**。
+Native 使用独立 HOME、数据根、真实后台文件 DB/TLS、自有 CA 和 production Electron/Main/Host/staged CLI。通过实际 DOM 输入、点击、可用的原生选择器及正式启动参数操作，锁屏后的系统选择器未验收；未注入 React 状态或替换业务响应。此前具名Native组的初始身份来自真实email API与生产加密store恢复；G04h v8另从空身份原登录，G07c v3仍用email/store基线。各组均**不是真实企微扫码**。
 
 16 个 Native 有名检查、13 次本机受控供应商请求均有对应账本 settled；其中 2 次是另一成员的初始化对照，9 次为三组 Skill 主调用/后继调用/标题，2 次为自动化允许调用。关闭 local 后的自动化尝试及退出后的发送均未增加供应商或账本。自动化 UI 记录的“已运行”统计接受次数，不能把拒绝的模型调用算成功。模型 IO 证明当前 Skill 版本正文进入请求；目录和缓存存在不被当作执行证明。
 
@@ -70,7 +72,7 @@ Agent 子任务实测为父模型工具调用→子 SSE→父继续→标题 JSO
 
 前一轮生产改动为上述两条 UI 提示及 exact-code 映射；追加本轮已修复企业专家撤权后的个人别名回退，以及个人子智能体逐次准入，详见追加报告。后端/admin 类型、新脚本 Lint/格式、客户端全类型/Lint/定向格式/架构和 Native 构建通过；客户端保留 114 条既有警告、0 错误，架构 0 新违例。新增切片及共享夹具经独立只读审查通过。主后端保持运行，未读取主 .env 或解密主 Vault；只读校验主业务表哈希，确认原资源/配置/成员/账本等未变，不调用真实付费供应商。Git 中另有不属于本轮的未跟踪 `tests/security-sixth-provider-echo.test 2.ts`，保留且不纳入提交。
 
-本目标仍在推进：G02/G03/G04/G05/G06 的下述指定切片已补完；Native 技能其余管理、workflow/身份切换/分享 UI、managed remote/手机和跨平台安装继续保留。standalone Web 的两项网络实测不等于 managed enterprise 远端验收。不能据本表局部成功宣称“全部测试已覆盖”，也不关闭原 T13c6/T13d/平台验收项。
+上述2026-10-17阶段保留原日期/候选；后续已完成的Native管理、workflow、分享和Web DOM见下文及[本机最终结论](client-local-integration-acceptance-2026-10-19.md)，不再作为新的本机待办。managed远端/未实现手机与目标平台分层保留，不关闭T13c6/T13d或宣称全环境完成。
 
 ## 追加权限修复与新产物验收
 
@@ -189,24 +191,36 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 
 新独占 Native 从原成功面板打开同一 guest，经原登录按钮、受控 provider 和原 callback/claim 完成普通同企业无席位成员阅读，再经原退出清空正文。preview401→200→401、logout204；分享、登录和阅读阶段模型/账本/Trace无增量。五已知PID/五端口收口，保留私有根0700；细节和历史驱动失败见[成员阅读联测](client-native-member-viewer-test-2026-10-18.md)。
 
-下一缺口包括客户端空身份的原 Native 登录成功、文件引用实际发送并进入 Read 工具及模型，以及可运行的独立 Web DOM 链路。此前加密会话预种恢复、文件预览/添加/移除和 HTTP/静态资源/直连 WS 各保留原范围，不代替这些待验项。真实企微、外部 MCP、网盘、远端权限及平台安装边界继续保留，U02/U03/U04/U05不整体关闭。
+客户端空身份原登录由G04h v8、文件引用实际发送/Read正文与撤FS拒绝由G07c v3另行通过。Standalone Web v8原DOM已通过；此前加密会话恢复、文件预览和HTTP/WS结果保留各自原范围。真实企微、外部 MCP、网盘、远端权限及平台安装边界继续保留，U02/U03/U04/U05不整体关闭。
 
 ## G04g 登录 poll 与 Native IPC 交付顺序
 
 [真实 React 回归](client-enterprise-login-polling-test-2026-10-18.md) 已一次通过新2和旧23：open未决时原poll effect先认证，随后旧null/ERR_ABORTED不回退、无cancel/重复close或sync。类型/Lint/架构/改动格式通过，已知进程/端口与临时根收口，正常out全部原SHA恢复；生产Hook未改。该组件合同补足原生测试的时序前置证明，与插件 G04f 分开编号，不能代替下述 G04h 的完整 Native 身份验收。
 
-## G04h 客户端空身份原生登录进展（退出链路待验）
+## G04h 客户端空身份原生登录本机受控完成（2026-10-19）
 
-[v1–v7 进展与公开证据](client-native-primary-login-progress-2026-10-18.md)保留各轮首错边界。最新v7使用[新草稿模型初始化修复](client-fresh-draft-model-selection-test-2026-10-18.md)后的正常构建：全新空身份、七个原首跑动作、唯一原登录与受控callback、原claim/guest关闭/公开身份通过；无需手选模型即精确匹配授权ID和名称，原发送成功。
+[v8及历史公开证据](client-native-primary-login-progress-2026-10-18.md)确认全新空身份、七原FirstRun与prelogin全0后，原登录/唯一callback/Host私有claim/guest关闭/原公开身份和默认模型均通过。主回复与原标题实际2模型HTTP请求、2笔本人settled、2条Trace、44 Credit，supplier后台Key匹配2/拒绝0。
 
-实际主回复与原标题共2次受控模型请求，2笔settled账本、2条Trace、44 Credit，全部归当前普通成员；supplier Key匹配2、拒绝0。同profile停止Main后全新Main恢复身份，无新SSO attempt或模型请求。原公司菜单及网关页姓名、部门、角色、有效额度999,956、请求2/成功率100%/费用44/Token44均与后台相符。组件15项、标准类型/Lint/架构和正常Desktop构建是另层验证，不与这些实际请求数量相加。
+同profile冷启无新attempt；公司/Gateway身份、角色、有效额度及本人用量exact。原Settings Back→原task→原UI退出后，旧task固定发送拒绝且模型/账本/Trace零增量；再次冷启保持退出。170公开文件manifest SHA `7ee47b3ef9872a0c73a212187bd37a6629ad6f43ca5c2c729f3720bd463413a6`；8已知PID/4端口/3BH闭合，原handoff失败保留并由Root独核收口。真实企微/外部模型与平台边界不变，历史v1–v7不回写。
 
-随后测试直接点击被设置页遮挡的原任务行，原point hit=false，`return_conversation` 在物理输入前拒绝。源码确认应先点原返回工作区按钮；属于测试导航遗漏。原退出、旧task拒发和再次冷启保持退出未执行，G04h/U02–U05保持开放。
+## G07c 原文件mention→Read正文与撤权拒绝完成（2026-10-19）
 
-v7共127份公开文件、2,662,849字节逐SHA独核，manifest `5a4f21ebade6c868a580c620a7ad27e2ceecdd126ac3c32108b024fd52dcabf5`。六个已知PID/四port/两BH连接均收口；不完整handoff被拒后由Root独核Common并精确停止，实际exit如实保留。私有根保留且handoff后不访问。真实企微、外部MCP/网盘、真实模型供应商和平台验收边界不变。
+[独占v3联测](client-native-file-context-test-2026-10-19.md)在正常email/store恢复身份下，经原右键添加、原“返回任务”和各一次发送：A指定Read call的带行号正文进入后继模型，3条Native请求/3settled/3Trace、66 Credit；同task B在FS=false发布并回读后发送，Read拒绝且新B marker不进模型，新增2请求/2settled/2Trace、44 Credit。不能把工具拒绝写成模型零增量。
+
+Native共5请求/110 Credit；另一个成员初始化2B/44单列，总7请求/154 Credit，四原快照均通过。69公开文件manifest SHA `1d57885b64b6036ab53f5a657ffd19446a934c78f731849327fcdb56fdfe041c`，已记录PID/4端口/BH及21 helper终态。此项不替代G04h空身份登录，也不声称OS Read handler等待字节期间的Native撤权。
+
+## Standalone Web完整DOM完成（Electron41，2026-10-19）
+
+[Web v8联测](client-web-standalone-dom-test-2026-10-19.md)以正常Web/Server产物完成无认证401、原Cookie bootstrap/200、未配置身份、原FirstRun、原目录选择、文件预览及一次reload后的Cookie/引导/项目/文件恢复，11项业务标志全true、uiDriver exit0，无模型发送或企业登录动作。不是Desktop产品Main，也未注入身份或Cookie。
+
+Root独核9公开文件/23 journals，275已知PID及两端口均闭。controller exit1仅因根FD扫描不完整而保留私有根，不能写成controller全绿或写者零。旧Chrome导航超时原样保留、根因未唯一确定；本结果限Electron41 Web，不代表Chrome安装、自动重连、Web企业认证或跨平台。[本机阶段结果与剩余边界](client-local-integration-acceptance-2026-10-19.md)保留G04i插件发现/消费桥及跨环境待验项，U02–U05未整体勾选。
 
 ## G07d Read 返回结果的权限与账号复验
 
 [修复与复测](client-read-result-authorization-test-2026-10-18.md)已覆盖文件端口等待期间撤权、原 owner/端口改变、管理模式变化、取消与不合作授权端口的原 deadline。正文在序列化、PostToolUse 和成功结果发布前扣留，迟到 allow 不重复发布。正式 Core119/Host292、根及CLI标准typecheck、Lint、格式和架构通过；正常CLI/Desktop重新构建并核对全部来源和产物。
 
-新打包CLI经真实本机后台、Host relay和OS文件完成禁读/禁写/允许Read正文/允许Write/同会话撤权五阶段；Token记录字段遗漏修复后全新复测通过。实际11次供应商请求、11笔settled账本，55 input/22 output Token、99 Credit，凭据未进入CLI流或模型RPC。该项不替代Native G07c文件引用发送、G04h空身份登录或实际OS阻塞读期间撤权，U02–U05保持原范围。
+新打包CLI经真实本机后台、Host relay和OS文件完成禁读/禁写/允许Read正文/允许Write/同会话撤权五阶段；Token记录字段遗漏修复后全新复测通过。实际11次供应商请求、11笔settled账本，55 input/22 output Token、99 Credit，凭据未进入CLI流或模型RPC。Native原界面分别由G07c v3和G04h v8另验；实际OS阻塞读期间的Native撤权仍不由本项或发送前撤权替代，U02–U05暂保持原范围。
+
+## G04i 插件安装到Skill正文消费桥（待测）
+
+最终Source核对确认：正文下游共用NodeSkillAdapter，但安装记录、启用状态、manifest根装配、插件别名及符号链接限制有独有分支。G04f已验安装生命周期，现有实际FS/HTTP正文合同使用显式admin/remote根；尚不能据此证明完整插件连接。下一项仅补真实Host/正常CLI/FS的允许及合同要求的拒绝，不重复Native安装全流程，也不自创既有会话禁用语义。

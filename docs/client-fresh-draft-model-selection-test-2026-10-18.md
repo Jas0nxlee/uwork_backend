@@ -17,4 +17,4 @@
 
 产品修复提交 `8bf33b1c37f12290c4c48f8c5dd56021f177cb67`。原失败与测试封存见 [Hook manifest](../evidence/client-fresh-draft-model-selection-20261018/manifest.json)，SHA `51ac6e576fdb1c670542b2d81ac309029de17c111d86e4d1c42e66ac263ae25d`；新构建见 [artifacts](../evidence/client-primary-draft-build-20261018/artifacts.json)，SHA `7fb08baa3e76025f993de274478765faa09b9f1992ad9395c7d4826d5f8c560f`。
 
-此处未把组件回归或构建通过算作 Native 完整验收。新原生运行仍需验证首次模型选择、真实发送、本人账本与用量、认证冷恢复和退出；G04h 与整体 U02–U05 保持开放。真实企微、外部 MCP、网盘仍按用户范围排除。
+后续G04h v8已用该正常构建完成实际Native验证：全新空身份登录后无需手选模型，固定ID/名称匹配，原发送实际2请求/2本人settled/2Trace/44 Credit；认证冷恢复、网关用量、原退出拒发与再次冷启保持退出均通过。见[原生登录报告](client-native-primary-login-progress-2026-10-18.md)。组件15项和实际请求分层记录、不相加；整体U02–U05仍按剩余范围开放，真实企微、外部MCP、网盘与外部供应商边界不变。
