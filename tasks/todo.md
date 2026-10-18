@@ -68,7 +68,7 @@
 - [x] G02a 正式 CLI Agent 子任务继承私有 relay/目录与子派发前席位撤权：2 项及原 5 项回归。
 - [x] G02b Native Skill v1→v2→撤权，模型 IO 实证正文/无正文；不替代专家/resume。
 - [x] G04a Native 已发布菜单名字/顺序/路由、草稿不生效、欢迎/risk 发布与退出清除；延迟真实配置响应后旧可见菜单点击也被当前准入拒绝。
-- [ ] G04j 已发布推荐卡匹配同workspace已安装启用插件，原点击生成mention＋prompt；经原User设置禁用后，同卡重新选择回退纯prompt、零安装/市场刷新及模型增量。审计确认既有G04b只验不存在ID，G04f/G04i未覆盖此UI绑定；当前仅准备，见 `docs/client-native-installed-plugin-suggestion-spec-2026-10-19.md`。
+- [x] G04j 原Native自有包安装→已发布卡mention＋prompt→原User禁用/Back→同卡纯prompt/mention0，两phase八click通过；每卡前后测试源HTTP不变，Native模型/账本/Trace/Token/Credit增量0，console0/script0。六动作合同/四包服务合同与BH absence反例1/1通过，六已知PID/五端口/BH socket独立收口、私有根保留，见 `docs/client-native-installed-plugin-suggestion-test-2026-10-19.md`。安装setup与G04f/G04i原验收分列，不声称官方市场/任意插件。
 - [x] G05a Native 自动化创建/立即运行、local 渠道拒绝、实际重启后持久化再运行；不替代绑定任务 resume。
 - [x] G03a 缓存正文篡改/缺文件/symlink：3 项、315 次 HTTP、9 CLI；冷启动不静默修复，显式隔离后恢复；双 Host/安装 SIGKILL 实际组合已由 G03b 补完。
 - [x] G06a Native 个人模型创建/配置/发现/实际运行与同会话撤权，拒绝不改配置或派发；两条误导/内部码提示修复并重建复测。个人技能/本机 MCP 的实际 CLI 出口已由 G06b 补完，Native 设置界面另列。
@@ -77,7 +77,7 @@
 - [x] G08b 按用户决定补齐企业成员只读分享后端、私有 Host 传输与同源浏览页；301 后端/49 客户端/3 跨仓真实 HTTP 通过，浏览器五阶段真实 Cookie、两下载、跨企业/退出/撤销拒绝及四宽度通过。受控企微替身、签名安装包和三平台边界保留；Native 发布已由 G08d 另验，主服务恢复与新部署单独记于 `docs/local-backend-recovery-2026-10-18.md`，不据此关闭 U03。
 - [x] G08c 实际 Header/IdentityProvider/ShareMenu 浏览器回归复现旧 OAuth 入口门槛 4 项失败，单组件修复后同 8 场景通过；覆盖当前企业认证、退出、owner 切换、残留旧 user、任务及 Desktop 约束与无 context 兼容。类型/Lint/架构/严格 fixture 类型及新正常 Desktop 构建通过；实际 Native 发布已由 G08d 另行验收。
 - [x] G08d 实际 Electron 生产构建正常会话→原 ShareService/CLI 投影/私有 scope→后端 confirmed1/三公开行，prepare201/confirm200；原生一次发送含主/标题两本机请求与44新增内部Credit，分享零增量；同企业无席位reader200、匿名/退出401、只读continuation403。原错误码辅助断言仅对原响应离线修正，未重发/恢复随机凭据；13已知PID/5端口独立收口，retained0700及默认浏览器/剪贴板/安装包边界见 `docs/client-member-sharing-test-2026-10-18.md`。
-- [x] G08e 原 Native 成功面板打开同一分享产物，实际应用内 guest/独立 partition/同源 TLS 页与 JS/CSS/匿名 preview401通过；四请求、416px无溢出，分享浏览零模型增量。地址栏后续导航未形成有效证据，登录后阅读/退出仍开放，三原失败及两 followup 如实封存；14已知PID/5端口收口、外部写FD保留0700和软阈值停止见 `docs/client-native-share-browser-test-2026-10-18.md`。
+- [x] G08e 原 Native 成功面板打开同一分享产物，实际应用内 guest/独立 partition/同源 TLS 页与 JS/CSS/匿名 preview401通过；四请求、416px无溢出，分享浏览零模型增量。本G08e阶段的地址栏后续导航未形成有效证据，未取得登录后阅读/退出；后续G08f已补齐同guest成员链，三原失败及两followup仍按历史范围封存；14已知PID/5端口收口、外部写FD保留0700和软阈值停止见 `docs/client-native-share-browser-test-2026-10-18.md`。
 - [x] G08f 原 Native 发布→原打开→同 guest 成员登录/只读阅读→原退出通过，实际 preview401/200/401、logout204；普通 member 无席位、无撤销入口，分享/阅读模型账本与 Trace 零增量。受控 provider、原 TLS callback/Cookie claim各层保持，真实企微排除。五已知PID/五端口收口、私有根0700保留；取证误读隐藏状态文字已补十项回归，详见 `docs/client-native-member-viewer-test-2026-10-18.md`。客户端空身份原登录成功链路由G04h v8单列完成，不关闭整体U03。
 - [x] G09a 实际企业用量 Panel 的迟到 getView/sync、用户/服务换域、周期退休及 busy 隔离：永久同十场景旧9 RED/冷同步1 PASS→修复10/10 GREEN，首次layout和新B请求不被旧A finally清除均实测；类型/Lint/架构/格式、11既有Gateway回归及正常Desktop构建通过。组件端口交付不替代Native真实注销/网络竞态，详见 `docs/client-gateway-view-delivery-test-2026-10-18.md`。
 - [x] G09b 原Native刷新真实usage200在途→原Back卸载设置→原退出实际abort/drop→匿名原设置重开；旧资料/额度/用量无回灌，Native模型/账本/Trace/Credit增量0，console0/script0。7项stream夹具＋2项modal驱动合同通过；五已知PID/四端口/BH socket独立收口，Common close超时与Root精准终止分列，根保留，详见 `docs/client-native-gateway-usage-logout-test-2026-10-19.md`。不冒称同挂载面板迟到成功。

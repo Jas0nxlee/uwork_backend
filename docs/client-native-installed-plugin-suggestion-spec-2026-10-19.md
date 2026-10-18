@@ -1,6 +1,6 @@
 # Native 已安装插件推荐卡联动
 
-状态：G04j 待执行。本项补齐已发布推荐卡到原 Composer 的 installedOnly 分支，不重做插件生命周期或 Skill 正文消费验收。
+状态：G04j 本机受控真实 Native 已通过，见[验收报告](client-native-installed-plugin-suggestion-test-2026-10-19.md)。本项补齐已发布推荐卡到原 Composer 的 installedOnly 分支，不重做插件生命周期或 Skill 正文消费验收。
 
 ## 合同与所有者
 
@@ -33,6 +33,6 @@ sequenceDiagram
 
 不发送模型请求，Native 模型/账本/LLM Trace/Credit 增量均为 0，初始化单列。物理动作先持久 journal，每项一次；固定布尔/geometry 投影，原菜单 modal 的 aria-hidden 与整页卸载分开判断。首错停依赖动作，保留失败，不在旧 profile 重试。
 
-安装接线、固定 wrapper 与合同检查、最终来源锁及实际 Runtime 尚待完成；准备文件不等同验收。Common 默认 close 会删除根，本项不得调用该路径或暗借 G09 hold 模式；原 Native/BH 收口后由 Root 精确核 Common/已知 helper 身份再终止，根保留 0700，不检查未知 holder。
+安装接线、固定 wrapper、定向合同、最终来源锁与实际 Runtime 已按报告完成；历史准备文件的 false/未执行状态保持原 seal，不被之后成功改写。Common 默认 close 会删除根，本项不得调用该路径或暗借 G09 hold 模式；原 Native/BH 收口后由 Root 精确核 Common/已知 helper 身份再终止，根保留 0700，不检查未知 holder。
 
 真实企微、外部 MCP、网盘、官方市场、签名安装与其他平台继续按各自边界。本项不声称旧 session 热禁用、同挂载组件迟到交付或所有插件兼容性。
