@@ -38,6 +38,8 @@ sequenceDiagram
 
 nonce/state/URL 只过匿名 IPC RAM。原 Main 导入前清除私有 channel bootstrap 环境与测试 flag，Host/CLI 不继承控制 fd。消息、输出、初始化、授权见证和 callback 均有数量/字节/绝对截止；primary 原始 Electron stdout/stderr 只计数，不解码落盘。默认夹具分支保持原行为。
 
+primary 启动器使用真正的 entry.mjs，先执行环境守卫，再以顶层 await 等待适配器和原 Main 导入；关键初始化链不能裸用 import().then，也不能等待 app.whenReady 后再导入。此时序遵循 [Electron ESM 说明](https://www.electronjs.org/docs/latest/tutorial/esm)。启动器自己用 wx0600 写 pid/ppid/isPackaged/appPath 四字段记录；后续准备只核对生成器的精确入口字节，不再前插 CJS 代码。默认模式仍使用原 entry.cjs。
+
 测试入口诊断仅允许 secondary_argv_shape、owned_workspace、session_guard、main_import、private_channel 五种固定拒绝码，以及已拥有进程的实际退出 code/signal。拒绝收据用 wx0600 保留第一次结果，不记录原异常、cause、argv、URL 或请求详情。这些测试收据不能作为产品认证或用户权限的来源。
 
 登录输入前锁定敏感观察；随后只允许固定公开布尔、文本和原控件几何及 Browser Harness 物理输入。禁止读取或输出原始 AX/截图/DOM、链接、网络明文、Cookie、Storage、proof、Token 和 OAuth 参数。冷启动的新 Root 必须重新核对实际 PID/PPID/birth/appPath/CDP 与受信任 renderer，不沿用旧 attachment。

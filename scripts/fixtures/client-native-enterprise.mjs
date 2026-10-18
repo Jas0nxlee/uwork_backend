@@ -29,6 +29,7 @@ import {
   createNativeControlledViewerAuth,
 } from "./native-controlled-viewer-auth.mjs";
 import { validateOwnedNativeWorkspace } from "./native-owned-workspace.mjs";
+import { createPrimaryMainEntry } from "./native-primary-entry.mjs";
 import {
   primaryLoginModeEnabled,
   runNativeEmailBootstrap,
@@ -894,7 +895,7 @@ await writeFile(
   JSON.stringify({
     name: "uwork-client-link-test",
     version: "0.0.0",
-    main: "entry.cjs",
+    main: primaryLoginEnabled ? "entry.mjs" : "entry.cjs",
   }),
 );
 if (primaryLoginEnabled) {
@@ -909,9 +910,14 @@ if (primaryLoginEnabled) {
     );
 }
 await writeFile(
-  join(appRoot, "entry.cjs"),
+  join(appRoot, primaryLoginEnabled ? "entry.mjs" : "entry.cjs"),
   primaryLoginEnabled
-    ? `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,appPath:app.getAppPath(),helpFallbackPath:require('node:path').join(app.getAppPath(),'../../config/default.json'),dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null,defaultProtocolRegistrationSuppressed:true,recentDocumentsClearSuppressed:true}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;app.clearRecentDocuments=()=>{};const electron=require('electron');import('./native-primary-login-adapter.mjs').then(({startPrimaryMainEntry})=>startPrimaryMainEntry(electron,process,{appRoot:__dirname,ownedRoot:${JSON.stringify(root)},origin:${JSON.stringify(origin)},onReject:code=>{try{if(!['secondary_argv_shape','owned_workspace','session_guard','main_import','private_channel'].includes(code))return;require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-rejection-"))}+process.pid+'.json',JSON.stringify({pid:process.pid,code}),{flag:'wx',mode:0o600});}catch{}},loadMain:()=>import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)})})).catch(()=>app.exit(70));`
+    ? createPrimaryMainEntry({
+        appRoot,
+        ownedRoot: root,
+        origin,
+        evidenceDirectory: join(process.cwd(), evidence),
+      })
     : `require('./env-guard.cjs');const {app}=require('electron');require('node:fs').writeFileSync(${JSON.stringify(join(process.cwd(), evidence, "native-runtime-info.json"))},JSON.stringify({pid:process.pid,isPackaged:app.isPackaged,appPath:app.getAppPath(),helpFallbackPath:require('node:path').join(app.getAppPath(),'../../config/default.json'),dynamicWorkflowMode:process.env.ZCODE_DYNAMIC_WORKFLOW_MODE??null,defaultProtocolRegistrationSuppressed:true,recentDocumentsClearSuppressed:true}),{mode:0o600});app.setAsDefaultProtocolClient=()=>false;app.clearRecentDocuments=()=>{};import(${JSON.stringify(pathToFileURL(join(appRoot, "out/main/index.js")).href)});`,
 );
 // 未打包的 Main 会搜索开发环境文件；拷贝正式产物到隔离根，不能借源目录启动。

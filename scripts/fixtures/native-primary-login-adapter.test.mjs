@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { Script } from "node:vm";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { createPrimaryMainEntry } from "./native-primary-entry.mjs";
 import {
   PRIMARY_ADAPTER_REVIEWED,
   PRIMARY_AUTH_EXPRESSION,
@@ -530,44 +531,21 @@ test("staged common writes the exact primary member quota while default remains 
   }
 });
 
-test("generated primary CJS entry parses, imports the guard first and contains no RAM bindings", async () => {
+test("generated primary ESM entry imports the guard first and contains no RAM bindings", async () => {
   const source = await readFile(
     new URL("./client-native-enterprise.mjs", import.meta.url),
     "utf8",
   );
-  const start = source.indexOf(
-    'await writeFile(\n  join(appRoot, "entry.cjs"),',
-  );
-  const end = source.indexOf("\n);", start) + 3;
-  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-  let content;
-  await new AsyncFunction(
-    "writeFile",
-    "join",
-    "appRoot",
-    "root",
-    "origin",
-    "evidence",
-    "pathToFileURL",
-    "primaryLoginEnabled",
-    source.slice(start, end),
-  )(
-    async (_path, bytes) => {
-      content = bytes;
-    },
-    join,
-    "/owned/app",
-    "/owned",
+  const content = createPrimaryMainEntry({
+    appRoot: "/owned/runtime/app",
+    ownedRoot: "/owned",
     origin,
-    "evidence/owned",
-    pathToFileURL,
-    true,
-  );
-  new Script(content);
+    evidenceDirectory: "/evidence/owned",
+  });
   assert.ok(content.includes("startPrimaryMainEntry"));
   assert.ok(
     content.indexOf("native-primary-login-adapter.mjs") <
-      content.indexOf("loadMain:()=>import"),
+      content.indexOf("loadMain: () => import"),
   );
   for (const forbidden of ["primaryNonce", "primarySupplierKey", nonce])
     assert.ok(!content.includes(forbidden));
@@ -829,46 +807,26 @@ test("primary common writes only pid/code diagnostics and preserves actual exit 
     new URL("./client-native-enterprise.mjs", import.meta.url),
     "utf8",
   );
-  const start = source.indexOf(
-    'await writeFile(\n  join(appRoot, "entry.cjs"),',
-  );
-  const end = source.indexOf("\n);", start) + 3;
-  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-  let content;
-  await new AsyncFunction(
-    "writeFile",
-    "join",
-    "appRoot",
-    "root",
-    "origin",
-    "evidence",
-    "pathToFileURL",
-    "primaryLoginEnabled",
-    source.slice(start, end),
-  )(
-    async (_path, bytes) => {
-      content = bytes;
-    },
-    join,
-    "/owned/app",
-    "/owned",
+  const content = createPrimaryMainEntry({
+    appRoot: "/owned/runtime/app",
+    ownedRoot: "/owned",
     origin,
-    "evidence/owned",
-    pathToFileURL,
-    true,
-  );
+    evidenceDirectory: "/evidence/owned",
+  });
   const callbackStart = content.indexOf("onReject:");
-  const callbackEnd = content.indexOf(",loadMain:", callbackStart);
+  const callbackEnd = content.indexOf("\n    loadMain:", callbackStart);
   assert.ok(callbackStart > 0 && callbackEnd > callbackStart);
   const writes = [];
   const onReject = new Script(
-    "(" + content.slice(callbackStart + "onReject:".length, callbackEnd) + ")",
+    "(" +
+      content
+        .slice(callbackStart + "onReject:".length, callbackEnd)
+        .trim()
+        .replace(/,$/u, "") +
+      ")",
   ).runInNewContext({
     process: { pid: 321 },
-    require: (name) => {
-      assert.equal(name, "node:fs");
-      return { writeFileSync: (...args) => writes.push(args) };
-    },
+    fs: { writeFileSync: (...args) => writes.push(args) },
   });
   onReject("main_import");
   onReject("https://outside.invalid/?state=SYNTHETIC_PRIVATE_STATE");
