@@ -201,6 +201,8 @@ Native 分享按钮仍依赖已停用的旧登录状态；已取得实际无入�
 
 随后 `prepare_question` 在认领动作前 exit1，未调用发送。原模型名称和ID匹配为false，尚需区分真实空选择、控件与异步更新；网关设置页未打开时额度/用量不适用，不能作为该功能失败。实际模型转发、本人计量、认证冷恢复、退出拒发和再次冷启均未完成，不能用原登录成功或HTTP200替代。
 
+后续[真实React复现与修复](client-fresh-draft-model-selection-test-2026-10-18.md)确认空目录先初始化mode、迟到合法模型无法补入的新草稿缺陷。原draft资格与codec窄修后，新14项加旧名称回归15/15通过，标准类型/Lint/架构和正常Desktop构建通过；尚需新的Native运行验证，不以组件结果提前勾选。
+
 v6 共91份公开文件、2,271,382字节逐SHA独核，manifest `0b9327d274a1d706f7b1ad8af9aa967da6881e02ab35a941fe4bb0406c3fe730`。四个已知PID/四port及BH连接均收口；Main原stop exit0、BH工具exit1、Common精确SIGKILL后原工具exit1如实保留。R0700保留且handoff后不再访问。G04h、U02/U03/U04/U05继续开放，真实企微、外部MCP/网盘及平台验收边界不变。
 
 ## G07d Read 返回结果的权限与账号复验
