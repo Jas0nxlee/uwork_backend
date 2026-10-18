@@ -6,6 +6,7 @@ import type { WorkspaceHeaderActionSectionProps } from "@/WorkspaceHeaderSection
 import { WorkspaceHelpMenuButton } from "@/WorkspaceHelpMenuButton.js";
 import { ConversationShareMenu } from "@/ConversationShareMenu.js";
 import { DesktopWindowControls } from "@/DesktopWindowControls.js";
+import { useEnterpriseIdentity } from "@/hooks/useEnterpriseIdentity.js";
 
 export type { WorkspaceHeaderActionSectionProps } from "@/WorkspaceHeaderSections/shared.js";
 
@@ -29,6 +30,9 @@ export function WorkspaceHeaderActionSection({
   showWindowControls = false,
   useWindowsCaptionSpacing = false,
 }: WorkspaceHeaderActionSectionProps) {
+  const identity = useEnterpriseIdentity();
+  // 旧 OAuth 展示态已清空；企业入口只读当前身份，退出或切换 owner 时不能由旧 user 补回。
+  const authenticated = identity ? identity.view?.status === "authenticated" : Boolean(user);
   return (
     <div
       className={cn(
@@ -47,8 +51,8 @@ export function WorkspaceHeaderActionSection({
           onSelectedEditorChange={onSelectedEditorChange}
         />
       ) : null}
-      {/* 分享发布接口依赖登录态；未登录时隐藏入口，避免用户打开后只能得到鉴权失败。 */}
-      {activeTaskId && user && isDesktop !== false ? (
+      {/* 此处只控制入口展示，发布仍由 Host 私有身份 scope 和后端重新鉴权。 */}
+      {activeTaskId && authenticated && isDesktop !== false ? (
         <ConversationShareMenu
           taskId={activeTaskId}
           useWindowsCaptionSpacing={useWindowsCaptionSpacing}
