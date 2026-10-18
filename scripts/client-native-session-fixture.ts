@@ -18,6 +18,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import type { ModelSelectionView } from "../clients/uwork/packages/provider/src/facades.js";
 import { createConnection } from "node:net";
 import { createApp } from "../src/app.js";
 import { bootstrap } from "../src/identity.js";
@@ -759,6 +760,29 @@ export async function liveFixture(
         createHash("sha256").update(cliBytes).digest("hex"),
         "dd0a2693311cacf7cbf6e3482246761e8a6de7c27b598a8a896a2c791add5196",
       );
+      const selectionView: ModelSelectionView =
+        await runtime.modelSelection.getView();
+      const selectionModel = selectionView.providers
+        .find((provider) => provider.providerId === "ucas")
+        ?.models.find((item) => item.modelId === String(model.id));
+      assert.ok(selectionModel, "Owned published model must be visible");
+      const preferredSelection = selectionView.preferredSelection;
+      assert.ok(
+        preferredSelection?.providerId === "ucas" &&
+          preferredSelection.modelId === String(model.id),
+        "Owned published model must match the original preference",
+      );
+      const reasoningLevel = preferredSelection.options?.reasoningLevel;
+      assert.ok(typeof reasoningLevel === "string");
+      const modelSelection = {
+        providerId: "ucas",
+        modelId: String(model.id),
+        options: { reasoningLevel },
+      };
+      assert.ok(
+        runtime.registryService.validateSelection(modelSelection).ok,
+        "Owned model selection must satisfy the original Registry",
+      );
       const assets = createEnterpriseAssetsHost({
         backendSession: backend,
         storageDirectory: assetDirectory,
@@ -799,7 +823,7 @@ export async function liveFixture(
         plugins: createPluginManagementService({ zcodeAgentService: agent }),
         workspace: { workspacePath },
         storageDirectory,
-        modelSelection: { providerId: "ucas", modelId: String(model.id) },
+        modelSelection,
         ownedPorts: [
           Number(new URL(origin).port),
           Number(new URL(backendOrigin).port),
