@@ -15,7 +15,8 @@
   },
   "scripts": {
     "lint": "oxlint",
-    "lint:fix": "oxlint --fix"
+    "lint:fix": "oxlint --fix",
+    "test:gateway-view-delivery": "tsc -p tsconfig.gateway-view-delivery-test.json && node test/ucasGatewayViewDelivery.e2e.mjs"
   },
   "dependencies": {
     "@aiden0z/pptx-renderer": "1.2.4",

@@ -244,3 +244,26 @@ sequenceDiagram
   GW->>GW: new full sync advances N+2
   Repo-->>GW: old clear N+1 cannot commit after N+2
 ```
+
+## Renderer 网关视图交付顺序（2026-10-18）
+
+Gateway 继续唯一拥有网关业务视图，EnterpriseIdentityService 继续唯一拥有身份/lease。Renderer Hook 只订阅公开 View 并发送已有命令；不持凭据、不创建授权缓存，不代替 Host/后端准入。
+
+getView、事件、sync 与用量返回的 View 经过同一 schema/revision 提交口。同一当前 service 不接受倒退 revision；相等 revision 可幂等接纳。service 更换的 render 当帧即隐藏旧绑定的资料、用量、busy 和待响应选择，新 service 从独立 revision 域开始；当前已提交 service 的提交引用仅在已提交 effect 更新，废弃 render 不得关掉仍可见 service 的提交口。
+
+已接受 usage=null 或公开用户投影变化时，原子退休旧的 pending period/metric；signed-out 或前一已知用户投影换 owner 时退休旧 operation。正常冷启动 idle→syncing 的 usage 仍为空时，本次同步 busy 保持到自己的完成。正常 period/metric 请求立即展示本次在途选择，当前权威回显后采用 View 字段；请求结束/失败不继续冒称在途选择。旧 service/旧操作的 finally 不得更改新 service/新操作的 busy。
+
+```mermaid
+sequenceDiagram
+  participant H as Host Gateway唯一业务投影owner
+  participant C as 当前service绑定的Hook提交口
+  participant P as 实际Panel
+  H-->>C: signed-out11事件
+  C->>C: schema合法且revision不倒退，退休旧overlay
+  C-->>P: 清空旧资料
+  H-->>C: 迟到getView10或sync10
+  C->>C: 丢弃低revision
+  Note over C,P: 换service首帧屏蔽旧binding，新service从自身revision域开始
+```
+
+验收包含真实 React Panel/ServiceProvider 的合法公开 DTO 次序：初始旧返回晚于 signed-out；sync旧返回晚于 signed-out；7d在途后退出/新owner month；服务更换首次layout无旧用户且新服务低revision可接受；A旧busy不能锁B，旧A完成不能清B新busy；冷启动null usage同步保持busy直到完成。新增的用量返回提交另验返回先于事件、迟到旧revision与请求拒绝。组件复现不冒称真实Native注销/网络故障；Native与HTTP验收独立保留。
