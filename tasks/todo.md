@@ -68,6 +68,8 @@
 - [x] G08b 按用户决定补齐企业成员只读分享后端、私有 Host 传输与同源浏览页；301 后端/49 客户端/3 跨仓真实 HTTP 通过，浏览器五阶段真实 Cookie、两下载、跨企业/退出/撤销拒绝及四宽度通过。受控企微替身、签名安装包和三平台边界保留；Native 发布已由 G08d 另验，主服务恢复与新部署单独记于 `docs/local-backend-recovery-2026-10-18.md`，不据此关闭 U03。
 - [x] G08c 实际 Header/IdentityProvider/ShareMenu 浏览器回归复现旧 OAuth 入口门槛 4 项失败，单组件修复后同 8 场景通过；覆盖当前企业认证、退出、owner 切换、残留旧 user、任务及 Desktop 约束与无 context 兼容。类型/Lint/架构/严格 fixture 类型及新正常 Desktop 构建通过；实际 Native 发布已由 G08d 另行验收。
 - [x] G08d 实际 Electron 生产构建正常会话→原 ShareService/CLI 投影/私有 scope→后端 confirmed1/三公开行，prepare201/confirm200；原生一次发送含主/标题两本机请求与44新增内部Credit，分享零增量；同企业无席位reader200、匿名/退出401、只读continuation403。原错误码辅助断言仅对原响应离线修正，未重发/恢复随机凭据；13已知PID/5端口独立收口，retained0700及默认浏览器/剪贴板/安装包边界见 `docs/client-member-sharing-test-2026-10-18.md`。
+- [x] G08e 原 Native 成功面板打开同一分享产物，实际应用内 guest/独立 partition/同源 TLS 页与 JS/CSS/匿名 preview401通过；四请求、416px无溢出，分享浏览零模型增量。地址栏后续导航未形成有效证据，登录后阅读/退出仍开放，三原失败及两 followup 如实封存；14已知PID/5端口收口、外部写FD保留0700和软阈值停止见 `docs/client-native-share-browser-test-2026-10-18.md`。
+- [x] G09a 实际企业用量 Panel 的迟到 getView/sync、用户/服务换域、周期退休及 busy 隔离：永久同十场景旧9 RED/冷同步1 PASS→修复10/10 GREEN，首次layout和新B请求不被旧A finally清除均实测；类型/Lint/架构/格式、11既有Gateway回归及正常Desktop构建通过。组件端口交付不替代Native真实注销/网络竞态，详见 `docs/client-gateway-view-delivery-test-2026-10-18.md`。
 
 - [x] G02c 实际企业专家 v1/v2、同 session 冷恢复、撤权后禁止同名个人回退和个人 canonical 选择再撤权：4 项，当前正式 CLI 及相关15项回归通过；修复前实际子模型泄漏个人正文，修复后复测通过。
 - [x] G02d Native 指定企业专家真实正文；后台撤权、实际 Electron 重启、侧边栏打开原任务后旧名不可用且0个人子模型；8供应商/8settled含另一成员初始化2。

@@ -24,11 +24,15 @@
 
 实际 Native 发布补验：新正常 Desktop 候选完整副本在本机 Electron 运行，经正常工作区入口发送一次文本，再点击原分享入口、选择、披露确认并发布；真实 ShareService/CLI 投影/私有 scope 完成 prepare 201、confirm 200，新增 confirmed 恰一条、三公开行、摘要一致。主对话和标题共两次本机受控模型请求、44 内部 Credit 已在分享前结算，发布零增量。同一 Native 产物由同企业无席位 reader 读取 200；匿名、退出旧 Cookie 401，只读 continuation 403。实际 Header 旧 OAuth 门槛的八场景由 4 失败/4 通过修复为 8/8。该 URL 仅后端派生，未点复制或打开；独立浏览页验收不冒充 Native 默认浏览器链路。十三个已知 PID、五端口独立收口，外部写 FD 下保留私有测试根。详见 `docs/client-member-sharing-test-2026-10-18.md`。
 
+后续独占 Native 已实际点击原打开按钮，确认 Desktop 是应用内浏览面板；新 guest 的同源中文分享页、JS/CSS 200、匿名正文隐藏/preview401及独立 session 网络记录通过。后续地址栏输入没有形成管理页导航，未运行登录、授权后阅读或退出，不拼接先前独立浏览器结果作为此链路完成。原三组失败、soft96 后停止业务与精确资源终态见 `docs/client-native-share-browser-test-2026-10-18.md`；系统默认浏览器、剪贴板及跨平台仍未覆盖。
+
+企业用量界面的迟到视图、用户与 service 更换、在途周期退休及 busy 隔离已修复：同一永久组件测试旧 Hook 为九项失败、一项冷同步对照通过，修复后十项全部通过；正常类型、Lint、架构、格式、十一项既有 Gateway 服务回归及 Desktop 构建通过。该测试控制合法公开 DTO 的交付次序，不替代真实 Native 注销或网络竞态发生频率；详见 `docs/client-gateway-view-delivery-test-2026-10-18.md`。共享 Enter 驱动另在同版本 Electron 三个表单验证，普通回车补文本及单次驱动等待上限已修复；它不改写历史 Native 导航失败，详见 `docs/client-native-test-driver-2026-10-18.md`。
+
 浏览页新增真实验收：独立 Chromium 148 通过原页面按钮发起企微 attempt，再经受控 provider 与原页面 Cookie claim 登录；没有注入 Cookie、Token、React 或业务 RPC。五阶段通过：匿名不见正文、无席位成员正文与两次 UI 下载、实际退出后附件 401、B 企业正常登录后访问 A 返回 404、owner 取消/确认撤销后正文与附件 404。三个 claim 均观察到实际 HttpOnly、SameSite=Strict Cookie 且 JSON 无 token，四种宽度（320/768/1024/1440）无水平溢出，脚本错误和页面未知外网请求为零。最终 80 文件封存于 `evidence/client-enterprise-sharing-viewer-live-final-20261018/`；前两轮驱动观察错误保留，不混称产品失败。独占进程自然退出、端口拒连与写者零后清根；真实企微仍未覆盖，Native 发布由上一段单独取证。
 
 当前门禁：后端 301/301、跨仓真实 HTTP 3/3、客户端分享 49/49；类型、Lint、接口台账、架构与正常构建通过。完整后端格式门禁仅被原有无关未暂存测试副本阻挡（保留原文件），自有变更格式检查通过。自有插件实际 Native 十二阶段与三代冷启动、设置“浏览插件”修复及清退边界见 `docs/client-native-owned-plugin-test-2026-10-18.md`，不将官方插件运行或全部 Workspace 纳入该通过范围。
 
-当前主服务于 2026-10-18 06:13 UTC 恢复运行在 `http://127.0.0.1:3000/`，PID 29003，为用户保持运行。先做私有在线备份，再有意部署四个新 admin 资产；实际健康、根页面、JS/CSS/brand 200，未登录私有接口 401，原九业务表 hash 不变，分享表为空。旧资产六个可精确恢复、一个历史副本缺失的事实保留，不把新部署叫作原样恢复。详见 `docs/local-backend-recovery-2026-10-18.md`；独立测试通过与主服务当前运行分别取证，未再次执行主库管理员登录或模型调用。
+主服务于 2026-10-18 06:13 UTC 首次恢复运行；原 PID 29003 的终态与端口关闭经确认后，08:09 UTC 以同一正常命令独立启动为 PID 42125。08:12 UTC 核验 `http://127.0.0.1:3000/` 首页和健康均 200，原九业务表 hash 不变、分享表为空、reserved 为零、四个 admin 资产一致。首次恢复前的私有在线备份、有意部署四个新资产、六个旧资产可精确恢复而一个历史副本缺失的事实均保留，不把新部署叫作原样恢复。详见 `docs/local-backend-recovery-2026-10-18.md`；独立测试通过与主服务运行分别取证，未再次执行主库管理员登录或模型调用。
 
 自动验证：`npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run ledger:check`、`npm run build`、`npm audit --audit-level=high`。跨仓库合同验证：`node --import tsx --test scripts/client-contract-smoke.ts scripts/client-policy-contract-smoke.ts scripts/client-assets-contract-smoke.ts scripts/client-assets-host-contract-smoke.ts scripts/client-assets-rpc-contract-smoke.ts`，共 6 项，另加 `scripts/client-connectors-mcp-contract-smoke.ts` 的连接器闭环与 `scripts/client-organization-sharing-live-smoke.ts` 的组织分享闭环，使用真实适配源码和受控企微 provider/本机 HTTP，未调用真实企业凭据。
 
