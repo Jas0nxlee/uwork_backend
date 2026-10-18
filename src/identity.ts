@@ -5,7 +5,7 @@ import {
 } from "node:crypto";
 import { promisify } from "node:util";
 import { z } from "zod";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Db } from "./db.js";
 import { fail, hash, id, now, secret, text } from "./core.js";
 import { audit } from "./events.js";
@@ -98,6 +98,30 @@ export function purgeIdentity(db: Db, time: number) {
   db.run("DELETE FROM login_attempts WHERE expires_at<?", time);
   db.run("DELETE FROM connector_sessions WHERE expires_at<?", time);
 }
+export const sessionDeliverySchema = z
+  .enum(["token", "cookie"])
+  .default("token");
+
+export function sessionCookie(
+  token: string,
+  ttlSeconds: number,
+  publicUrl: string,
+) {
+  return `uwork_session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${ttlSeconds}${publicUrl.startsWith("https:") ? "; Secure" : ""}`;
+}
+
+export function requireCookieDeliveryOrigin(
+  request: FastifyRequest,
+  publicUrl: string,
+  delivery: "token" | "cookie",
+) {
+  // 浏览器登录只交付 HttpOnly Cookie；初次请求也必须校验 Origin，不能等已有 Cookie 才防 CSRF。
+  if (
+    delivery === "cookie" &&
+    request.headers.origin !== new URL(publicUrl).origin
+  )
+    fail(403, "ORIGIN_REQUIRED", "浏览器登录需要同源请求");
+}
 export function rateLimit(db: Db, key: string, max = 10, window = 15 * 60000) {
   db.transaction(() => {
     db.run("DELETE FROM auth_limits WHERE reset_at<?", now());
@@ -121,7 +145,7 @@ export function identityRoutes(
   publicUrl: string,
 ) {
   const cookie = (token: string, ttl: number) =>
-    `uwork_session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${ttl}${publicUrl.startsWith("https:") ? "; Secure" : ""}`;
+    sessionCookie(token, ttl, publicUrl);
   app.post("/api/auth/login", async (req, reply) => {
     rateLimit(db, `login:${req.ip}`);
     const data = z
@@ -129,9 +153,11 @@ export function identityRoutes(
         email: z.email().toLowerCase(),
         password: z.string().max(200),
         tenantId: z.string().optional(),
+        delivery: sessionDeliverySchema,
       })
       .strict()
       .parse(req.body);
+    requireCookieDeliveryOrigin(req, publicUrl, data.delivery);
     const user = db.get<{ id: string; password: string | null }>(
       "SELECT id,password FROM users WHERE email=?",
       data.email,
@@ -151,7 +177,9 @@ export function identityRoutes(
     const result = issueSession(db, user.id, tenantId);
     reply.header("set-cookie", cookie(result.token, 43200));
     audit(db, { tenantId, userId: user.id }, "identity.login");
-    return result;
+    return data.delivery === "cookie"
+      ? { expiresAt: result.expiresAt }
+      : result;
   });
   app.get("/api/auth/me", async (req) => {
     const actor = authenticate(db, req);

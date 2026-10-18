@@ -3,7 +3,13 @@ import type { FastifyInstance } from "fastify";
 import type { Db } from "./db.js";
 import type { Vault } from "./vault.js";
 import { authenticate, requirePermission } from "./access.js";
-import { issueSession, rateLimit } from "./identity.js";
+import {
+  issueSession,
+  rateLimit,
+  sessionDeliverySchema,
+  sessionCookie,
+  requireCookieDeliveryOrigin,
+} from "./identity.js";
 import { audit } from "./events.js";
 import { fail, hash, id, now, secret, text } from "./core.js";
 import { readJson, safeRequest } from "./network.js";
@@ -280,12 +286,16 @@ export function wecomRoutes(
     await verifyAttempt({ state: attemptId, code: d.code });
     return { ok: true };
   });
-  app.post("/api/auth/wecom/attempts/:id/claim", async (req) => {
+  app.post("/api/auth/wecom/attempts/:id/claim", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { proof } = z
-      .object({ proof: z.string().min(1).max(200) })
+    const { proof, delivery } = z
+      .object({
+        proof: z.string().min(1).max(200),
+        delivery: sessionDeliverySchema,
+      })
       .strict()
       .parse(req.body);
+    requireCookieDeliveryOrigin(req, publicUrl, delivery);
     rateLimit(db, `claim:${req.ip}`, 300, 60000);
     return db.transaction(() => {
       const attempt = db.get<{
@@ -316,9 +326,21 @@ export function wecomRoutes(
         "UPDATE login_attempts SET status='claimed' WHERE id=? AND status='authorized'",
         id,
       );
+      const issued = issueSession(db, attempt.user_id, attempt.tenant_id);
+      if (delivery === "cookie") {
+        reply.header(
+          "set-cookie",
+          sessionCookie(issued.token, 43200, publicUrl),
+        );
+        return {
+          status: "claimed",
+          expiresAt: issued.expiresAt,
+          tenantId: attempt.tenant_id,
+        };
+      }
       return {
         status: "authorized",
-        ...issueSession(db, attempt.user_id, attempt.tenant_id),
+        ...issued,
         tenantId: attempt.tenant_id,
       };
     });

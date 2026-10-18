@@ -1,57 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
-
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-
-interface Route {
-  body: string;
-  file: string;
-  line: number;
-  path: string;
-}
-
-function routes(): Route[] {
-  const found: Route[] = [];
-  for (const file of readdirSync(join(root, "src")).filter((name) =>
-    name.endsWith(".ts"),
-  )) {
-    const lines = readFileSync(join(root, "src", file), "utf8").split("\n");
-    lines.forEach((line, index) => {
-      if (!/^\s*app\.(get|post|put|patch|delete)\(/.test(line)) return;
-      const block: string[] = [];
-      let depth = 0,
-        started = false;
-      for (
-        let cursor = index;
-        cursor < Math.min(index + 90, lines.length);
-        cursor++
-      ) {
-        const current = lines[cursor]!;
-        block.push(current);
-        if (current.includes("{")) started = true;
-        depth +=
-          (current.match(/\{/g)?.length ?? 0) -
-          (current.match(/\}/g)?.length ?? 0);
-        if (started && depth <= 0 && cursor > index) break;
-      }
-      const path = /app\.\w+\(\s*[`"']([^`"']+)/.exec(line)?.[1] ?? "";
-      found.push({
-        body: block.join("\n"),
-        file,
-        line: index + 1,
-        path: path.replace(/\$\{p\}/g, "/api/tenants/:tenantId"),
-      });
-    });
-  }
-  return found;
-}
+import { routes, type Route } from "./route-source.js";
 
 /** 公开入口：登录、企微扫码/回调、健康检查、OpenAPI 与静态资源。 */
 const publicPaths = [
   "/api/auth/login",
+  "/api/auth/shares/:code/context",
   "/api/auth/wecom/attempts",
   "/api/auth/wecom/attempts/:id/complete",
   "/api/auth/wecom/attempts/:id/claim",
@@ -65,18 +19,56 @@ const serviceChecked = [
   "/api/tenants/:tenantId/runs/:id/cancel",
 ];
 
+// 新组织只读入口由同一分享 service 鉴权，查看不应错误要求模型席位。
+// 精确到 method/path/真实调用；不能以整个 shares 前缀跳过守卫。
+const sharingOwners: Record<string, string[]> = {
+  "GET /api/client/shares/capabilities": ["publisher"],
+  "POST /api/client/shares/preparations": ["publisher"],
+  "POST /api/client/shares/preparations/:id/artifacts": [
+    "session",
+    "ownedPreparation",
+    "assertPublisher",
+  ],
+  "POST /api/client/shares/preparations/:id/confirm": [
+    "session",
+    "ownedPreparation",
+    "assertPublisher",
+  ],
+  "GET /api/client/shares/:code/preview": ["readShareForViewer"],
+  "GET /api/client/shares/:code/artifacts/:id": ["artifactForViewer"],
+  "GET /api/client/shares/:code/artifacts/:id/content": ["artifactForViewer"],
+  "DELETE /api/client/shares/:code": ["session", "requirePermission"],
+  "POST /api/client/shares/:code/continuation": ["viewer"],
+};
+function sharingChecked(route: Route) {
+  const owners = sharingOwners[`${route.method} ${route.path}`];
+  return (
+    owners !== undefined && owners.every((owner) => route.calls.includes(owner))
+  );
+}
+function subscriptionOwnerChecked(route: Route) {
+  return (
+    route.method === "PUT" &&
+    route.path === "/api/tenants/:tenantId/subscription" &&
+    route.calls.includes("fail") &&
+    route.body.includes('a.role !== "owner"') &&
+    route.body.includes('a.kind !== "session"')
+  );
+}
+
 test("every business route authenticates and checks a permission", () => {
   const offenders: string[] = [];
   for (const route of routes()) {
     if (!route.path.startsWith("/api/") && !route.path.startsWith("/v1/"))
       continue;
     if (publicPaths.includes(route.path)) continue;
-    if (!route.body.includes("authenticate("))
+    if (!route.calls.includes("authenticate") && !sharingChecked(route))
       offenders.push(`${route.file}:${route.line} ${route.path} 未认证`);
     if (
       route.path.startsWith("/api/tenants/") &&
       !route.body.includes("requirePermission(") &&
       !route.body.includes("tenantAccess(") &&
+      !subscriptionOwnerChecked(route) &&
       !serviceChecked.includes(route.path)
     )
       offenders.push(`${route.file}:${route.line} ${route.path} 未做权限判定`);
@@ -105,12 +97,13 @@ test("a tenant-scoped route never authorises with a caller-supplied tenant id", 
   );
 });
 
-test("client and gateway routes gate on execute permission and the current tenant", () => {
+test("client and gateway routes gate on their current tenant and appropriate execution or member permissions", () => {
   const offenders: string[] = [];
   for (const route of routes()) {
     const scoped =
       route.path.startsWith("/api/client/") || route.path.startsWith("/v1/");
     if (!scoped || route.path === "/api/client/events") continue;
+    if (sharingChecked(route)) continue;
     if (!route.body.includes("authenticate("))
       offenders.push(`${route.file}:${route.line} ${route.path} 未认证`);
     if (

@@ -1,4 +1,5 @@
 import { DatabaseSync, backup, type SQLInputValue } from "node:sqlite";
+import { SHARING_SCHEMA } from "./sharing/schema.js";
 import {
   mkdirSync,
   chmodSync,
@@ -133,6 +134,10 @@ export class Db {
       INSERT OR IGNORE INTO schema_version VALUES(1,unixepoch()*1000);
       INSERT OR IGNORE INTO schema_version VALUES(2,unixepoch()*1000);
     `);
+        for (const statement of SHARING_SCHEMA) this.run(statement);
+        this.run(
+          "INSERT OR IGNORE INTO schema_version VALUES(6,unixepoch()*1000)",
+        );
         if (
           !this.all<{ name: string }>("PRAGMA table_info(runs)").some(
             (column) => column.name === "cancel_requested",

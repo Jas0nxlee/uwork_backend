@@ -5,6 +5,8 @@ import { completionSchema } from "./gateway.js";
 import { agentSchema } from "./runtime.js";
 import { configurationSchemas } from "./policy.js";
 import { scopeSchema } from "./core.js";
+import { sessionDeliverySchema } from "./identity.js";
+import { preparationSchema, confirmSchema } from "./sharing/contracts.js";
 
 export function openApi(app: FastifyInstance, publicUrl: string) {
   const paths: Record<string, Record<string, unknown>> = {};
@@ -15,9 +17,13 @@ export function openApi(app: FastifyInstance, publicUrl: string) {
           email: z.email(),
           password: z.string(),
           tenantId: z.string().optional(),
+          delivery: sessionDeliverySchema,
         })
         .strict(),
     ),
+    "POST /api/client/shares/preparations": z.toJSONSchema(preparationSchema),
+    "POST /api/client/shares/preparations/:id/confirm":
+      z.toJSONSchema(confirmSchema),
     "POST /api/tenants/:tenantId/models": z.toJSONSchema(modelSchema, {
       io: "input",
     }),
@@ -59,6 +65,7 @@ export function openApi(app: FastifyInstance, publicUrl: string) {
         security:
           route.url.startsWith("/api/auth/wecom/") ||
           route.url === "/api/auth/login" ||
+          route.url === "/api/auth/shares/:code/context" ||
           route.url === "/api/openapi.json"
             ? []
             : [{ bearerAuth: [] }],

@@ -12,6 +12,8 @@ import { Gateway, gatewayRoutes } from "./gateway.js";
 import { assetRoutes } from "./assets.js";
 import { policyRoutes, ipAllowed } from "./policy.js";
 import { clientRoutes } from "./client.js";
+import { sharingRoutes, purgeExpiredShares } from "./sharing.js";
+import { sharingViewerRoutes } from "./sharing-viewer.js";
 import { clientConsoleRoutes } from "./client-console.js";
 import { Runtime, runtimeRoutes } from "./runtime.js";
 import { AutomationWorker, automationRoutes } from "./automation.js";
@@ -262,6 +264,9 @@ export async function createApp(options: AppOptions) {
   assetRoutes(app, db);
   policyRoutes(app, db);
   clientRoutes(app, db);
+  sharingRoutes(app, db, options.publicUrl);
+  sharingViewerRoutes(app, db);
+  purgeExpiredShares(db);
   clientConsoleRoutes(app, db, runtime);
   clientUsageRoutes(app, db, entitlements);
   sandboxRoutes(app, db, sandbox);
@@ -295,6 +300,7 @@ export async function createApp(options: AppOptions) {
   staticRoutes(app);
   // 企业留存巡检：每小时一次，只清理显式配置过留存天数的企业。
   let lastRetentionSweep = 0;
+  let lastSharingSweep = now();
   const RETENTION_SWEEP_INTERVAL_MS = 3600000;
   if (options.worker)
     interval = setInterval(() => {
@@ -310,6 +316,18 @@ export async function createApp(options: AppOptions) {
             app.log.error(
               { code: "RETENTION_SWEEP_FAILURE" },
               "Retention sweep failed",
+            );
+          }
+        }
+        if (now() - lastSharingSweep >= 60000) {
+          lastSharingSweep = now();
+          try {
+            purgeExpiredShares(db);
+          } catch {
+            // 分享过期清理有界重试，不影响任务分派；访问端仍独立检查到期。
+            app.log.error(
+              { code: "SHARING_CLEANUP_FAILURE" },
+              "Sharing cleanup failed",
             );
           }
         }

@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
 import { createApp } from "../src/app.js";
 import { bootstrap } from "../src/identity.js";
-
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+import { routes } from "./route-source.js";
 
 /**
  * 每个改状态的管理端端点都必须留下审计事实。
@@ -22,42 +18,20 @@ const auditedInService: Record<string, string> = {
 };
 
 test("every mutating admin route either audits itself or names the service that does", () => {
-  const files = readdirSync(join(root, "src")).filter((name) =>
-    name.endsWith(".ts"),
-  );
   const missing: string[] = [];
-  for (const file of files) {
-    const lines = readFileSync(join(root, "src", file), "utf8").split("\n");
-    lines.forEach((line, index) => {
-      if (!/^\s*app\.(post|put|patch|delete)\(/.test(line)) return;
-      if (line.includes("/api/auth/") || line.includes("/api/client/")) return;
-      if (line.includes("/v1/")) return;
-      const block: string[] = [];
-      let depth = 0,
-        started = false;
-      for (
-        let cursor = index;
-        cursor < Math.min(index + 90, lines.length);
-        cursor++
-      ) {
-        const current = lines[cursor]!;
-        block.push(current);
-        if (current.includes("{")) started = true;
-        depth +=
-          (current.match(/\{/g)?.length ?? 0) -
-          (current.match(/\}/g)?.length ?? 0);
-        if (started && depth <= 0 && cursor > index) break;
-      }
-      const body = block.join("\n");
-      if (body.includes("audit(db") || body.includes("audit(this.db")) return;
-      const route =
-        /app\.\w+\(\s*[`"']([^`"']+)/.exec(line)?.[1] ?? line.trim();
-      const normalized = route
-        .replace(/\$\{p\}/g, "/api/tenants/:tenantId")
-        .replace(/\$\{[^}]+\}|\:[a-zA-Z0-9_]+/g, ":x");
-      if (normalized in auditedInService) return;
-      missing.push(`${file}: ${normalized}`);
-    });
+  for (const route of routes()) {
+    if (!["POST", "PUT", "PATCH", "DELETE"].includes(route.method)) continue;
+    if (
+      route.path.startsWith("/api/auth/") ||
+      route.path.startsWith("/api/client/") ||
+      route.path.startsWith("/v1/")
+    )
+      continue;
+    if (route.calls.includes("audit")) continue;
+    const normalized = route.path.replace(/:[a-zA-Z0-9_]+/g, ":x");
+    const owner = auditedInService[normalized];
+    if (owner && route.calls.includes(owner)) continue;
+    missing.push(`${route.file}: ${normalized}`);
   }
   assert.deepEqual(
     missing,
