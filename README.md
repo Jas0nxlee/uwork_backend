@@ -24,7 +24,10 @@ npm start
 - [实施规格与顺序](tasks/plan.md)
 - [自有 API 合同](docs/api.md)，运行时索引 `/api/openapi.json`
 - [企业内会话分享规格](SPEC-enterprise-sharing.md)
+- [企业成员分享真实客户端与浏览页联测](docs/client-member-sharing-test-2026-10-18.md)
+- [自有插件 Native 生命周期验收](docs/client-native-owned-plugin-test-2026-10-18.md)
 - [部署、备份与恢复](docs/deployment.md)
+- [2026-10-18 本地后台恢复与实际运行核验](docs/local-backend-recovery-2026-10-18.md)
 - [2026-10-15 代码复核与补齐](docs/review-2026-10-15.md)、[2026-10-18 代码复核与修正](docs/review-2026-10-18.md)
 - [验证结果与未完成边界](docs/acceptance.md)
 

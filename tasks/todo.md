@@ -65,7 +65,9 @@
 - [x] G06a Native 个人模型创建/配置/发现/实际运行与同会话撤权，拒绝不改配置或派发；两条误导/内部码提示修复并重建复测。个人技能/本机 MCP 的实际 CLI 出口已由 G06b 补完，Native 设置界面另列。
 - [x] G07a 正式 builtin Read/Write/Bash 真实副作用与批准/Hook/yolo 后撤权：5 项及原 7 项回归；WebFetch 实证域名和 SSRF 拒绝，不冒领公网成功。
 - [x] G08a 实际 Host 分享/生产文件源/自动 manifest/hash/上传确认/网络席位组织撤权：5 项、299 次 HTTP、26 既有回归；正式外部服务/Native 分享 UI另列。
-- [x] G08b 按用户决定补齐企业成员只读分享后端、私有 Host 传输与同源浏览页；301 后端/49 客户端/3 跨仓真实 HTTP 通过，浏览器五阶段真实 Cookie、两下载、跨企业/退出/撤销拒绝及四宽度通过。受控企微替身、已安装 Native 发布、三平台及主服务部署分别保留，不据此关闭 U03。
+- [x] G08b 按用户决定补齐企业成员只读分享后端、私有 Host 传输与同源浏览页；301 后端/49 客户端/3 跨仓真实 HTTP 通过，浏览器五阶段真实 Cookie、两下载、跨企业/退出/撤销拒绝及四宽度通过。受控企微替身、签名安装包和三平台边界保留；Native 发布已由 G08d 另验，主服务恢复与新部署单独记于 `docs/local-backend-recovery-2026-10-18.md`，不据此关闭 U03。
+- [x] G08c 实际 Header/IdentityProvider/ShareMenu 浏览器回归复现旧 OAuth 入口门槛 4 项失败，单组件修复后同 8 场景通过；覆盖当前企业认证、退出、owner 切换、残留旧 user、任务及 Desktop 约束与无 context 兼容。类型/Lint/架构/严格 fixture 类型及新正常 Desktop 构建通过；实际 Native 发布已由 G08d 另行验收。
+- [x] G08d 实际 Electron 生产构建正常会话→原 ShareService/CLI 投影/私有 scope→后端 confirmed1/三公开行，prepare201/confirm200；原生一次发送含主/标题两本机请求与44新增内部Credit，分享零增量；同企业无席位reader200、匿名/退出401、只读continuation403。原错误码辅助断言仅对原响应离线修正，未重发/恢复随机凭据；13已知PID/5端口独立收口，retained0700及默认浏览器/剪贴板/安装包边界见 `docs/client-member-sharing-test-2026-10-18.md`。
 
 - [x] G02c 实际企业专家 v1/v2、同 session 冷恢复、撤权后禁止同名个人回退和个人 canonical 选择再撤权：4 项，当前正式 CLI 及相关15项回归通过；修复前实际子模型泄漏个人正文，修复后复测通过。
 - [x] G02d Native 指定企业专家真实正文；后台撤权、实际 Electron 重启、侧边栏打开原任务后旧名不可用且0个人子模型；8供应商/8settled含另一成员初始化2。
@@ -86,4 +88,5 @@
 - [x] G05d 当前 offPeak 关闭时的真实 action 导航、scheduled-only、原空白composer/工作区保留、标准定时模板打开及取消；三次只读任务库与模型/账本零增量，113工件封存。未观察独立eligibility RPC，不替代启用创建或存量ticket/status/settle；清理和保留根目录边界见 `docs/client-native-offpeak-disabled-test-2026-10-18.md`。
 - [x] G04d 正式新CLI与真实公开目录46项的Native分类/类内排序：草稿不生效、发布后两mode独立顺序、ghost缺失、搜索对照及null恢复；补修自定义CA移除默认根问题，Source严格TLS与正式单证书目录复测通过。完整12,972文件树、零Native模型/账本增量及13PID/5端口清理边界见 `docs/client-native-public-store-test-2026-10-18.md`；公司/个人空库存、Featured/已安装正向、身份迟到及外部/平台项不冒领。
 - [x] G04e 同页真实私有配置 pending 保留P→约10s超时清旧D→正常读取恢复P；退出时关闭新在途读取，恢复传输后63次/31,570ms旧排序无回灌。53条观察记录、11份模型/账本快照零Native增量；含正常scope失效，不冒称独立catch、直接插件版本交付或成功晚到。见 `docs/client-native-configuration-lifecycle-test-2026-10-18.md`。
+- [x] G04f 自有插件 Native 12阶段与3代冷启：安装/禁用与label/V2更新/orphan/重添Source/取消不变/确认清全部版本owner/不复活；15完整模型/账本快照零Native增量，设置“浏览插件”导航修复实际通过。34已知PID/5ports独立收口，外部写FD保0700及fixture非优雅边界、运行后out副本漂移另行隔离重建均如实记录；见 `docs/client-native-owned-plugin-test-2026-10-18.md`。不替代官方安装、插件执行、全部Workspace覆盖或三平台安装。
 - [x] G07c Native 自有文件正常预览、右键添加到聊天、真实按键移除引用并保留非空草稿；63字节/权限/hash不变，无模型发送。路径由实际绝对文件行、当前工作区和唯一相对mention共同核对，不替代正文进入模型或FS撤权竞态；清理及保留根目录边界见同报告。
