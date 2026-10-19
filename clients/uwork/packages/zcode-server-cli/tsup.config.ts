@@ -25,7 +25,8 @@ export default defineConfig({
   sourcemap: true,
   splitting: false,
   banner: {
-    js: 'import { fileURLToPath as __zcodeFileURLToPath } from "node:url"; import { dirname as __zcodeDirname } from "node:path"; const __filename = __zcodeFileURLToPath(import.meta.url); const __dirname = __zcodeDirname(__filename);',
+    // ESM 内打包的 CommonJS 仍需 Node require；只补文件路径会在 CLI/Core 加载前失败。
+    js: 'import { createRequire as __zcodeCreateRequire } from "node:module"; import { fileURLToPath as __zcodeFileURLToPath } from "node:url"; import { dirname as __zcodeDirname } from "node:path"; const require = __zcodeCreateRequire(import.meta.url); const __filename = __zcodeFileURLToPath(import.meta.url); const __dirname = __zcodeDirname(__filename);',
   },
   noExternal: ["@zcode/shared", "@zcode/rpc", "@zcode/services"],
   define: SERVER_CLI_DEFINES,
