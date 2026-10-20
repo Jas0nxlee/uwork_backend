@@ -663,11 +663,11 @@ importers:
         specifier: ^0.0.7
         version: 0.0.7
       '@lydell/node-pty-linux-arm64':
-        specifier: 1.2.0-beta.10
-        version: 1.2.0-beta.10
+        specifier: 1.1.0
+        version: 1.1.0
       '@lydell/node-pty-linux-x64':
-        specifier: 1.2.0-beta.10
-        version: 1.2.0-beta.10
+        specifier: 1.1.0
+        version: 1.1.0
       '@opentelemetry/api':
         specifier: 1.9.1
         version: 1.9.1
@@ -726,7 +726,7 @@ importers:
         specifier: ^1.0.4
         version: 1.0.4
       node-pty:
-        specifier: ^1.0.0
+        specifier: 1.1.0
         version: 1.1.0
       playwright-core:
         specifier: 1.59.1
@@ -2452,9 +2452,19 @@ packages:
     cpu: [x64]
     os: [darwin]
 
+  '@lydell/node-pty-linux-arm64@1.1.0':
+    resolution: {integrity: sha512-yyDBmalCfHpLiQMT2zyLcqL2Fay4Xy7rIs8GH4dqKLnEviMvPGOK7LADVkKAsbsyXBSISL3Lt1m1MtxhPH6ckg==}
+    cpu: [arm64]
+    os: [linux]
+
   '@lydell/node-pty-linux-arm64@1.2.0-beta.10':
     resolution: {integrity: sha512-0cKX2iMyXFNBE4fGtGK6B7IkdXcDMZajyEDoGMOgQQs/DDtoI5tSPcBcqNY9VitVrsRQA8+gFt6eKYU9Ye/lUA==}
     cpu: [arm64]
+    os: [linux]
+
+  '@lydell/node-pty-linux-x64@1.1.0':
+    resolution: {integrity: sha512-NcNqRTD14QT+vXcEuqSSvmWY+0+WUBn2uRE8EN0zKtDpIEr9d+YiFj16Uqds6QfcLCHfZmC+Ls7YzwTaqDnanA==}
+    cpu: [x64]
     os: [linux]
 
   '@lydell/node-pty-linux-x64@1.2.0-beta.10':
@@ -10594,7 +10604,11 @@ snapshots:
 
   '@lydell/node-pty-darwin-x64@1.2.0-beta.10': {}
 
+  '@lydell/node-pty-linux-arm64@1.1.0': {}
+
   '@lydell/node-pty-linux-arm64@1.2.0-beta.10': {}
+
+  '@lydell/node-pty-linux-x64@1.1.0': {}
 
   '@lydell/node-pty-linux-x64@1.2.0-beta.10': {}
 
