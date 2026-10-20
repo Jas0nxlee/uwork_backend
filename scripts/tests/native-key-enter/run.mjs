@@ -75,7 +75,7 @@ const put = (name, value) =>
     mode: 0o600,
   });
 const digest = (b) => createHash("sha256").update(b).digest("hex");
-for (const name of ["main.cjs", "form.html", "driver.py"])
+for (const name of ["main.mjs", "form.html", "driver.py"])
   await writeFile(join(evidence, name), await readFile(join(fixtures, name)), {
     flag: "wx",
     mode: 0o600,
@@ -107,7 +107,7 @@ await put("shared-helper-source.json", {
 const inputs = [
   ...[
     "run.mjs",
-    "main.cjs",
+    "main.mjs",
     "form.html",
     "driver.py",
     "test_key_protocol.py",
@@ -210,11 +210,11 @@ await put("runtime.json", {
 try {
   electron = spawn(
     options["--electron"],
-    [join(evidence, "main.cjs"), scratch, evidence, String(cdpPort)],
+    [join(evidence, "main.mjs"), scratch, evidence, String(cdpPort)],
     { cwd: scratch, env: baseEnv, stdio: ["pipe", "ignore", "pipe"] },
   );
   assert.ok(electron.pid > 1 && electron.pid !== 791);
-  const electronExit = exited(electron);
+  void exited(electron);
   electron.stderr.on("data", (b) => {
     if (stderrBytes + b.length <= 65536) {
       stderr.push(b);

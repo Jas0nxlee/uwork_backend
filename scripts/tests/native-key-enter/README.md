@@ -1,5 +1,7 @@
 # Shared Native Enter driver regression
 
+The owned Electron entry uses ESM (`main.mjs`), consistent with the repository lint gate. The runner copies and hashes the current entry into each new evidence directory; historical sealed CJS evidence remains unchanged. Module loading must retain the same pre-ready network and profile guards, and the real three-form regression must pass after migration.
+
 The shared helper sends a carriage return only on plain main Enter keyDown. keyUp, modified Enter shortcuts and other keys retain their prior protocol. Same Electron evidence showed that down/up without text produced no keypress or implicit form submit. This is a test-driver contract, not UWork login or sharing acceptance.
 
 Run the pure AST protocol test:

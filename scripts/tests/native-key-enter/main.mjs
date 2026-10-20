@@ -1,7 +1,9 @@
-"use strict";
-const { app, BrowserWindow, session } = require("electron");
-const fs = require("node:fs");
-const path = require("node:path");
+// ESM 在 Electron ready 前完成加载，保留原隔离目录与出站守卫的安装顺序。
+import { app, BrowserWindow, session } from "electron";
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { createHash } from "node:crypto";
 const root = process.argv[2],
   evidence = process.argv[3],
   port = process.argv[4];
@@ -44,18 +46,13 @@ function attach(s) {
   seen.add(s);
   guard.sessions++;
   s.webRequest.onBeforeRequest({ urls: ["<all_urls>"] }, (d, cb) => {
-    let allowed =
-      d.url === "about:blank" ||
-      d.url === require("node:url").pathToFileURL(page).href;
+    let allowed = d.url === "about:blank" || d.url === pathToFileURL(page).href;
     if (allowed) guard.allowed++;
     else {
       guard.blocked++;
       if (guard.otherUrlHashes.length < 8)
         guard.otherUrlHashes.push(
-          require("node:crypto")
-            .createHash("sha256")
-            .update(d.url)
-            .digest("hex"),
+          createHash("sha256").update(d.url).digest("hex"),
         );
     }
     save();
