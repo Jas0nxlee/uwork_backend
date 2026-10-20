@@ -686,7 +686,7 @@ export interface IPlatformService {
   /** 注册 `zcode://share/import?code=...` 导入意图。 */
   onShareImport?(callback: (payload: { shareCode: string }) => void): () => void;
 
-  /** 通知 main process renderer 已就绪，触发缓存的冷启动 deep link 转发 */
+  /** 平台监听器及初始工作区恢复/注入完成后通知 Main，允许转发缓存的显式导航意图。 */
   notifyRendererReady(): void;
 
   /** 触发任务状态对应的系统通知，由宿主环境决定是否真正展示 */

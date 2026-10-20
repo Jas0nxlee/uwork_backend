@@ -272,11 +272,13 @@ export function useRootPlatformEffects({
         })
       : () => {};
     let active = true;
-    // Main 会缓存未 ready 窗口的 second-instance 请求；必须先装好上述监听器再通知。
+    // Main 已拥有未 ready 请求的缓存；恢复/初始 workspace 注入完成前不能释放。
+    // 之前只等监听器安装，显式目录会先打开、随后又被 initial workspace 抢回激活态。
     // microtask 让 StrictMode 已 cleanup 的订阅退出，pending 的消费与幂等仍由 Main 拥有。
     void Promise.resolve()
       .then(() => {
-        if (active) return platform.notifyRendererReady();
+        if (active && canBootstrapInitialWorkspace && didBootstrapInitialWorkspaceRef.current)
+          return platform.notifyRendererReady();
       })
       .catch((error: unknown) => {
         logger.warn("[Root] 通知 renderer ready 失败", { error });
@@ -292,7 +294,7 @@ export function useRootPlatformEffects({
       disposeNotificationClick();
       disposeUpdateCheckResult();
     };
-  }, [activeWorkspaceIdentity, activeWorkspacePath, platform, tabs]);
+  }, [activeWorkspaceIdentity, activeWorkspacePath, canBootstrapInitialWorkspace, platform, tabs]);
 
   useEffect(() => {
     const pending = pendingShareImportRef.current;

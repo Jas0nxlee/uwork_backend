@@ -222,7 +222,8 @@ function createFixture(platformName = "darwin") {
       tabs: [],
       locale: "en-US",
       totalUnreadTaskCount: 0,
-      canBootstrapInitialWorkspace: false,
+      // 该组默认覆盖已完成初始恢复后的真实 ready IPC；held restore 由下方独立用例覆盖。
+      canBootstrapInitialWorkspace: true,
       isDesktop: true,
       addTab() {},
       setIsBootstrappingInitialWorkspace() {},
@@ -258,6 +259,21 @@ function createFixture(platformName = "darwin") {
 }
 
 const flush = () => new Promise((resolveFlush) => setImmediate(resolveFlush));
+
+test("Main retains an explicit request until initial restore permits ready IPC", async () => {
+  const f = createFixture();
+  f.request();
+  const held = f.mount({ canBootstrapInitialWorkspace: false });
+  await flush();
+  assert.deepEqual(f.ready, []);
+  assert.deepEqual(f.opened, []);
+  held();
+  const dispose = f.mount({ canBootstrapInitialWorkspace: true });
+  await flush();
+  assert.deepEqual(f.ready, [1]);
+  assert.deepEqual(f.opened, [workspace]);
+  dispose();
+});
 
 for (const os of ["darwin", "win32", "linux"])
   test(`${os}: running-window argv is cached before listeners, then delivered once through the real ready IPC`, async () => {
