@@ -91,6 +91,17 @@ export function authorizeProjectMemoryIndex(
   );
 }
 
+export function authorizeProjectMemoryManifest(
+  context: PromptAttachmentAuthorizationContext,
+  signal?: AbortSignal,
+): Promise<LocalContentAdmission> {
+  return authorizeLocalContent(
+    { toolName: "ProjectMemoryManifestRead", input: { kind: "project-memory-manifest" } },
+    context,
+    signal,
+  );
+}
+
 interface LocalContentAdmission {
   revalidate: () => Promise<void>;
   assertCurrent: () => void;
@@ -99,7 +110,8 @@ interface LocalContentAdmission {
 async function authorizeLocalContent(
   consumer:
     | { toolName: "PromptAttachmentRead"; input: { path: string; kind: TurnAttachment["type"] } }
-    | { toolName: "ProjectMemoryIndexRead"; input: { kind: "project-memory-index" } },
+    | { toolName: "ProjectMemoryIndexRead"; input: { kind: "project-memory-index" } }
+    | { toolName: "ProjectMemoryManifestRead"; input: { kind: "project-memory-manifest" } },
   context: PromptAttachmentAuthorizationContext | undefined,
   signal?: AbortSignal,
 ): Promise<LocalContentAdmission> {

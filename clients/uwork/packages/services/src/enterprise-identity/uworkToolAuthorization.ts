@@ -150,9 +150,10 @@ export function createUWorkToolAuthorizationResolver(
       if (request.phase === "asset_load") return denied("enterprise_capability_unsupported");
       const attachmentRead = request.toolName === "PromptAttachmentRead";
       const memoryIndexRead = request.toolName === "ProjectMemoryIndexRead";
+      const memoryManifestRead = request.toolName === "ProjectMemoryManifestRead";
       // 只窄开固定内部正文消费者；Memory 开关不能绕过企业文件权限或 owner 复核。
       if (
-        (attachmentRead || memoryIndexRead) &&
+        (attachmentRead || memoryIndexRead || memoryManifestRead) &&
         !zcodeEnterpriseToolAuthorizationParamsSchema.safeParse(request).success
       )
         return denied("enterprise_capability_unsupported");
@@ -162,7 +163,13 @@ export function createUWorkToolAuthorizationResolver(
         request.capability.readOnly &&
         !request.capability.destructive &&
         request.capability.sideEffectScope === "none";
-      if (request.phase === "before_result" && !builtinRead && !attachmentRead && !memoryIndexRead)
+      if (
+        request.phase === "before_result" &&
+        !builtinRead &&
+        !attachmentRead &&
+        !memoryIndexRead &&
+        !memoryManifestRead
+      )
         return denied("enterprise_capability_unsupported");
       try {
         const result = await backendSession.run(

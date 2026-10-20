@@ -2470,6 +2470,10 @@ const promptAttachmentReadInputSchema = z
 const projectMemoryIndexReadInputSchema = z
   .object({ kind: z.literal("project-memory-index") })
   .strict();
+// Manifest 扫描会发布 topic description；同样只传固定类别，防止元数据绕过正文准入。
+const projectMemoryManifestReadInputSchema = z
+  .object({ kind: z.literal("project-memory-manifest") })
+  .strict();
 export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractionScopeSchema
   .extend({
     toolCallId: z.string().min(1).max(200),
@@ -2530,10 +2534,15 @@ export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractio
   .refine((request) => {
     const attachmentRead = request.toolName === "PromptAttachmentRead";
     const memoryIndexRead = request.toolName === "ProjectMemoryIndexRead";
+    const memoryManifestRead = request.toolName === "ProjectMemoryManifestRead";
     if (
-      (attachmentRead || memoryIndexRead) &&
+      (attachmentRead || memoryIndexRead || memoryManifestRead) &&
       (!(
-        attachmentRead ? promptAttachmentReadInputSchema : projectMemoryIndexReadInputSchema
+        attachmentRead
+          ? promptAttachmentReadInputSchema
+          : memoryIndexRead
+            ? projectMemoryIndexReadInputSchema
+            : projectMemoryManifestReadInputSchema
       ).safeParse(request.input).success ||
         Object.keys(request.capability).length !== 4 ||
         request.capability.permission !== "filesystem" ||
@@ -2549,6 +2558,7 @@ export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractio
         request.asset === undefined &&
         (attachmentRead ||
           memoryIndexRead ||
+          memoryManifestRead ||
           (request.toolName === "Read" &&
             request.capability.permission === "read" &&
             request.capability.readOnly &&
