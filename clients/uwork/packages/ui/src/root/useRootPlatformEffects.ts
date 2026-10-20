@@ -97,7 +97,17 @@ export function useRootPlatformEffects({
     }
 
     didBootstrapInitialWorkspaceRef.current = true;
-    if (initialWorkspaceAbsPath) {
+    const restoredActiveWorkspaceKey = activeWorkspaceIdentity?.trim() || activeWorkspacePath;
+    const preserveRestoredWorkspace =
+      isRendererReloadNavigation() &&
+      tabs.some(
+        (tab) =>
+          isWorkspaceTab(tab) &&
+          (tab.workspaceIdentity?.trim() || tab.workspacePath) === restoredActiveWorkspaceKey,
+      );
+    // 窗口 URL 保留的是创建时入口；刷新已有恢复选择时再次注入它，会把用户后来
+    // 选中的项目改回旧默认目录。仅无恢复目标时沿原入口兜底，冷启动仍执行显式入口。
+    if (initialWorkspaceAbsPath && !preserveRestoredWorkspace) {
       addTab(
         initialWorkspaceAbsPath,
         initialWorkspaceIdentity || initialWorkspacePurpose
@@ -130,6 +140,9 @@ export function useRootPlatformEffects({
     initialWorkspaceAbsPath,
     initialWorkspaceIdentity,
     initialWorkspacePurpose,
+    activeWorkspacePath,
+    activeWorkspaceIdentity,
+    tabs,
     setIsBootstrappingInitialWorkspace,
     startDraftInWorkspace,
   ]);

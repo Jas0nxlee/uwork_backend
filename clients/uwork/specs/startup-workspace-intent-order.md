@@ -29,3 +29,11 @@ node --test packages/desktop/test/rendererReadyWorkspace.integration.mjs
 pnpm exec tsx --test packages/desktop/test/startupFallbackCwd.test.ts
 node --test packages/desktop/test/startupFallbackCwd.integration.mjs
 ```
+
+## Renderer reload 与旧窗口入口
+
+窗口 URL 的 `initialWorkspacePath`/`initialTaskId` 是该窗口创建时的入口，后续用户切换项目不会改写 URL。Renderer reload 必须由原 TabStore 的持久恢复选择拥有当前导航；已有恢复 active workspace 时，不再次注入旧 initial path 或重放旧 taskId。否则保存的项目 index0 先恢复成功，又被旧 default conversation 入口激活为 index1。
+
+该判断只在既有 `canBootstrapInitialWorkspace` 门禁释放后读取本次原恢复状态，不新增缓存、队列或定时器。reload 没有可用恢复 active workspace 时，继续原 initial workspace fallback；普通冷启动继续按原显式入口覆盖历史选择。Main 在 ready 后交付的新 secondary/deep-link 属于新用户意图，仍沿原事件处理器激活指定目录，不被 reload 规则阻止。
+
+顺序：原 persisted tabs/active 恢复 → Root 判定 reload 是否已有有效 active workspace → 保留恢复选择或执行原 fallback → 通知 Main ready → 消费本次新显式请求。永久回归使用真实 React Hook/TabStore，覆盖 reload 保留项目、无历史 fallback、冷启动入口及新 secondary 请求；真实 Mac 原包再验证文件预览前后 reload、模型 cwd 与独立账本。
