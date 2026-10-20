@@ -66,6 +66,7 @@ import {
   parseAsarListWithPackState,
 } from "./scripts/desktop-native-package-policy.mjs";
 import { replaceAppAsarFromStaging } from "./scripts/app-asar-repack.mjs";
+import { synchronizeMacAsarIntegrityMetadata } from "./scripts/macos-asar-integrity-metadata.mjs";
 import {
   patchNsisInstallSectionFile,
   restoreNsisInstallSectionFileSync,
@@ -534,6 +535,10 @@ export default {
     runTimedSync("afterPack:assertPackagedNodePtyPrebuild", () =>
       assertPackagedNodePtyPrebuild(context),
     );
+    await synchronizeMacAsarIntegrityMetadata({
+      electronPlatformName: context.electronPlatformName,
+      appAsarPath: resolveAppAsarPath(context),
+    });
     if (context.electronPlatformName === "darwin" && process.env.ZCODE_MAC_ADHOC_SIGN === "1") {
       // Finder/resource-fork 属性会令签名拒绝；只清理生成的副本，保持签名校验严格执行。
       await promisify(execFile)("xattr", [
