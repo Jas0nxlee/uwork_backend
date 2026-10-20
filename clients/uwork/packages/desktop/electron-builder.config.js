@@ -713,11 +713,14 @@ export default {
     // rpm 面向 RHEL 8+（glibc 2.28）分发；整包 glibc 下限由 node-pty prebuild 与 bfs/ugrep 抬到 2.28，
     // Electron 41 主二进制只引用到 2.25，不会更高。fpm 产 rpm 需要构建机提供 rpmbuild 与 xz。
     packageName: desktopProductIdentity.linuxPackageName,
+    // 原模板的 alternatives 卸载 target 与安装值不一致，且留下 RPM 未拥有的空目录。
+    afterRemove: "scripts/linux-rpm-after-remove.tpl",
     // electron-builder 的 rpm 默认 Requires（gtk3/nss/libXtst 等）不包含 Electron ELF 实际
     // DT_NEEDED 的 mesa-libgbm 与 alsa-lib；rockylinux:8 最小化容器实测装完后启动报
     // libgbm.so.1 缺失。这里用 fpm 追加 -d（在默认 Requires 之后累积），不能用 depends——
     // depends 会整组替换默认 Requires 集。
-    fpm: ["-d", "mesa-libgbm", "-d", "alsa-lib"],
+    // RPM 最终卸载的空目录清理由 find 执行，最小 RHEL 也必须显式具备 findutils。
+    fpm: ["-d", "mesa-libgbm", "-d", "alsa-lib", "-d", "findutils"],
   },
   dmg: {
     // 当前安装包携带的运行时资源（尤其 agent node_modules）体积已超过默认 DMG 估算值。
