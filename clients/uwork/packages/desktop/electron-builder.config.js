@@ -422,6 +422,12 @@ function assertPackagedNodePtyPrebuild(context) {
 /** @type {import("electron-builder").Configuration} */
 export default {
   appId: desktopProductIdentity.appId,
+  ...(targetPlatform.os === "linux" && targetPlatform.arch === "arm64"
+    ? {
+        // legacy ARM64 runtime 动态依赖开发库 libz.so；选用 builder 已支持且校验归档的便携工具集。
+        toolsets: { appimage: "1.0.2" },
+      }
+    : {}),
   // Linux deb 打包（fpm）会校验 package metadata 中的 homepage、author.email、maintainer。
   // CI 环境下若这些字段缺失会在产物阶段直接失败。这里统一在构建配置补齐，避免依赖外部注入。
   extraMetadata: {
@@ -699,6 +705,8 @@ export default {
     depends: PACMAN_RUNTIME_DEPENDENCIES,
     // Electron Builder 默认把 pacman target 命名为 .pacman；Arch 原生包的标准扩展名是 .pkg.tar.zst。
     artifactName: buildDesktopArtifactName("linux", "pkg.tar.zst"),
+    // 仅改扩展名仍会得到 builder 默认的 xz；26.8.1 通用枚举未含 zstd，沿原 FPM 参数显式选择。
+    fpm: ["--pacman-compression", "zstd"],
   },
   rpm: {
     // 与 deb 同一约束：生产版与 Preview 必须是两个独立 rpm 包，否则 dnf 会把另一 flavor 当成升级替换。
