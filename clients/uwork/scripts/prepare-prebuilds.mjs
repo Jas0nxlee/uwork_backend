@@ -33,6 +33,8 @@ import {
 import { runCommand } from "./spawn-command.mjs";
 import { resolveIntranetDepsBaseUrl } from "./intranetDefaults.mjs";
 
+import { resolveNodePtyPrebuildAssets } from "./node-pty-prebuild-assets.mjs";
+
 export { computeComponentSourceSha256, packComponentSourceAsArchive };
 
 const require = createRequire(import.meta.url);
@@ -229,6 +231,16 @@ async function extractArchiveMember(url, destinationDir, archiveMember) {
 }
 
 function resolveDedicatedPackageRoot(packageName, fromDir) {
+  // 官方1.1平台包没有JS入口，必须先从显式依赖者解析metadata。
+  try {
+    const metadataPath = require.resolve(`${packageName}/package.json`, { paths: [fromDir] });
+    const metadata = require(metadataPath);
+    if (metadata.name !== packageName)
+      throw new Error(`Unexpected package identity: ${packageName}`);
+    return dirname(metadataPath);
+  } catch (error) {
+    if (error.code !== "ERR_PACKAGE_PATH_NOT_EXPORTED") throw error;
+  }
   const packageEntryPath = require.resolve(packageName, { paths: [fromDir] });
   let currentDir = dirname(packageEntryPath);
 
@@ -257,14 +269,20 @@ function resolveNodePtyPackageName(platformKey) {
   return `@lydell/node-pty-${platformKey}`;
 }
 
+function resolveNodePtyAssetPlan(platformKey) {
+  const serverRoot = join(rootDir, "packages/server");
+  return resolveNodePtyPrebuildAssets({
+    jsPackageRoot: resolveDedicatedPackageRoot("node-pty", serverRoot),
+    nativePackageRoot: resolveDedicatedPackageRoot(
+      resolveNodePtyPackageName(platformKey),
+      serverRoot,
+    ),
+    platformKey,
+  });
+}
+
 function resolveNodePtyPackageVersion(platformKey) {
-  const packageName = resolveNodePtyPackageName(platformKey);
-  const packageRoot = resolveDedicatedPackageRoot(packageName, join(rootDir, "packages/server"));
-  const packageJson = require(join(packageRoot, "package.json"));
-  if (typeof packageJson?.version !== "string" || !packageJson.version.trim()) {
-    throw new Error(`Unable to resolve version for ${packageName}`);
-  }
-  return packageJson.version.trim();
+  return resolveNodePtyAssetPlan(platformKey).version;
 }
 
 async function prepareNodeBinaries() {
@@ -346,53 +364,19 @@ function copyServerBundle() {
 
 function copyNodePtyPrebuilds() {
   console.log("==> Copying node-pty prebuilds from @lydell/node-pty");
-
-  for (const platformKey of remotePlatforms) {
-    const ptyDir = join(releaseDir, "node-pty", platformKey);
-    const targetBinaryPath = join(ptyDir, "pty.node");
-    const targetSpawnHelperPath = join(ptyDir, "spawn-helper");
-    const requiresSpawnHelper = platformKey.startsWith("darwin-");
-
-    if (
-      existsSync(targetBinaryPath) &&
-      (!requiresSpawnHelper || existsSync(targetSpawnHelperPath))
-    ) {
-      console.log(`  [skip] mock-cdn node-pty/${platformKey} already exists`);
-      continue;
-    }
-
+  const plans = remotePlatforms.map(resolveNodePtyAssetPlan);
+  for (const plan of plans) {
+    const ptyDir = join(releaseDir, "node-pty", plan.platformKey);
+    // 存在不等于兼容；先校验全组，再重建本producer独占目录，避免Beta残留贴1.1版本。
+    rmSync(ptyDir, { recursive: true, force: true });
     mkdirSync(ptyDir, { recursive: true });
-
-    const packageName = resolveNodePtyPackageName(platformKey);
-    let packageRoot;
-    try {
-      packageRoot = resolveDedicatedPackageRoot(packageName, join(rootDir, "packages/server"));
-    } catch {
-      console.log(`  [warn] ${packageName} not found, run: pnpm install`);
-      continue;
+    copyFileSync(plan.nativePath, join(ptyDir, "pty.node"));
+    if (plan.spawnHelperPath) {
+      const helper = join(ptyDir, "spawn-helper");
+      copyFileSync(plan.spawnHelperPath, helper);
+      chmodSync(helper, 0o755);
     }
-
-    const sourcePrebuildDir = join(packageRoot, "prebuilds", platformKey);
-    const sourceBinaryPath = join(sourcePrebuildDir, "pty.node");
-    if (!existsSync(sourceBinaryPath)) {
-      console.log(`  [warn] binary not found at ${sourceBinaryPath}`);
-      continue;
-    }
-
-    // Darwin 平台 node-pty 除了 pty.node 还依赖 spawn-helper。
-    // 之前 mock-cdn 只复制了 pty.node，远端部署后会在 terminal.create 阶段报 posix_spawn ENOENT。
-    // 这里把 spawn-helper 一并拷贝进 remote 资产目录，避免远端终端启动时缺关键二进制。
-    copyFileSync(sourceBinaryPath, targetBinaryPath);
-    if (requiresSpawnHelper) {
-      const sourceSpawnHelperPath = join(sourcePrebuildDir, "spawn-helper");
-      if (!existsSync(sourceSpawnHelperPath)) {
-        console.log(`  [warn] spawn-helper not found at ${sourceSpawnHelperPath}`);
-        continue;
-      }
-      copyFileSync(sourceSpawnHelperPath, targetSpawnHelperPath);
-      chmodSync(targetSpawnHelperPath, 0o755);
-    }
-    console.log(`  [ok] mock-cdn node-pty/${platformKey} (copied from ${packageName})`);
+    console.log(`  [ok] mock-cdn node-pty/${plan.platformKey} (validated ${plan.version})`);
   }
 }
 

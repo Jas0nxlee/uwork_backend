@@ -159,10 +159,11 @@ test("Desktop pins the complete 1.1 group exactly", () => {
     assert.equal(desktop.dependencies[name], "1.1.0", `Desktop exact matching pin: ${name}`);
 });
 
-test("Server four platform dependency pins remain beta10", () => {
+test("Server JS and four platform dependency pins match the original1.1 ABI", () => {
   const server = JSON.parse(
     readFileSync(resolve(import.meta.dirname, "../../server/package.json")),
   );
+  assert.equal(server.dependencies["node-pty"], "1.1.0");
   for (const platform of ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"])
-    assert.equal(server.dependencies[`@lydell/node-pty-${platform}`], "1.2.0-beta.10");
+    assert.equal(server.dependencies[`@lydell/node-pty-${platform}`], "1.1.0");
 });

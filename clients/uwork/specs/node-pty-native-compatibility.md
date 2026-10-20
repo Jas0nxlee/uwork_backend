@@ -2,7 +2,7 @@
 
 原 Linux 原包真实终端输入可用，但 resize 日志要求 `pty.resize(fd, cols, rows, xPixel, yPixel)`。原包 JS 是 node-pty1.1.0，公开 resize 两参数后向 native 传三参数；beforePack 却从 @lydell 平台包1.2.0-beta.10无条件复制 native。使用原AppImage提取JS和同SHA native、匹配Linux Node实测三参数抛 Usage，五参数才进入 ioctl/EBADF，构成真实ABI不一致。
 
-Desktop 固定 JS node-pty1.1.0 与两个 Linux 平台原包1.1.0。官方registry同时提供arm64/x64对应原包与完整integrity；不修改第三方JS/native源码，不改变TerminalService公开resize接口，不吞错误。Darwin现有1.1 JS/native保持；Server/CLI原1.2.0-beta.10平台依赖及已有cdf Agent不改变。
+Desktop 固定 JS node-pty1.1.0 与两个 Linux 平台原包1.1.0。官方registry同时提供arm64/x64对应原包与完整integrity；不修改第三方JS/native源码，不改变TerminalService公开resize接口，不吞错误。Darwin现有1.1 JS/native保持；原Desktop单独修复切片未改变Server/CLI的Beta10依赖。随后Server三producer及四平台匹配修复由[独立Server规格](server-node-pty-native-compatibility.md)接续，当前Server JS/四native均固定1.1.0；已有cdf Agent仍不重建。
 
 唯一写者仍为原 `restoreTargetNodePtyPrebuild`。它从调用者Desktop项目根解析JS和目标平台包，复制前核JS/native版本非空且精确相同、源平台包名、os/cpu与目标一致、真实ELF64 little-endian及machine与目标一致；任何不一致必须失败，已有目标字节不变。原公开入口和pnpm解析应支持workspace内Desktop与Server不同依赖版本，不能用宿主root hoist碰巧选到正确版本。
 

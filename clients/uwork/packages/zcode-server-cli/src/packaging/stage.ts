@@ -6,6 +6,7 @@ import { builtinModules } from "node:module";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { createRuntimeManifest, type ServerTarget } from "../runtime/manifest.js";
 import { isTarCommand, resolveHostTarCommand } from "./tarCommand.js";
+import { resolveNodePtyPrebuildAssets } from "../../../../scripts/node-pty-prebuild-assets.mjs";
 
 const NODE_BUILTIN_MODULES = new Set(builtinModules);
 
@@ -617,6 +618,29 @@ async function ensureNodePtyPrebuild(
 ): Promise<void> {
   const prebuildDir = join(nodeModulesTargetDir, "node-pty", "prebuilds", options.target);
   const ptyNodePath = join(prebuildDir, "pty.node");
+  // 不能因目标已有 native 就跳过：旧缓存可能是与1.1 JS不兼容的Beta五参ABI。
+  if (/^(linux|darwin)-/.test(options.target)) {
+    const nativeRoot = await findDependencyDir(
+      options.workspacePackageDirs?.get("@zcode/server") ??
+        dirname(resolve(options.workspaceNodeModulesDir)),
+      `@lydell/node-pty-${options.target}`,
+    );
+    if (!nativeRoot) throw new Error(`Missing node-pty platform package: ${options.target}`);
+    const plan = resolveNodePtyPrebuildAssets({
+      jsPackageRoot: join(nodeModulesTargetDir, "node-pty"),
+      nativePackageRoot: nativeRoot,
+      platformKey: options.target,
+    });
+    await rm(prebuildDir, { recursive: true, force: true });
+    await mkdir(prebuildDir, { recursive: true });
+    await cp(plan.nativePath, ptyNodePath);
+    if (plan.spawnHelperPath) {
+      const helper = join(prebuildDir, "spawn-helper");
+      await cp(plan.spawnHelperPath, helper);
+      await chmod(helper, 0o755);
+    }
+    return;
+  }
   let hasPtyNode = true;
   try {
     await access(ptyNodePath);

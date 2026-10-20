@@ -898,17 +898,17 @@ importers:
         specifier: ^1.3.0
         version: 1.3.0(@hono/node-server@1.19.14(hono@4.13.11))(hono@4.13.11)
       '@lydell/node-pty-darwin-arm64':
-        specifier: 1.2.0-beta.10
-        version: 1.2.0-beta.10
+        specifier: 1.1.0
+        version: 1.1.0
       '@lydell/node-pty-darwin-x64':
-        specifier: 1.2.0-beta.10
-        version: 1.2.0-beta.10
+        specifier: 1.1.0
+        version: 1.1.0
       '@lydell/node-pty-linux-arm64':
-        specifier: 1.2.0-beta.10
-        version: 1.2.0-beta.10
+        specifier: 1.1.0
+        version: 1.1.0
       '@lydell/node-pty-linux-x64':
-        specifier: 1.2.0-beta.10
-        version: 1.2.0-beta.10
+        specifier: 1.1.0
+        version: 1.1.0
       '@peculiar/asn1-schema':
         specifier: 2.9.4
         version: 2.9.4
@@ -943,7 +943,7 @@ importers:
         specifier: ^4.12.25
         version: 4.13.11
       node-pty:
-        specifier: ^1.0.0
+        specifier: 1.1.0
         version: 1.1.0
       proxy-from-env:
         specifier: ^1.1.0
@@ -2442,13 +2442,13 @@ packages:
     peerDependencies:
       yjs: '>=13.5.22'
 
-  '@lydell/node-pty-darwin-arm64@1.2.0-beta.10':
-    resolution: {integrity: sha512-C+eqDyRNHRYvx7RaHj6VVCx6nCpRBPuuxhTcc3JH3GuBMoxTsYeY4GkWH2XOktrgbAq1BG8e/Y8bu/wNQreCEw==}
+  '@lydell/node-pty-darwin-arm64@1.1.0':
+    resolution: {integrity: sha512-7kFD+owAA61qmhJCtoMbqj3Uvff3YHDiU+4on5F2vQdcMI3MuwGi7dM6MkFG/yuzpw8LF2xULpL71tOPUfxs0w==}
     cpu: [arm64]
     os: [darwin]
 
-  '@lydell/node-pty-darwin-x64@1.2.0-beta.10':
-    resolution: {integrity: sha512-aZoIK6HtJO5BiT4ELm683U4dyHtt8b7wNgq3NJqYAQwSXrcPv576Z8vY3BIulVxfcFkht/SPLKou9TtdFXdNpg==}
+  '@lydell/node-pty-darwin-x64@1.1.0':
+    resolution: {integrity: sha512-XZdvqj5FjAMjH8bdp0YfaZjur5DrCIDD1VYiE9EkkYVMDQqRUPHYV3U8BVEQVT9hYfjmpr7dNaELF2KyISWSNA==}
     cpu: [x64]
     os: [darwin]
 
@@ -2457,18 +2457,8 @@ packages:
     cpu: [arm64]
     os: [linux]
 
-  '@lydell/node-pty-linux-arm64@1.2.0-beta.10':
-    resolution: {integrity: sha512-0cKX2iMyXFNBE4fGtGK6B7IkdXcDMZajyEDoGMOgQQs/DDtoI5tSPcBcqNY9VitVrsRQA8+gFt6eKYU9Ye/lUA==}
-    cpu: [arm64]
-    os: [linux]
-
   '@lydell/node-pty-linux-x64@1.1.0':
     resolution: {integrity: sha512-NcNqRTD14QT+vXcEuqSSvmWY+0+WUBn2uRE8EN0zKtDpIEr9d+YiFj16Uqds6QfcLCHfZmC+Ls7YzwTaqDnanA==}
-    cpu: [x64]
-    os: [linux]
-
-  '@lydell/node-pty-linux-x64@1.2.0-beta.10':
-    resolution: {integrity: sha512-J9HnxvSzEeMH748+Ul1VrmCLWMo7iCVJy9EGijRR62+YO/Yk5GaCydUTZ+KzlH0/X5aTrgt5cfiof4vx45tRRg==}
     cpu: [x64]
     os: [linux]
 
@@ -10600,17 +10590,13 @@ snapshots:
       lexical: 0.42.0
       yjs: 13.6.30
 
-  '@lydell/node-pty-darwin-arm64@1.2.0-beta.10': {}
+  '@lydell/node-pty-darwin-arm64@1.1.0': {}
 
-  '@lydell/node-pty-darwin-x64@1.2.0-beta.10': {}
+  '@lydell/node-pty-darwin-x64@1.1.0': {}
 
   '@lydell/node-pty-linux-arm64@1.1.0': {}
 
-  '@lydell/node-pty-linux-arm64@1.2.0-beta.10': {}
-
   '@lydell/node-pty-linux-x64@1.1.0': {}
-
-  '@lydell/node-pty-linux-x64@1.2.0-beta.10': {}
 
   '@malept/cross-spawn-promise@2.0.0':
     dependencies:
