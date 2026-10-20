@@ -1,162 +1,43 @@
-// 执行真实协议与冷启动 gate 源码；只控制 Electron 对话框和文件系统边界，不冒充原生 OS 验收。
+// 执行真实协议与冷启动 gate 源码；fixture 控制 Electron/FS 边界，不冒充原生 OS。
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
-import { createRequire } from "node:module";
-import { resolve } from "node:path";
 import { test } from "node:test";
-import { createContext, Script } from "node:vm";
-import { build } from "esbuild";
+import {
+  fixture,
+  dialog,
+  flush,
+  opened,
+  requestWire,
+} from "./externalWorkspaceConfirmation.fixture.mjs";
 
-const repo = resolve(import.meta.dirname, "../../..");
-const bundled = await build({
-  stdin: {
-    contents: `export {confirmExternalWorkspaceOpen, handleDeepLink, handleOpenWorkspacePath, deliverPendingDeepLink} from './packages/desktop/src/main/desktopOAuthDeepLink.ts';
-      export {resolveExplicitStartupWorkspaceBootstrap} from './packages/desktop/src/main/startupWorkspaceDeepLinkGate.ts';`,
-    resolveDir: repo,
-  },
-  bundle: true,
-  write: false,
-  platform: "node",
-  format: "cjs",
-  plugins: [
-    {
-      name: "owned-native-confirmation-boundaries",
-      setup(builder) {
-        const stubs = new Map([
-          ["electron", `export const {app, BrowserWindow, dialog} = globalThis.fixture.electron;`],
-          [
-            "node:fs",
-            `export const statSync = path => globalThis.fixture.stat(path); export const constants = {};`,
-          ],
-          [
-            "@zcode/shared",
-            `export const PlatformChannels = {OpenWorkspacePath:'open-workspace', OAuthCallback:'oauth', PaymentCallback:'payment', ShareImport:'share'};
-          export const appSettingsSchema = {}; export const formatZodError = () => ''; export const resolveStartupLocalWorkspaceSessionIndex = () => 0;`,
-          ],
-        ]);
-        builder.onResolve({ filter: /.*/ }, (args) => {
-          if (stubs.has(args.path)) return { path: args.path, namespace: "confirmation-boundary" };
-          if (args.path.endsWith("desktopLinuxDeepLinkRegistration.js"))
-            return { path: "registration", namespace: "confirmation-boundary" };
-        });
-        builder.onLoad({ filter: /.*/, namespace: "confirmation-boundary" }, (args) => ({
-          contents:
-            args.path === "registration"
-              ? `export const registerLinuxDeepLinkProtocol = () => { throw new Error('Registration is outside this confirmation test'); };`
-              : stubs.get(args.path),
-          loader: "js",
-        }));
-      },
-    },
-  ],
+test("versioned URI still waits for original consent and cancellation performs no stat or IPC", async () => {
+  const f = fixture();
+  assert.equal(requestWire(f, "/owned/中文 space %2F 🧪"), true);
+  const pending = await dialog(f);
+  assert.equal(f.stats.length, 0);
+  assert.equal(f.sent.length, 0);
+  pending.accept({ response: 1 });
+  await flush();
+  assert.equal(f.stats.length, 0);
+  assert.equal(f.sent.length, 0);
 });
 
-const tick = () => new Promise((resolveTick) => setImmediate(resolveTick));
-async function flush() {
-  await tick();
-  await tick();
-}
-function fixture() {
-  const calls = [],
-    stats = [],
-    sent = [],
-    warnings = [],
-    syncCalls = [];
-  const state = { active: true, focused: null };
-  let nextId = 0;
-  function window() {
-    const win = new EventEmitter();
-    win.id = ++nextId;
-    win.destroyed = false;
-    win.contentsDestroyed = false;
-    win.isDestroyed = () => win.destroyed;
-    win.isMinimized = () => false;
-    win.isVisible = () => true;
-    win.focus = () => {};
-    win.webContents = {
-      id: win.id,
-      isDestroyed: () => win.contentsDestroyed,
-      send: (channel, value) => sent.push({ windowId: win.id, channel, value }),
-    };
-    return win;
+test("wire UNC is rejected before consent and wire NUL remains invalid before stat", async () => {
+  for (const path of ["\\\\server\\share", "//server/share"]) {
+    const f = fixture();
+    assert.equal(requestWire(f, path), false);
+    await flush();
+    assert.equal(f.calls.length, 0);
+    assert.equal(f.stats.length, 0);
+    assert.equal(f.sent.length, 0);
   }
-  const win = window();
-  state.focused = win;
-  const logger = {
-    info() {},
-    warn(...args) {
-      warnings.push(args);
-    },
-  };
-  const native = {
-    app: { show() {} },
-    BrowserWindow: {
-      getFocusedWindow: () => state.focused,
-      getAllWindows: () => (state.focused ? [state.focused] : []),
-    },
-    dialog: {
-      showMessageBox(...args) {
-        let accept, reject;
-        const promise = new Promise((resolveDialog, rejectDialog) => {
-          accept = resolveDialog;
-          reject = rejectDialog;
-        });
-        calls.push({
-          parent: args.length === 2 ? args[0] : null,
-          options: args.at(-1),
-          accept,
-          reject,
-        });
-        return promise;
-      },
-      showMessageBoxSync(...args) {
-        syncCalls.push(args);
-        return 1;
-      },
-    },
-  };
-  const module = { exports: {} };
-  const context = createContext({
-    module,
-    exports: module.exports,
-    require: createRequire(import.meta.url),
-    URL,
-    console,
-    setTimeout,
-    clearTimeout,
-    setImmediate,
-    clearImmediate,
-    AbortController,
-    process: { platform: "linux", env: {}, argv: [], execPath: process.execPath },
-    fixture: {
-      electron: native,
-      stat(path) {
-        stats.push(path);
-        return { isDirectory: () => path !== "/missing" };
-      },
-    },
-  });
-  new Script(bundled.outputFiles[0].text, {
-    filename: "real-external-workspace-source.cjs",
-  }).runInContext(context);
-  const api = module.exports;
-  api.deliverPendingDeepLink(win.webContents);
-  function request(path, extra = {}) {
-    return api.handleDeepLink(`zcode://workspace/open?path=${encodeURIComponent(path)}`, logger, {
-      resolveApplicationWindow: () => state.focused,
-      isRequestActive: () => state.active,
-      ...extra,
-    });
-  }
-  return { api, win, window, state, calls, stats, sent, warnings, syncCalls, logger, request };
-}
-async function dialog(f, ordinal = 0) {
+  const f = fixture();
+  assert.equal(requestWire(f, "/owned/has\0nul"), true);
+  const pending = await dialog(f);
+  pending.accept({ response: 0 });
   await flush();
-  assert.equal(f.syncCalls.length, 0, "External confirmation must not block the native process");
-  assert.ok(f.calls[ordinal], "Original async native dialog must be pending");
-  return f.calls[ordinal];
-}
-const opened = (f) => f.sent.filter((row) => row.channel === "open-workspace");
+  assert.equal(f.stats.length, 0);
+  assert.equal(f.sent.length, 0);
+});
 
 test("recognized workspace is consumed synchronously while confirmation waits without stat or IPC", async () => {
   const f = fixture();

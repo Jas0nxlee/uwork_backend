@@ -38,3 +38,17 @@ Main 的外部工作区确认统一使用 Electron 异步 showMessageBox。deskt
 每个请求绑定发起时业务窗口；队列等待、确认返回时均复核窗口未销毁和 Main 未进入退出屏障。失效、取消或对话框失败均不投递，不转交其他窗口，不触发兜底目录打开；异常记录并使后续请求继续。未知 URI 不等待确认队列。新增受控原代码测试必须先 RED，再证明未决期间返回、两个确认串行、取消/同意、窗口销毁、退出失效、异常后队列恢复和冷启动等待。
 
 平台限制：Electron 41 的 macOS 无父窗口 showMessageBox 仍可能同步执行；本轮 Linux 运行中确认结果不能外推 macOS 冷启动确认已完成原生验收。
+
+## additionalData 的版本化 ASCII 传输
+
+macOS 原 Electron41.10.7 在 `--open-workspace` 中文空格路径的真实第二入口记录 `additional_data_size exceeds payload length`，未到 JS 的确认层。该版本的 POSIX native parser 将 V8 字节流按 NUL 分段并 trim ASCII whitespace，再拼接校验声明长度；two-byte 字符串中的 NUL 后空格会丢失。同原 runtime 的生产工厂/V8 合同已重放232→231字节，ASCII、中文无空格、已编码URI为完整对照。此问题与已修异步 ACK/确认排队分列。
+
+`desktopDeepLinkUrl` 是无状态 wire 编解码的唯一 owner。继续保留 `deepLinkUrl`、`openWorkspacePath` 两个逻辑字段及既有优先级。安全可打印ASCII（0x20到0x7e）的值原样传递，包括正常内空格与URL percent，保持旧receiver原本有效的ASCII入口；包含非ASCII、NUL/控制字符或与wire命名空间冲突的值才编码成 `uwork-si:v1:` 加 `encodeURIComponent(value)` 的 ASCII wire。不增加队列/缓存、不删除 additionalData、不修改单实例锁、确认 gate 或 Electron/fuse。完整值只在原提取器识别已知版本时 decode 一次；URL 中既有 percent encoding 保留到原 URL parser，不能重复解码路径或提前放行。
+
+可打印ASCII内容不保证V8 OneByte存储：Unicode外壳的slice/trim可能留下SlicedTwoByteString，即使逐字符相同也仍会在序列化后含NUL+space。ASCII原值分支必须在已验证ASCII后通过 `node:buffer` 进行无损OneByte重新分配，再返回相同逻辑文本；不依赖JS字符串内部表示或通过替换Unicode求绿。永久测试包含wide slice和Unicode外壳trim两个实际来源，同runtime真实V8也须验证。
+
+新提取器继续接受无 wire 前缀的旧 raw 对象。属于 `uwork-si:` 家族但版本未知、payload含非ASCII或坏percent/UTF8的值拒绝为 null，由原 dispatcher 的 argv fallback 继续处理。未带该家族前缀的 legacy 值仍走原参数校验。新wire不是安全授权，解码后继续全部原 URL/绝对目录/NUL/UNC校验与外部确认，不能通过传输标记绕过用户确认。新receiver兼容legacy raw；旧receiver的正常ASCII目录与URL继续由原提取器读取，不将可避免的ASCII回归留作未验边界。旧receiver读取新增nonASCII wire及完整跨版本native共存仍不计作已验迁移。
+
+原 argv 若包含不能由 `encodeURIComponent` 表达的孤立 surrogate，只不生成该无效字段的 wire 值，工厂不抛错、不替换 Unicode、不改 argv；原 argv fallback 与后续目录合法性校验仍负责拒绝。有效的另一个字段不受影响。
+
+永久测试必须先在旧生产工厂上取得中文空格 V8/native-framing roundtrip RED，再验证新生产工厂与提取器、同runtime重放及原 cold/ready确认链。覆盖中文/空格/emoji/字面百分号、URL双重percent、多种长度、字段并存优先级、legacy raw、坏/未知版本、NUL/UNC在原边界继续拒绝；不能只断言encoder的输出形状或仅用模拟对象替代真实V8 bytes。原macOS新包再复测失败的可信baseline和25秒/第三URI/取消确认，全平台结论仍按实际环境分列。
