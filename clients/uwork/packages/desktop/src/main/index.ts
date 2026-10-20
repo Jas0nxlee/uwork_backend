@@ -81,6 +81,11 @@ import {
   HostMessageTypes,
 } from "@zcode/shared";
 import { logger } from "./logger.js";
+import {
+  elapsedSingleInstanceStartupMs,
+  readSingleInstanceStartupTime,
+  recordSingleInstanceStartupPhase,
+} from "./desktopSingleInstanceStartupLog.js";
 import { markMainLaunchAppReady } from "./desktopLaunchMarks.js";
 import { createCuaPipFocusRouter, resolveCuaPipWindowKey } from "./cuaPipFocusRouter.js";
 import { createDesktopTelemetryFetch } from "./desktopTelemetryFetch.js";
@@ -1746,9 +1751,22 @@ app.on("open-url", (event, url) => {
     resolveApplicationWindow: () => getApplicationWindowsExcludingCuaIndicator()[0] ?? null,
   });
 });
+recordSingleInstanceStartupPhase(logger, { phase: "lock-request-start" });
+const lockRequestStartedAt = readSingleInstanceStartupTime();
 const gotTheLock = app.requestSingleInstanceLock(createDeepLinkSingleInstanceData(process.argv));
+recordSingleInstanceStartupPhase(logger, {
+  phase: "lock-request-return",
+  acquired: gotTheLock,
+  elapsedMs: elapsedSingleInstanceStartupMs(lockRequestStartedAt),
+});
 if (!gotTheLock) {
+  recordSingleInstanceStartupPhase(logger, { phase: "secondary-quit-start" });
+  const secondaryQuitStartedAt = readSingleInstanceStartupTime();
   app.quit();
+  recordSingleInstanceStartupPhase(logger, {
+    phase: "secondary-quit-return",
+    elapsedMs: elapsedSingleInstanceStartupMs(secondaryQuitStartedAt),
+  });
 }
 app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
   dispatchSecondInstanceWorkspaceRequest(
