@@ -5,6 +5,7 @@ import {
   type DatabaseMigrationFacts,
 } from "@zcode/shared";
 import { createHash } from "node:crypto";
+import { performance } from "node:perf_hooks";
 import type { DatabaseSync } from "node:sqlite";
 import { SqliteSessionMigrationError } from "./errors.js";
 import { SQLITE_MIGRATIONS } from "./migrations.js";
@@ -101,12 +102,14 @@ function* migrationSteps(
   dbPath: string,
   lockTimeoutMs: number,
 ): Generator<MigrationStep, void> {
-  const startedAt = Date.now();
+  // 墙钟回拨曾让启动 elapsedMs 变负并被严格控制帧 schema 拒绝；同一单调时钟同时约束耗时与锁等待预算。
+  // 仅本进程计时改用 performance；迁移账本 time_applied 仍保留跨进程可读的 epoch 时间。
+  const startedAt = performance.now();
   const deadline = startedAt + Math.max(0, lockTimeoutMs);
   let migrationFacts: DatabaseMigrationFacts | undefined;
   const progress = (phase: SqliteMigrationPhase): SqliteMigrationProgress => ({
     phase,
-    elapsedMs: Date.now() - startedAt,
+    elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
     ...(migrationFacts ? { migration: { ...migrationFacts } } : {}),
   });
   let transactionStarted = false;
@@ -121,7 +124,7 @@ function* migrationSteps(
       } catch (error) {
         // SQLITE_LOCKED 常指同连接/共享缓存冲突；只重试外部写者竞争的 SQLITE_BUSY。
         if (!isSqliteBusyError(error)) throw error;
-        const remainingMs = deadline - Date.now();
+        const remainingMs = deadline - performance.now();
         if (remainingMs <= 0) throw lockTimeoutError(error, dbPath);
         if (!waitingReported) {
           waitingReported = true;
