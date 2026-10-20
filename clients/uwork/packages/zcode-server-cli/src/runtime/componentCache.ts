@@ -5,7 +5,7 @@ import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:
 import { dirname, isAbsolute, join, resolve, sep, win32 } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { open as openZip, type Entry, type ZipFile } from "yauzl";
-import type { ServerRuntimeManifest } from "./manifest.js";
+import { serverRuntimeManifestSchema, type ServerRuntimeManifest } from "./manifest.js";
 import { promoteImmutableReleaseDirectory } from "./immutableRelease.js";
 import type { ServerLayout } from "./paths.js";
 
@@ -290,12 +290,22 @@ export class ComponentCache {
     baseReleaseDir: string;
     releaseDir: string;
     runtimeManifest: ServerRuntimeManifest;
+    runtimeManifestSource?: string;
     baseComponents?: ServerRuntimeManifest["components"];
     changed: Array<{ componentId: string; sha256: string; archivePath: string }>;
   }): Promise<void> {
     const targetReleaseDir = resolve(options.releaseDir);
     if (targetReleaseDir === resolve(options.baseReleaseDir))
       throw new Error("Component assembly cannot replace the active release");
+    const manifestText =
+      options.runtimeManifestSource ?? `${JSON.stringify(options.runtimeManifest, null, 2)}\n`;
+    if (
+      options.runtimeManifestSource !== undefined &&
+      JSON.stringify(serverRuntimeManifestSchema.parse(JSON.parse(manifestText))) !==
+        JSON.stringify(serverRuntimeManifestSchema.parse(options.runtimeManifest))
+    ) {
+      throw new Error("Runtime manifest source does not match the validated manifest");
+    }
     const temporaryReleaseDir = `${targetReleaseDir}.incoming-${process.pid}-${randomUUID()}`;
     try {
       await cp(options.baseReleaseDir, temporaryReleaseDir, { recursive: true, dereference: true });
@@ -338,11 +348,8 @@ export class ComponentCache {
           );
         }
       }
-      await writeFile(
-        join(temporaryReleaseDir, "manifest.json"),
-        `${JSON.stringify(options.runtimeManifest, null, 2)}\n`,
-        "utf8",
-      );
+      // 原 producer 的字段顺序/空白也是 immutable 字节身份；parse 后重编码会使同包增量与整包冲突。
+      await writeFile(join(temporaryReleaseDir, "manifest.json"), manifestText, "utf8");
       await mkdir(dirname(targetReleaseDir), { recursive: true, mode: 0o700 });
       await promoteImmutableReleaseDirectory({
         incomingDir: temporaryReleaseDir,

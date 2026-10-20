@@ -14,12 +14,22 @@ export async function fetchReleaseJson<T>(
   timeoutMs = 10_000,
   resourceName = "Release JSON",
 ): Promise<T> {
+  return (await fetchReleaseJsonDocument(url, schema, timeoutMs, resourceName)).value;
+}
+
+export async function fetchReleaseJsonDocument<T>(
+  url: string,
+  schema: ZodType<T>,
+  timeoutMs = 10_000,
+  resourceName = "Release JSON",
+): Promise<{ value: T; sourceText: string }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { redirect: "follow", signal: controller.signal });
     if (!response.ok) throw new Error(`${resourceName} download failed: HTTP ${response.status}`);
-    return schema.parse(await response.json());
+    const sourceText = await response.text();
+    return { value: schema.parse(JSON.parse(sourceText)), sourceText };
   } finally {
     clearTimeout(timeout);
   }

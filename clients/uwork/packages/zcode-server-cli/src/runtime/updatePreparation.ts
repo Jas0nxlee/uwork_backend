@@ -5,7 +5,11 @@ import type { ReleaseManifest } from "../contracts.js";
 import { ComponentCache } from "./componentCache.js";
 import { currentServerTarget, serverRuntimeManifestSchema } from "./manifest.js";
 import type { ServerLayout } from "./paths.js";
-import { fetchReleaseCatalog, fetchReleaseJson, ReleaseDownloader } from "./releaseDownload.js";
+import {
+  fetchReleaseCatalog,
+  fetchReleaseJsonDocument,
+  ReleaseDownloader,
+} from "./releaseDownload.js";
 import { ReleaseInstaller } from "./releaseInstaller.js";
 import { ReleaseManager } from "./releaseManager.js";
 
@@ -164,12 +168,13 @@ async function prepareComponentUpdate(input: {
 } | null> {
   // 组件增量更新的 manifest 请求原来没有应用层 AbortSignal，服务端无响应时
   // 会等到 undici 默认边界（约数分钟）。复用带超时的 JSON 下载器，和 catalog 行为一致。
-  const remoteManifest = await fetchReleaseJson(
+  const document = await fetchReleaseJsonDocument(
     input.manifestUrl,
     serverRuntimeManifestSchema,
     10_000,
     "Runtime manifest",
   );
+  const remoteManifest = document.value;
   if (remoteManifest.target !== input.target) {
     throw new Error(`Runtime manifest target mismatch: ${remoteManifest.target}`);
   }
@@ -222,6 +227,7 @@ async function prepareComponentUpdate(input: {
       baseReleaseDir: input.current.releaseDir,
       releaseDir,
       runtimeManifest: remoteManifest,
+      runtimeManifestSource: document.sourceText,
       baseComponents: input.current.components,
       changed,
     });
