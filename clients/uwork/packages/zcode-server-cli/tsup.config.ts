@@ -1,4 +1,5 @@
 import { defineConfig } from "tsup";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -8,9 +9,14 @@ const { loadBuiltinProviderConfig } = await import(
 );
 
 const { content: zcodeBuiltinProviderConfigJson } = await loadBuiltinProviderConfig();
+// 与 stageCli 的 manifest.appVersion 共用根 package.json，避免正式包的状态与 HTTP 仍报告 dev 版本。
+const { version: appVersion } = JSON.parse(
+  await readFile(resolve(import.meta.dirname, "../../package.json"), "utf8"),
+) as { version: string };
 
 export const SERVER_CLI_DEFINES = {
   __ZCODE_BUILTIN_PROVIDER_CONFIG_JSON__: JSON.stringify(zcodeBuiltinProviderConfigJson),
+  __ZCODE_VERSION__: JSON.stringify(appVersion),
 };
 
 export default defineConfig({
