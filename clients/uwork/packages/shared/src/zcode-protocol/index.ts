@@ -2466,6 +2466,10 @@ const promptAttachmentReadInputSchema = z
     kind: z.enum(["file", "image", "video", "pdf"]),
   })
   .strict();
+// Memory index 由原 context 内部读取；只传固定类别，不能借授权桥外发路径或正文。
+const projectMemoryIndexReadInputSchema = z
+  .object({ kind: z.literal("project-memory-index") })
+  .strict();
 export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractionScopeSchema
   .extend({
     toolCallId: z.string().min(1).max(200),
@@ -2525,9 +2529,12 @@ export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractio
   .strict()
   .refine((request) => {
     const attachmentRead = request.toolName === "PromptAttachmentRead";
+    const memoryIndexRead = request.toolName === "ProjectMemoryIndexRead";
     if (
-      attachmentRead &&
-      (!promptAttachmentReadInputSchema.safeParse(request.input).success ||
+      (attachmentRead || memoryIndexRead) &&
+      (!(
+        attachmentRead ? promptAttachmentReadInputSchema : projectMemoryIndexReadInputSchema
+      ).safeParse(request.input).success ||
         Object.keys(request.capability).length !== 4 ||
         request.capability.permission !== "filesystem" ||
         !request.capability.readOnly ||
@@ -2541,6 +2548,7 @@ export const zcodeEnterpriseToolAuthorizationParamsSchema = enterpriseInteractio
       return (
         request.asset === undefined &&
         (attachmentRead ||
+          memoryIndexRead ||
           (request.toolName === "Read" &&
             request.capability.permission === "read" &&
             request.capability.readOnly &&

@@ -178,6 +178,159 @@ const attachmentRequest: ZCodeEnterpriseToolAuthorizationParams = {
   },
 };
 
+const memoryIndexRequest: ZCodeEnterpriseToolAuthorizationParams = {
+  ...request,
+  toolName: "ProjectMemoryIndexRead",
+  input: { kind: "project-memory-index" },
+  capability: {
+    permission: "filesystem",
+    readOnly: true,
+    destructive: false,
+    sideEffectScope: "none",
+  },
+};
+
+test("Memory index release rechecks current filesystem permission with the original owner", async () => {
+  const f = fixture();
+  assert.deepEqual(await f.resolver.authorize(memoryIndexRequest), {
+    allowed: false,
+    code: "enterprise_filesystem_denied",
+  });
+  f.policy({ allowFilesystem: true });
+  const admitted = await f.resolver.authorize(memoryIndexRequest);
+  assert.match(admitted.ownerKey ?? "", /^[a-f0-9]{64}$/);
+  const release = {
+    ...memoryIndexRequest,
+    phase: "before_result" as const,
+    ownerKey: admitted.ownerKey,
+  };
+  assert.deepEqual(await f.resolver.authorize(release), admitted);
+  f.policy({ allowFilesystem: false });
+  assert.deepEqual(await f.resolver.authorize(release), {
+    allowed: false,
+    code: "enterprise_filesystem_denied",
+  });
+  assert.equal(f.counts(), 4, "both phases consume current backend execution policy");
+});
+
+test("Memory bytes cannot borrow a newly allowed member or missing dispatch proof", async () => {
+  const f = fixture();
+  f.policy({ allowFilesystem: true });
+  const first = await f.resolver.authorize(memoryIndexRequest);
+  f.replaceOwner();
+  const second = await f.resolver.authorize(memoryIndexRequest);
+  assert.notEqual(first.ownerKey, second.ownerKey);
+  const calls = f.counts();
+  for (const ownerKey of [first.ownerKey, undefined])
+    assert.deepEqual(
+      await f.resolver.authorize({ ...memoryIndexRequest, phase: "before_result", ownerKey }),
+      { allowed: false, code: "enterprise_identity_changed" },
+    );
+  assert.equal(f.counts(), calls, "reject stale or missing owner before current-owner HTTP");
+  assert.deepEqual(
+    await f.resolver.authorize({
+      ...memoryIndexRequest,
+      phase: "before_result",
+      ownerKey: second.ownerKey,
+    }),
+    second,
+  );
+});
+
+test("Memory release preserves explicit UCAS behavior and denies managed mode changes", async () => {
+  const f = fixture();
+  f.policy({ allowFilesystem: true });
+  const admitted = await f.resolver.authorize(memoryIndexRequest);
+  f.configure({ backend: "ucas" });
+  const calls = f.counts();
+  assert.deepEqual(
+    await f.resolver.authorize({
+      ...memoryIndexRequest,
+      phase: "before_result",
+      ownerKey: admitted.ownerKey,
+    }),
+    { allowed: false, code: "enterprise_identity_changed" },
+  );
+  for (const phase of ["before_dispatch", "before_result"] as const)
+    assert.deepEqual(await f.resolver.authorize({ ...memoryIndexRequest, phase }), {
+      allowed: true,
+      code: "not_managed",
+    });
+  assert.equal(f.counts(), calls, "unmanaged does not send enterprise credentials or policy HTTP");
+  f.configure({ backend: "uwork" });
+  assert.deepEqual(await f.resolver.authorize({ ...memoryIndexRequest, phase: "before_result" }), {
+    allowed: false,
+    code: "enterprise_identity_changed",
+  });
+});
+
+test("the Host rejects malformed Memory metadata, capability and phase before policy HTTP", async () => {
+  const f = fixture();
+  f.policy({ allowShell: true, allowFilesystem: true, allowNetwork: true });
+  const invalid: ZCodeEnterpriseToolAuthorizationParams[] = [
+    ...[
+      null,
+      {},
+      { kind: "file" },
+      { kind: "project-memory-index", path: "/controlled/MEMORY.md" },
+      { kind: "project-memory-index", body: "SYNTHETIC_PRIVATE_MEMORY_BODY" },
+      { kind: "project-memory-index", metadata: {} },
+    ].map((input) => ({ ...memoryIndexRequest, input })),
+    ...(["before_hooks", "native_execution", "network_request", "asset_load"] as const).map(
+      (phase) => ({ ...memoryIndexRequest, phase }),
+    ),
+    { ...memoryIndexRequest, capability: { ...memoryIndexRequest.capability, permission: "read" } },
+    { ...memoryIndexRequest, capability: { ...memoryIndexRequest.capability, readOnly: false } },
+    { ...memoryIndexRequest, capability: { ...memoryIndexRequest.capability, destructive: true } },
+    {
+      ...memoryIndexRequest,
+      capability: { ...memoryIndexRequest.capability, sideEffectScope: "workspace" },
+    },
+    {
+      ...memoryIndexRequest,
+      capability: { ...memoryIndexRequest.capability, networkGuarded: false },
+    },
+    { ...memoryIndexRequest, ownerKey: "a".repeat(64) },
+  ];
+  for (const candidate of invalid)
+    assert.deepEqual(await f.resolver.authorize(candidate), {
+      allowed: false,
+      code: "enterprise_capability_unsupported",
+    });
+  assert.equal(f.counts(), 0);
+  for (const toolName of ["ProjectMemoryRead", "ArbitraryFilesystemConsumer", "Write"])
+    assert.deepEqual(
+      await f.resolver.authorize({
+        ...memoryIndexRequest,
+        toolName,
+        phase: "before_result",
+        ownerKey: "a".repeat(64),
+      }),
+      { allowed: false, code: "enterprise_capability_unsupported" },
+    );
+  assert.equal(f.counts(), 0);
+});
+
+test("Memory result admission fails closed after logout or unavailable policy", async () => {
+  for (const failure of ["logout", "unavailable"] as const) {
+    const f = fixture();
+    f.policy({ allowFilesystem: true });
+    const admitted = await f.resolver.authorize(memoryIndexRequest);
+    if (failure === "logout") f.logout();
+    else f.reject(503);
+    const result = await f.resolver.authorize({
+      ...memoryIndexRequest,
+      phase: "before_result",
+      ownerKey: admitted.ownerKey,
+    });
+    assert.deepEqual(result, {
+      allowed: false,
+      code: failure === "logout" ? "enterprise_identity_changed" : "enterprise_policy_unavailable",
+    });
+    assert.equal(f.counts(), failure === "logout" ? 1 : 2);
+  }
+});
+
 test("attachment release rechecks the original member filesystem policy with managed owner proof", async () => {
   const f = fixture();
   assert.equal(

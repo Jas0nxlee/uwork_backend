@@ -230,7 +230,7 @@ export async function executeTurnCommand(
       } else {
         // 首轮初始化已经用 admitted Model 构造并安装完整 Context，随后再 rebuild
         // 会把同一 Prefix 连续构造两次。未初始化与已初始化分支互斥，每个 model step 只构造一次。
-        await this.ensureContextInitialized(turnTraceContext, admittedModel);
+        await this.ensureContextInitialized(turnTraceContext, admittedModel, turnAbortSignal);
       }
       completeTurnPhase("context_initialization", phaseStartedAt);
       throwIfTurnAborted(turnAbortSignal);

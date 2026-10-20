@@ -22,7 +22,7 @@ export interface PromptAttachmentAuthorizationContext {
 }
 
 export class PromptAttachmentAuthorizationError extends Error {
-  constructor(code: string) {
+  constructor(readonly code: string) {
     super(`Local attachment content withheld (${code})`);
   }
 }
@@ -72,10 +72,42 @@ export async function authorizeLocalAttachment(
   context: PromptAttachmentAuthorizationContext | undefined,
   signal?: AbortSignal,
 ): Promise<() => Promise<void>> {
+  const admission = await authorizeLocalContent(
+    { toolName: "PromptAttachmentRead", input: { path: absolutePath, kind: attachment.type } },
+    context,
+    signal,
+  );
+  return admission.revalidate;
+}
+
+export function authorizeProjectMemoryIndex(
+  context: PromptAttachmentAuthorizationContext,
+  signal?: AbortSignal,
+): Promise<LocalContentAdmission> {
+  return authorizeLocalContent(
+    { toolName: "ProjectMemoryIndexRead", input: { kind: "project-memory-index" } },
+    context,
+    signal,
+  );
+}
+
+interface LocalContentAdmission {
+  revalidate: () => Promise<void>;
+  assertCurrent: () => void;
+}
+
+async function authorizeLocalContent(
+  consumer:
+    | { toolName: "PromptAttachmentRead"; input: { path: string; kind: TurnAttachment["type"] } }
+    | { toolName: "ProjectMemoryIndexRead"; input: { kind: "project-memory-index" } },
+  context: PromptAttachmentAuthorizationContext | undefined,
+  signal?: AbortSignal,
+): Promise<LocalContentAdmission> {
   signal?.throwIfAborted();
   if (!context)
-    return async () => {
-      signal?.throwIfAborted();
+    return {
+      assertCurrent: () => signal?.throwIfAborted(),
+      revalidate: async () => signal?.throwIfAborted(),
     };
   const captured = context.current();
   const toolCallId = createToolCallId();
@@ -111,13 +143,13 @@ export async function authorizeLocalAttachment(
     assertCurrent();
     if (!captured.port) return { managed: false };
     const request: EnterpriseToolAuthorizationRequest = {
-      toolName: "PromptAttachmentRead",
+      toolName: consumer.toolName,
       toolCallId,
       sessionId: captured.sessionId,
       workspacePath: captured.workspacePath,
       ...(captured.workspaceIdentity ? { workspaceIdentity: captured.workspaceIdentity } : {}),
       workingDirectory: captured.workingDirectory,
-      input: { path: absolutePath, kind: attachment.type },
+      input: consumer.input,
       phase,
       ...(phase === "before_result" && owner.key ? { ownerKey: owner.key } : {}),
       capability: {
@@ -139,9 +171,12 @@ export async function authorizeLocalAttachment(
     }
   };
   owner = await authorize("before_dispatch");
-  return async () => {
-    const currentOwner = await authorize("before_result");
-    if (currentOwner.managed !== owner.managed || currentOwner.key !== owner.key)
-      throw new PromptAttachmentAuthorizationError("enterprise_identity_changed");
+  return {
+    assertCurrent,
+    revalidate: async () => {
+      const currentOwner = await authorize("before_result");
+      if (currentOwner.managed !== owner.managed || currentOwner.key !== owner.key)
+        throw new PromptAttachmentAuthorizationError("enterprise_identity_changed");
+    },
   };
 }

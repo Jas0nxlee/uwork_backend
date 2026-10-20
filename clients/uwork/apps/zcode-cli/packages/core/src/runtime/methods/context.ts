@@ -1,5 +1,3 @@
-import { join } from "node:path";
-
 import {
   traceContextToLogContext,
   createContextBuilder,
@@ -16,11 +14,11 @@ import type {
 } from "../deps.js";
 import type { AgentRuntimeInternal } from "../internal.js";
 import { ensureMemoryDirectoryExists } from "../../memory/directory.js";
-import { formatProjectMemoryIndexContent } from "../../memory/index-content.js";
 import {
-  createReadFileStateKey,
-  normalizeReadFileStateMtimeMs,
-} from "../../tool/read-file-state.js";
+  PromptAttachmentAuthorizationError,
+  waitForAttachment,
+} from "../helpers/attachment-authorization.js";
+import { prepareProjectMemoryIndex } from "../helpers/project-memory-index.js";
 import { resolveEnabledProjectMemoryRoot } from "../helpers/project-memory.js";
 import { buildContextHistoryEntries } from "./context-history-entries.js";
 import { resolveRuntimeEmbeddedSearchEnabled } from "./embedded-search-branch.js";
@@ -32,42 +30,85 @@ export async function ensureContextInitialized(
   this: AgentRuntimeInternal,
   traceContext: TraceContext,
   model?: Model,
+  signal?: AbortSignal,
 ): Promise<void> {
   if (this.contextInitialized) return;
 
+  const port = this.permissionService?.enterpriseAuthorization;
+  const skillPort = this.skillPort;
+  const sessionId = this.sessionId;
+  const workspaceIdentity = this.config.memory?.workspaceIdentity;
+  let workspaceRoot = this.workspaceRoot;
+  let workingDirectory = this.workingDirectory;
+  const assertCurrent = () => {
+    signal?.throwIfAborted();
+    if (
+      this.shuttingDown ||
+      this.permissionService?.enterpriseAuthorization !== port ||
+      this.skillPort !== skillPort ||
+      this.sessionId !== sessionId ||
+      this.config.memory?.workspaceIdentity !== workspaceIdentity ||
+      this.workspaceRoot !== workspaceRoot ||
+      this.workingDirectory !== workingDirectory
+    )
+      throw new PromptAttachmentAuthorizationError("enterprise_execution_context_changed");
+  };
+  const wait = async <T>(operation: () => Promise<T>): Promise<T> => {
+    assertCurrent();
+    const result = await waitForAttachment(operation(), signal);
+    assertCurrent();
+    return result;
+  };
+  assertCurrent();
   const shellDisplayName = getContextSourceShellDisplayName(this);
   const snapshot = this.contextSourcePort
-    ? await this.contextSourcePort.resolveContextSources(
-        {
-          workingDirectory: this.workingDirectory,
-          currentDate: this.config.currentDate,
-          effectiveShellDisplayName: shellDisplayName,
-          envInfo: this.config.envInfo,
-          userInstructions: this.config.userInstructions
-            ? {
-                ...this.config.userInstructions,
-                workingDirectory:
-                  this.config.userInstructions.workingDirectory ?? this.workingDirectory,
-              }
-            : undefined,
-          projectContext: this.config.projectContext,
-          trace: traceContext,
-        },
-        { signal: undefined },
+    ? await wait(() =>
+        this.contextSourcePort!.resolveContextSources(
+          {
+            workingDirectory: this.workingDirectory,
+            currentDate: this.config.currentDate,
+            effectiveShellDisplayName: shellDisplayName,
+            envInfo: this.config.envInfo,
+            userInstructions: this.config.userInstructions
+              ? {
+                  ...this.config.userInstructions,
+                  workingDirectory:
+                    this.config.userInstructions.workingDirectory ?? this.workingDirectory,
+                }
+              : undefined,
+            projectContext: this.config.projectContext,
+            trace: traceContext,
+          },
+          { signal },
+        ),
       )
     : this.createConfigOnlyContextSnapshot(this.workingDirectory);
 
   this.workingDirectory = snapshot.workingDirectory;
   // Bash cd 之后 workingDirectory 会变化，但 workspaceRoot 仍表示会话初始工作区边界。
   this.workspaceRoot = snapshot.workingDirectory;
+  workspaceRoot = this.workspaceRoot;
+  workingDirectory = this.workingDirectory;
   this.contextSourceSnapshot = snapshot;
   this.startMcpStartup(traceContext);
   const guardedSkills = this.skillPort?.enterpriseAssetGuarded === true;
-  if (!guardedSkills) this.skillLoadOutcome = await this.discoverSkillsForContext(traceContext);
-  this.memoryRoot = await this.loadProjectMemoryRoot(traceContext);
-  this.memoryIndexContent = await loadProjectMemoryIndexContent(this, this.memoryRoot);
-  // 技能授权读取最后执行，后续 Memory IO 不能让首次目录返回已过期的技能投影。
-  if (guardedSkills) this.skillLoadOutcome = await this.discoverSkillsForContext(traceContext);
+  let pendingSkills = this.skillLoadOutcome;
+  if (!guardedSkills)
+    pendingSkills = await wait(() => this.discoverSkillsForContext(traceContext, signal));
+  this.memoryRoot = await wait(() => this.loadProjectMemoryRoot(traceContext, signal));
+  const pendingMemory = await wait(() =>
+    prepareProjectMemoryIndex(this, this.memoryRoot, traceContext, signal),
+  );
+  // 保留 Memory 实际 IO 在受管技能发现前；技能保持各项独立准入的已接纳快照。
+  if (guardedSkills)
+    pendingSkills = await wait(() => this.discoverSkillsForContext(traceContext, signal));
+  const commitMemory = pendingMemory
+    ? await wait(() => pendingMemory.authorizeCommit())
+    : undefined;
+  // 最终授权之后不再 await，取消/本地换代与所有 Memory sink 同步收口。
+  assertCurrent();
+  this.memoryIndexContent = commitMemory?.();
+  this.skillLoadOutcome = pendingSkills;
   this.contextBuilder = this.createContextBuilderFromSnapshot(snapshot, this.memoryRoot, {
     memoryIndexContent: this.memoryIndexContent,
     model,
@@ -156,6 +197,7 @@ export function createContextBuilderFromSnapshot(
 export async function loadProjectMemoryRoot(
   this: AgentRuntimeInternal,
   traceContext: TraceContext,
+  signal?: AbortSignal,
 ): Promise<string | undefined> {
   const memoryRoot = resolveEnabledProjectMemoryRoot(this.config, this.workspaceRoot);
   if (!memoryRoot) {
@@ -170,37 +212,14 @@ export async function loadProjectMemoryRoot(
     });
     return undefined;
   }
-  await ensureMemoryDirectoryExists(this.fileSystemPort, memoryRoot, traceContext, this.logger);
+  await ensureMemoryDirectoryExists(
+    this.fileSystemPort,
+    memoryRoot,
+    traceContext,
+    this.logger,
+    signal,
+  );
   return memoryRoot;
-}
-
-async function loadProjectMemoryIndexContent(
-  runtime: AgentRuntimeInternal,
-  memoryRoot: string | undefined,
-): Promise<string | undefined> {
-  const fileSystemPort = runtime.fileSystemPort;
-  if (!fileSystemPort || !memoryRoot) return undefined;
-  const indexPath = join(memoryRoot, "MEMORY.md");
-  try {
-    const read = await fileSystemPort.readTextFile({ path: indexPath });
-    const formattedContent = formatProjectMemoryIndexContent(read.content);
-    if (!formattedContent) return undefined;
-    runtime.readFileState.set(createReadFileStateKey(indexPath, undefined, undefined), {
-      content: read.content,
-      isPartialView: formattedContent !== read.content,
-      limit: undefined,
-      mtimeMs: normalizeReadFileStateMtimeMs(read.revision?.mtimeMs),
-      offset: undefined,
-      path: indexPath,
-      readAt: runtime.now(),
-      revisionId: read.revision?.id,
-      sizeBytes: read.sizeBytes,
-    });
-    return read.content;
-  } catch {
-    // 默认 Memory 分支将缺失或不可读的 index 视为没有该 context source。
-    return undefined;
-  }
 }
 
 export function logMemorySkipped(
@@ -222,16 +241,20 @@ export function logMemorySkipped(
 export async function discoverSkillsForContext(
   this: AgentRuntimeInternal,
   traceContext: TraceContext,
+  signal?: AbortSignal,
 ): Promise<SkillLoadOutcome | undefined> {
   if (!this.skillPort) {
     return undefined;
   }
 
   try {
-    const outcome = await this.skillPort.discoverSkills({
-      workingDirectory: this.workingDirectory,
-      trace: traceContext,
-    });
+    const outcome = await this.skillPort.discoverSkills(
+      {
+        workingDirectory: this.workingDirectory,
+        trace: traceContext,
+      },
+      { signal },
+    );
     this.logger?.debug("Skills discovered", {
       ...traceContextToLogContext(traceContext),
       diagnosticCount: outcome.diagnostics.length,
@@ -241,6 +264,7 @@ export async function discoverSkillsForContext(
     });
     return outcome;
   } catch (error) {
+    signal?.throwIfAborted();
     this.logger?.warn("Skill discovery failed", {
       ...traceContextToLogContext(traceContext),
       error: error instanceof Error ? error.message : String(error),
