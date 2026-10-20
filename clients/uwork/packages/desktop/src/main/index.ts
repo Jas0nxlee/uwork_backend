@@ -596,9 +596,8 @@ function createRuntimeProcessEnvPreparation(): RuntimeProcessEnvPreparation {
   return { patchPromise, fallbackPatch };
 }
 
-// 首窗在 Main import 时就开始采集；后续窗口各自刷新，避免永久复用进程启动时的 shell snapshot。
-let initialRuntimeProcessEnvPreparation: RuntimeProcessEnvPreparation | null =
-  createRuntimeProcessEnvPreparation();
+// 首窗仅由持锁 Main 预热；拒锁副实例不能留下由自身 AbortController 管理的独立 shell 进程组。
+let initialRuntimeProcessEnvPreparation: RuntimeProcessEnvPreparation | null = null;
 function takeRuntimeProcessEnvPreparation(): RuntimeProcessEnvPreparation {
   const initialPreparation = initialRuntimeProcessEnvPreparation;
   if (initialPreparation) {
@@ -1762,11 +1761,15 @@ recordSingleInstanceStartupPhase(logger, {
 if (!gotTheLock) {
   recordSingleInstanceStartupPhase(logger, { phase: "secondary-quit-start" });
   const secondaryQuitStartedAt = readSingleInstanceStartupTime();
-  app.quit();
+  // 拒锁进程不拥有窗口/Host/任务；使用即时退出，避免走尚在启动中的普通用户退出流程。
+  app.exit(0);
   recordSingleInstanceStartupPhase(logger, {
     phase: "secondary-quit-return",
     elapsedMs: elapsedSingleInstanceStartupMs(secondaryQuitStartedAt),
   });
+}
+if (gotTheLock) {
+  initialRuntimeProcessEnvPreparation = createRuntimeProcessEnvPreparation();
 }
 app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
   dispatchSecondInstanceWorkspaceRequest(
@@ -1806,7 +1809,7 @@ app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
 });
 
 app.whenReady().then(async () => {
-  // app.quit 不会中止当前模块，未持单实例锁的进程仍可能触发 ready；禁止它再次创建窗口/Host/Agent。
+  // 即使退出边界意外返回，未持单实例锁的进程也不能再次创建窗口/Host/Agent。
   if (!gotTheLock) return;
   markMainLaunchAppReady();
   // 开发态 Dock 图标：打包版由 Info.plist 的 icns 决定，dev 运行的是 Electron 原生包，

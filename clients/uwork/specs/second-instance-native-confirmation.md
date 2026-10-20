@@ -23,7 +23,7 @@ sequenceDiagram
 
 确认停留期间再从系统投递一个未知的自有 zcode URI，核对它也能完成握手退出，且仅保留原 Electron Main；不能只证明第一个请求不再误杀，而让随后请求仍因确认未决而卡住。
 
-未持锁的第二实例只沿已有退出屏障收口，不得进入 app.whenReady 的应用 bootstrap。早期修复运行中观测到多个 Main 和额外窗口；单独的进程快照不能证明每个进程均已获得锁。原 app.quit 调用后继续注册的 ready 回调也不能启动新的窗口、Host 或 Agent。
+未持锁的第二实例按[拒锁副实例退出规则](desktop-secondary-process-exit.md)直接结束，不创建首窗login-shell预热，不得进入 app.whenReady 的应用 bootstrap；普通主实例继续沿已有退出确认与屏障收口。早期修复运行中观测到多个 Main 和额外窗口；单独的进程快照不能证明每个进程均已获得锁。即使拒锁后的退出边界意外返回或ready已排队，原false guard也不能启动新的窗口、Host或Agent。
 
 提取运行模式还必须独立验证实际发行 runtime 的并发文件生命周期：第二 runtime 退出时原实例的文件仍应存在，原 owner 退出后再核对清理。实际包已否定“第二次运行必然删掉共享目录”的假设，因此不改 .desktop 环境前缀或加入 NO_CLEANUP；上游源码推测不能替代当前产物证据。
 
