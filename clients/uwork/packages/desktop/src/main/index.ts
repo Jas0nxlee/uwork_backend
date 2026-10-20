@@ -174,7 +174,7 @@ import {
   registerDeepLinkProtocol,
   resolveExternalWorkspaceOpenDialogCopy,
 } from "./desktopOAuthDeepLink.js";
-import { handleSecondInstanceWorkspaceRequest } from "./desktopSecondInstanceDeepLink.js";
+import { dispatchSecondInstanceWorkspaceRequest } from "./desktopSecondInstanceDeepLink.js";
 import { installFinderOpenFolderWorkflow } from "./desktopFinderOpenFolderWorkflow.js";
 import { installWindowsOpenFolderContextMenu } from "./desktopWindowsOpenFolderContextMenu.js";
 import {
@@ -793,6 +793,10 @@ let startupOpenWorkspaceRequest: ExplicitStartupWorkspaceRequest | null =
       ? { path: startupDeepLinkWorkspacePath, source: "deep-link" }
       : null;
 
+function canHandleExternalWorkspaceRequests() {
+  return !appQuitPreparationInFlight && !hasPreparedAppQuit;
+}
+
 function resolveExternalWorkspaceConfirmationCopy() {
   const effectiveLocale =
     currentApplicationLocale === DEFAULT_LOCALE && app.isReady()
@@ -803,17 +807,18 @@ function resolveExternalWorkspaceConfirmationCopy() {
 
 const primaryWindowCoordinator = createPrimaryWindowCoordinator({
   listWindows: getApplicationWindowsExcludingCuaIndicator,
-  resolveStartupWindowBootstrap: () => {
+  resolveStartupWindowBootstrap: async () => {
     if (startupOpenWorkspaceRequest) {
       const request = startupOpenWorkspaceRequest;
       startupOpenWorkspaceRequest = null;
       startupDeepLinkConsumptionGate.markStartupRequestConsumed(request);
-      const explicitBootstrap = resolveExplicitStartupWorkspaceBootstrap(request, {
+      const explicitBootstrap = await resolveExplicitStartupWorkspaceBootstrap(request, {
         confirmationCopy: resolveExternalWorkspaceConfirmationCopy(),
+        isRequestActive: canHandleExternalWorkspaceRequests,
         logger,
       });
       if (explicitBootstrap) {
-        return Promise.resolve(explicitBootstrap);
+        return explicitBootstrap;
       }
     }
 
@@ -825,6 +830,7 @@ const primaryWindowCoordinator = createPrimaryWindowCoordinator({
     });
   },
   createWindow: (startupBootstrap) => {
+    if (!canHandleExternalWorkspaceRequests()) return;
     createWindowInstance(startupBootstrap);
   },
   logger,
@@ -1736,6 +1742,7 @@ app.on("open-url", (event, url) => {
   }
   handleDeepLink(url, logger, {
     confirmationCopy: resolveExternalWorkspaceConfirmationCopy(),
+    isRequestActive: canHandleExternalWorkspaceRequests,
     resolveApplicationWindow: () => getApplicationWindowsExcludingCuaIndicator()[0] ?? null,
   });
 });
@@ -1744,11 +1751,16 @@ if (!gotTheLock) {
   app.quit();
 }
 app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
-  if (
-    handleSecondInstanceWorkspaceRequest({
+  dispatchSecondInstanceWorkspaceRequest(
+    {
       additionalData,
       argv,
-      handleDeepLink: (url, options) => handleDeepLink(url, logger, options),
+      isRequestActive: canHandleExternalWorkspaceRequests,
+      handleDeepLink: (url, options) =>
+        handleDeepLink(url, logger, {
+          ...options,
+          isRequestActive: canHandleExternalWorkspaceRequests,
+        }),
       handleOpenWorkspacePath: (path, options) =>
         handleOpenWorkspacePath(path, logger, {
           allowWithoutReadyWindow: true,
@@ -1759,24 +1771,25 @@ app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
         }),
       resolveApplicationWindow: () => getApplicationWindowsExcludingCuaIndicator()[0] ?? null,
       workspaceConfirmationCopy: resolveExternalWorkspaceConfirmationCopy(),
-    })
-  ) {
-    return;
-  }
-
-  const win = getApplicationWindowsExcludingCuaIndicator()[0];
-  if (win) {
-    if (win.isMinimized()) {
-      win.restore();
-    }
-    if (!win.isVisible()) {
-      win.show();
-    }
-    win.focus();
-  }
+    },
+    () => {
+      const win = getApplicationWindowsExcludingCuaIndicator()[0];
+      if (win) {
+        if (win.isMinimized()) {
+          win.restore();
+        }
+        if (!win.isVisible()) {
+          win.show();
+        }
+        win.focus();
+      }
+    },
+  );
 });
 
 app.whenReady().then(async () => {
+  // app.quit 不会中止当前模块，未持单实例锁的进程仍可能触发 ready；禁止它再次创建窗口/Host/Agent。
+  if (!gotTheLock) return;
   markMainLaunchAppReady();
   // 开发态 Dock 图标：打包版由 Info.plist 的 icns 决定，dev 运行的是 Electron 原生包，
   // 不设置就会在 Dock 里显示 Electron 默认图标，无法核对 UWork 图标本身。
@@ -2146,6 +2159,7 @@ app.whenReady().then(async () => {
   if (startupDeepLinkConsumptionGate.shouldHandleReadyProtocolUrl(protocolUrl)) {
     handleDeepLink(protocolUrl, logger, {
       confirmationCopy: resolveExternalWorkspaceConfirmationCopy(),
+      isRequestActive: canHandleExternalWorkspaceRequests,
       resolveApplicationWindow: () => getApplicationWindowsExcludingCuaIndicator()[0] ?? null,
     });
   }
