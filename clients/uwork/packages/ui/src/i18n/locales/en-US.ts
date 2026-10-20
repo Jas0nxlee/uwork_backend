@@ -5563,7 +5563,7 @@ const enUS: Record<string, string> = {
   "chat.error.enterpriseSessionChanged":
     "Your enterprise login has changed. Sign in again and retry.",
   "chat.error.enterpriseServiceUnavailable":
-    "The enterprise model service is unavailable. Please try again later.",
+    "Enterprise models are unavailable. Check your enterprise sign-in, seat, and permissions. If those are valid, try again later.",
   "chat.error.enterpriseResponseBlocked":
     "The enterprise model response failed a security check. Contact your administrator.",
   "chat.error.collapseDetails": "Hide details",

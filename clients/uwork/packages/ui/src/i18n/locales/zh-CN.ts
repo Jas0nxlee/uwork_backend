@@ -5323,7 +5323,8 @@ const zhCN: Record<string, string> = {
   "chat.error.copyFailed": "复制报错信息失败：{error}",
   "chat.error.expandDetails": "展开详情",
   "chat.error.enterpriseSessionChanged": "企业登录状态已变化，请重新登录后重试。",
-  "chat.error.enterpriseServiceUnavailable": "企业模型服务暂不可用，请稍后重试。",
+  "chat.error.enterpriseServiceUnavailable":
+    "企业模型暂不可用，请检查企业登录、席位和权限；如均正常，请稍后重试。",
   "chat.error.enterpriseResponseBlocked": "企业模型响应未通过安全校验，请联系管理员。",
   "chat.error.enterprisePersonalModelsDenied": "企业未允许个人模型，请选择企业模型或联系管理员。",
   "chat.error.enterprisePersonalAgentsDenied":
