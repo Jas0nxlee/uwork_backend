@@ -16,6 +16,7 @@ const url = pathToFileURL(
 let source = readFileSync(new URL(url), "utf8");
 const rewindEnabled = process.env.UWORK_NATIVE_REWIND_FILES === "1";
 const permissionProject = process.env.UWORK_NATIVE_PERMISSION_PROJECT === "1";
+const questionEnabled = process.env.UWORK_NATIVE_QUESTIONS === "1";
 const permissionEnabled =
   process.env.UWORK_NATIVE_PERMISSION_DENY === "1" || permissionProject;
 assert.ok(
@@ -25,6 +26,7 @@ assert.ok(
   !(rewindEnabled && permissionEnabled),
   "independent file scenarios cannot share a supplier",
 );
+assert.ok(!(questionEnabled && (rewindEnabled || permissionEnabled)));
 function once(from, to) {
   assert.equal(source.split(from).length, 2);
   source = source.replace(from, to);
@@ -121,6 +123,25 @@ if (permissionEnabled) {
       const saved=await api(p+'/configurations/security','PUT',{revision:old.revision,data:{...old.draft,allowFilesystem:true}});
       await api(p+'/configurations/security/publish','POST',{revision:saved.revision});
     } else if (c.op === "queueRelease")`,
+  );
+}
+if (questionEnabled) {
+  source =
+    'import { createQuestionSupplier } from "./prepublish-question-supplier.mjs";\n' +
+    source;
+  once(
+    "const modelRequests = [];",
+    "const modelRequests = [];\nconst questionSupplier = createQuestionSupplier();",
+  );
+  once(
+    "  const currentHasTool = body.messages",
+    `  try { fileReply = questionSupplier.reply(body) ?? fileReply; }
+  catch { res.writeHead(400,{'content-type':'application/json'}).end(JSON.stringify({error:'OWNED_QUESTION_PROTOCOL'}));return; }
+  const currentHasTool = body.messages`,
+  );
+  once(
+    "const facts = {held:queueHeld,modelCalls,modelRequests,",
+    "const facts = {held:queueHeld,modelCalls,modelRequests,question:questionSupplier.status(),",
   );
 }
 if (process.env.UWORK_NATIVE_OUT_MANIFEST) {
