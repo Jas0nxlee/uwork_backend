@@ -29,7 +29,7 @@ test("enterprise metadata updates both current labels and preserves identity", (
   assert.equal(after!.user, before.user);
   assert.equal(after!.organizations[1], before.organizations[1]);
   assert.equal(before.tenant.name, "Old");
-  assert.equal(before.organizations[0].name, "Old");
+  assert.equal(before.organizations[0]!.name, "Old");
 });
 
 test("metadata from another tenant cannot update the current identity", () => {
@@ -50,8 +50,8 @@ test("identical metadata is a no-op but repairs an independently stale menu", ()
     applyEnterpriseMetadata(before, { id: "current", name: "Old" }),
     before,
   );
-  before.organizations[0].name = "Stale menu";
+  before.organizations[0]!.name = "Stale menu";
   const after = applyEnterpriseMetadata(before, { id: "current", name: "Old" });
-  assert.equal(after!.organizations[0].name, "Old");
-  assert.equal(before.organizations[0].name, "Stale menu");
+  assert.equal(after!.organizations[0]!.name, "Old");
+  assert.equal(before.organizations[0]!.name, "Stale menu");
 });
