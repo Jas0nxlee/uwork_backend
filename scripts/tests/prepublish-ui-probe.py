@@ -108,6 +108,16 @@ try:
         (workspace/'staged.txt').write_text('OWNED_STAGED_A\n');(workspace/'unstaged.txt').write_text('OWNED_UNSTAGED_A\n');git('add','staged.txt','unstaged.txt');git('commit','--quiet','-m','Owned Git baseline')
         (workspace/'staged.txt').write_text('OWNED_STAGED_B\n');git('add','staged.txt');(workspace/'unstaged.txt').write_text('OWNED_UNSTAGED_C\n');(workspace/'new.txt').write_text('OWNED_NEW_D\n')
         if os.environ.get('PREPUBLISH_GIT_STAGED_SNAPSHOT')=='1':(workspace/'staged.txt').write_text('OWNED_STAGED_C\n')
+    if os.environ.get('PREPUBLISH_GIT_BRANCH')=='1':
+        git_env={**os.environ,'GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
+        git=lambda *args:subprocess.run(['/usr/bin/git','-C',str(workspace),*args],env=git_env,check=True,capture_output=True,text=True)
+        git('config','--local','user.name','Owned Branch');git('config','--local','user.email','owned-branch@example.test');git('config','--local','commit.gpgsign','false')
+        (workspace/'conflict.txt').write_text('OWNED_BRANCH_A\n');(workspace/'keep.txt').write_text('OWNED_BRANCH_KEEP\n');git('add','conflict.txt','keep.txt');git('commit','--quiet','-m','Owned branch baseline');git('branch','-M','main')
+        git('switch','--quiet','-c','owned-target');(workspace/'conflict.txt').write_text('OWNED_BRANCH_T\n');(workspace/'target-only.txt').write_text('OWNED_BRANCH_TARGET_ONLY\n');git('add','conflict.txt','target-only.txt');git('commit','--quiet','-m','Owned branch target');git('switch','--quiet','main')
+        if os.environ.get('PREPUBLISH_GIT_BRANCH_BLOCKED')=='1':
+            if os.environ.get('PREPUBLISH_GIT_BRANCH_UNTRACKED')=='1':(workspace/'target-only.txt').write_text('OWNED_BRANCH_LOCAL_UNTRACKED\n')
+            else:(workspace/'conflict.txt').write_text('OWNED_BRANCH_LOCAL\n')
+            (workspace/'unrelated.txt').write_text('OWNED_BRANCH_UNRELATED\n')
     f.command('openWorkspace',30,workspacePath=str(workspace))
     guards=BASE['Guards'](evidence)
     first=FIRST['FirstRunUi']('file-restored',b.evaluate,b.raw_cdp,guards.guard,budget,guards.claim,guards.auth_started)
@@ -129,7 +139,11 @@ try:
         cold=evidence/('question-cold' if os.environ.get('PREPUBLISH_QUESTION_HISTORY')=='1' else 'project-cold');cold.mkdir(mode=0o700)
         b=HarnessBridge(launch['cdpPort'],evidence=cold);f.command('openWorkspace',30,workspacePath=str(workspace))
         return b
-    if os.environ.get('PREPUBLISH_GIT_COMMIT')=='1':
+    if os.environ.get('PREPUBLISH_GIT_BRANCH')=='1':
+        assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_GIT_COMMIT','PREPUBLISH_PLAN_APPROVAL','PREPUBLISH_QUESTIONS','PREPUBLISH_PERMISSION_PROJECT','PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
+        runpy.run_path(str(ROOT/'scripts/tests/prepublish-git-branch-case.py'))['run_branch_case'](
+            bridge=b,click=click,until=until,proof=proof,baseline=baseline,meta=meta,workspace=workspace,evidence=evidence,result=result,budget=budget)
+    elif os.environ.get('PREPUBLISH_GIT_COMMIT')=='1':
         assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_PLAN_APPROVAL','PREPUBLISH_QUESTIONS','PREPUBLISH_PERMISSION_PROJECT','PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
         runpy.run_path(str(ROOT/'scripts/tests/prepublish-git-commit-case.py'))['run_git_case'](
             bridge=b,click=click,until=until,proof=proof,send=send,baseline=baseline,meta=meta,workspace=workspace,evidence=evidence,result=result,budget=budget)
