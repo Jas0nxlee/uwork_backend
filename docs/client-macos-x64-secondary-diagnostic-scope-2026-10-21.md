@@ -1,0 +1,13 @@
+# Mac x64 原副实例固定阶段诊断
+
+目标仅为定位原workspace副实例10秒失败。CPU v5已取得完整证据并清理，证明首窗口创建/同步加载路径在该采样窗口占约9.53秒；它不能解释副实例是否取到锁、app.quit是否返回或是否自然退出。不得据此猜测产品修复、延长原10秒或重复跑至偶然通过。
+
+fresh profile为client-native-packaged-macos-clock-x64-startup-v6-20261021，复用未改v9 x64正常签名包与d0a固定四阶段日志。正常启动primary，不开启Node inspector、不采样、不改fuse/App/ASAR/产品源，不建立BH、不发送业务prompt，也不点击架构下载提示或workspace确认。
+
+这是独立诊断，primary原file target最多等待60秒，仅作为发送原副实例的前置，不当原30秒就绪验收通过。每次本机/json/list读取前后核原Main出生/存活、冻结x64 executable映射与唯一127.0.0.1 CDP监听归属，只选择原ASAR file target。case总预算120秒、共同工作截止时间为caseDeadline-20秒；不足完整原副实例10秒加有界回收与观察余量时不启动副实例。不得延长等待或自动重试。
+
+只调用原openWorkspace一次，保留原函数逐字SHA 1c013ad74812e1556e287aecefd56dff9a7326ac008aa4cb4aa84248a4c7aae6、原目标目录守卫、stdio ignore、原10000ms定时器、原SIGKILL及2秒有界回收、原primary存在与exit/timedOut检查。观察器的失败不得替换原command成功或异常。原开始/退出事件与实际PID/birth/executable映射绑定；只读原私有Main日志固定phase/acquired/finite elapsed与时间字段，不复制argv、URI、凭据或正文。缺日志不推断锁状态，quit返回不当自然exit/ACK证明。
+
+原受控backend与identity初始化、原OS guard、stopNative/finally保留。实际inference POST、供应商请求逐摘要、current/other两actor账务全行在前后相同；other2笔44 Credit初始化单列、current0。本例不声称确认workspace切换或业务成功。原secondary失败必须保留为失败观察，即使取得诊断证据，也不得将清理成功改成原功能通过。
+
+完整冻结并经Root/独立peer核验后仅执行一次。最后核全部已知自有PID、四TCP及OS协议恢复，正常后端PID92288不动。Windows与物理Intel真实验收仍待目标环境，Linux不新增；外部MCP、网盘及已受拒真实OAuth保持边界。

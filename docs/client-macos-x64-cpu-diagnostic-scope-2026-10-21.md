@@ -1,0 +1,17 @@
+# Mac x64 启动 CPU 诊断范围
+
+本例用于解释新case v2在原30秒renderer就绪期限前的Main耗时，不是业务验收。v2原失败、历史10秒副实例问题和正常ARM64验收均保留。先冻结输入并由独立peer核验，再只运行一次本诊断；不得用诊断延长原验收期限或推断未观测的原因。
+
+使用同一未修改v9 x64签名App、ASAR、资源、Mach-O和fuse，source d0a5f374。只新增primary的本机Node inspector参数与显式私有userdata参数；私有userdata与原ZCODE_DESKTOP_USER_DATA_DIR相同。新case为client-native-packaged-macos-clock-x64-startup-v5-20261021。原secondary函数、10秒与stdio保持，但本例不调用secondary、BH或业务UI。原受控后端初始化、身份隔离、OS guard、stopNative和finally保留。正常后端与用户应用不动。
+
+此前v3仅在测试入口失败，fixture exit13、20秒backend-ready超时；没有启动App、inspector或生成profile。原失败及已审源快照保留，不把退出码单独当原因。v4将被Common引用的纯CPU运行函数移至独立runtime模块，消除入口await Common、Common反向import入口的模块环，并以实际派生import的小型真实Node模块图执行RED/GREEN合同。该合同不启动Common业务正文或App，CPU诊断仍须单独真实执行。
+
+v4已实际进入原Common与Main启动，但在构造诊断参数时遇到测试命令的resolve未绑定，未发inspector RPC/取得profile，原清理无错误。v5仅将outputFile构造改用Common原已有join与固定工作目录；从实际派生源码提取该命令分支，在只注入原Common真实path导入与隔离mock的Node上下文执行旧分支RED、新分支GREEN，以补语法检查不能检出的变量作用域错误。该测试不运行Common正文或App，不替代真实采集。
+
+Node inspector只允许127.0.0.1唯一动态端口，在每个HTTP、WebSocket连接及协议动作之前核验本case原Main PID、出生时间、存活、冻结x64 executable映射和监听端口归属。使用现有已开启的inspect fuse，不修改fuse。协议只允许Profiler.enable/setSamplingInterval/start/stop、Runtime.runIfWaitingForDebugger，以及Debugger.enable和仅第一次Break on start的Debugger.resume；不执行Runtime.evaluate、读取源码、局部变量、堆或未知事件正文。
+
+case从controller启动单调计时总预算90秒，包含后端准备，并为原stop/finally至少预留20秒。inspector discovery最多40秒且按剩余工作预算缩短。真实CPU采集固定完整30秒，不足则明确失败，不缩短采集或延长预算。helper的maxTotalMs最多45秒且受case剩余预算约束；单个RPC最多15秒并受剩余总期限约束，单个归属guard最多3秒并计入总期限。到期拒绝继续工作并执行原清理，记录实际退出与清理时长，不把超时改为通过。
+
+原始CPU profile仅写本case私有0600文件，最多8 MiB、20000 nodes和100000 samples。只保留V8 profile字段，摘要仅输出函数名、受控node标识/代码文件basename、URL哈希与耗时；不复制完整路径或任何未知事件。WebSocket、定时器及原fixture所有资源须finally关闭。Bob初始化2笔44 Credit单列，当前用户0笔；本例不产生业务请求，before/after的真实请求、供应商、账务和Trace必须相同。
+
+通过诊断只表示取得满足范围的CPU证据。即使成功，原7项Mac x64协同用例仍未通过。任何后续产品修复须由真实profile和源码共同支持，并以原30秒/10秒期限重新验证，不能将诊断暂停/恢复后的耗时当正常启动时间。物理Intel与Windows真实环境不在本诊断范围。

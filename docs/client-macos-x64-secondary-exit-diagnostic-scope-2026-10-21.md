@@ -1,0 +1,11 @@
+# 新x64包：独立副实例退出验证
+
+新v11包source0aeff9的原7项首跑在原30秒renderer就绪处失败，0/7、没有secondary/AX/BH/业务。该失败保留，不能因为ARM v12原7已过或新包静态通过而关闭。此fresh v7不是重跑原7求绿，而是对已修的拒锁退出路径作单独有界counterfactual。
+
+使用同一未修改v11原包与精确manifest85abca6169f16b9933f7ab02c8f1c965e53a97e7ae0283f775abaee76b91d2c0，fresh profile为client-native-packaged-macos-clock-x64-startup-v7-20261021。复用旧v6已经实际执行的secondary诊断全部正文，只替换profile、strict loader与两处entry路径。原函数1c、原stdio ignore、10000ms定时器及2秒有界回收保持；整个case120秒/工作截止caseDeadline-20秒，primary file target最多60秒仅作诊断前置，不当原30秒验收。
+
+不启Node inspector/采样/BH，不操作架构或workspace对话框，不发业务prompt。真实PID、出生/冻结x64映射与本机CDP监听归属逐次复核，HTTP前后与原私有四phase reader守卫保留；观察器不能覆盖原command的返回或异常。current0与other2笔44初始化分列，实际raw/supplier逐摘要与两actor全部账务前后相同。
+
+仅执行原openWorkspace一次。成功必须是实际secondary自然exit0、signal=null、timedOut=false、primary同代仍存活，不能以false或exit-start日志代替。此项不证明x64工作区已由UI消费，亦不关闭x64原7/30秒、物理Intel或全部Mac验收。原ARM7正常UI消费另以具名case确认。
+
+最后原stop/finally与独立PID/四端口/OS协议收口，正常后端92288不动。新计划源/完整派生/两层profile守卫及manifest经Root与独立peer核验后只运行一次；失败保留，不修改产物或预算，不自动下一次。

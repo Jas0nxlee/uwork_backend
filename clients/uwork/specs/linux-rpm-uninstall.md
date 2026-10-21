@@ -2,6 +2,8 @@
 
 Fedora 44 原 `dnf remove` 已重现：包数据库退出该包、原清单文件消失，但 `/usr/bin/<executable>`→`/etc/alternatives/<executable>`→已删除程序的链接和安装根的空目录残留。原 electron-builder 26.8.1 安装 alternatives target 为 `/opt/<sanitizedProductName>/<executable>`，卸载却传 `/usr/bin/<executable>`，身份不一致。
 
+现有 RPM 配置声明分发面向 RHEL8+；本轮真实工具与包事务仅验证 Fedora44 的 alternatives CLI（支持无参数 `--list`）。不以 Fedora 结果宣称 RHEL8 或所有 RPM 发行版的 alternatives 实现均已实测。
+
 项目自有 RPM `afterRemove` 模板是最终卸载清理唯一 owner，原 builder 配置仅在 rpm.afterRemove 选择既有入口；不改 vendor、现归档、app.asar 或其他平台。生产/Preview 保持独立 executable/package/root。
 
 - RPM `$1=0` 最终卸载才清理；升级/非零剩余实例计数不移除新包链接、目录或 AppArmor。

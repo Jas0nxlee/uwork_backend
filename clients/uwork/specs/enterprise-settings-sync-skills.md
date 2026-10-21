@@ -8,13 +8,13 @@ Real Native evidence under `evidence/client-native-settings-live-20261017/` prov
 
 ## Owners and unchanged interfaces
 
-| Responsibility | Existing owner and boundary |
-| --- | --- |
-| Private identity, session generation/revision, configuration and persisted-owner fence | `EnterpriseIdentityService` through its existing Host-private `UWorkBackendSession.run` port |
-| Current policy | The backend execution authorization response, parsed by `readHostSkillPolicy`; no cached allow decision |
-| Source discovery, duplicate detection and import ordering/results | `createSettingsSyncService`; existing `ISettingsSyncService` RPC and shared request/result types |
-| User storage root | `services/src/paths.ts#getUworkUserStorageRoot`; the same path function used by `skillsService` |
-| Actual skill file I/O | The existing settings-sync skill import path with an operation-local access callback; no Renderer authority or second identity store |
+| Responsibility                                                                         | Existing owner and boundary                                                                                                          |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Private identity, session generation/revision, configuration and persisted-owner fence | `EnterpriseIdentityService` through its existing Host-private `UWorkBackendSession.run` port                                         |
+| Current policy                                                                         | The backend execution authorization response, parsed by `readHostSkillPolicy`; no cached allow decision                              |
+| Source discovery, duplicate detection and import ordering/results                      | `createSettingsSyncService`; existing `ISettingsSyncService` RPC and shared request/result types                                     |
+| User storage root                                                                      | `services/src/paths.ts#getUworkUserStorageRoot`; the same path function used by `skillsService`                                      |
+| Actual skill file I/O                                                                  | The existing settings-sync skill import path with an operation-local access callback; no Renderer authority or second identity store |
 
 The composition root passes its existing private `enterpriseBackendSession` into `createSettingsSyncService`. Standalone/explicit UCAS use retains the current unmanaged behavior. No public RPC, token projection, new backend endpoint, accepted queue, policy cache or credential state is introduced.
 

@@ -1,0 +1,5 @@
+# 原客户端配置草稿/发布/冲突/放弃
+
+独立configuration模式，只补原Settings配置页到真实HTTP持久层/客户端配置的消费者。原新对话欢迎语A保存草稿后客户端仍默认；原输入未保存B后发布，实际只发布已保存A。原保存C再放弃，草稿回到已发布A。原编辑D未保存，独立controller会话通过正式HTTP写入E；原保存D应409 REVISION_CONFLICT且保留D/error，不覆盖E。原重新加载得到E，原发布E和整页reload后E/version2保持。
+
+ConfigurationSession仍为原页面唯一草稿owner，后台revision和publication history为权威。客户端真实configuration响应/ETag在只存草稿时不变，发布A/E时才变化；history仅含A/E。资源/成员/模型、模型请求/ledger不变；不以后台HTTP读代称重演Native菜单。此前原Native配置投影正反向与生命周期证据单列复用。

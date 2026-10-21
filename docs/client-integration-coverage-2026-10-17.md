@@ -1,10 +1,16 @@
 # UWork 客户端与后端持续联动覆盖
 
+2026-10-19 补测：[G07e 附件正文消费的企业准入](client-native-attachment-admission-test-2026-10-19.md)已在真实 Electron 原生运行时取得允许/撤权双向证据（文本/图片/视频/PDF，19 项检查），并核对专用 prompt-attachment 消费者；NSOpenPanel 段当时因宿主无辅助功能权限未覆盖，已于 2026-10-20 以 AX 元素动作补测通过（见[面板内交互联测](client-native-panel-interaction-test-2026-10-20.md)）。[G05f 原生全局工作流「运行于」](client-native-global-workflow-cwd-test-2026-10-19.md)在真实 Electron 完成保存→提升全局→原启动对话框选项目运行，实际模型 cwd 与历史 run.cwd 逐字一致、撤权后同入口被拒（16 项检查/29 个原界面动作）；受审 Go/actor 流程未执行。[G05e1 原生自动化按钮](client-native-automation-buttons-test-2026-10-19.md)在真实 Electron 原页面完成创建→暂停→恢复→再暂停→跨真实到期（58.1s/70.1s，零派发零模型调用）→删除取消→删除确认，13 项检查、23 个原界面动作通过并逐项核对只读持久化；受审 Go/actor 流程未执行。[G05e 暂停后自然到期](client-automation-paused-due-test-2026-10-19.md)的真实 Host／完整 Main 切片通过：同 scheduler 跨原 due 后 45.318 秒零派发／模型／账本增量，恢复后原 task 与原 due 恰一次成功，supplier／settled 2→3；11 公开文件、20 已知 PID／三端口独核闭合。原 Native 按钮保持另验。正常后台已[备份并恢复运行](local-backend-recovery-2026-10-19.md)，新 PID 59926，九张当前业务表和四资产保持。[G04k 双组织重认证](client-native-two-organization-login-test-2026-10-19.md)的 v9 通过 A 完整链及同 owner 退出后，在原模型菜单实际复现一个仍可选的 A 旧候选。[本轮修复与真实复测](client-g04k-catalog-revocation-test-2026-10-19.md)已沿原私有所有者链修好该缺口并在真实后台／身份／Gateway／Writer／Registry 上取得双向有效 RED 与 GREEN（服务 9、UI 6、相关回归 515、受产物固定影响的 9 个 smoke 49 项全通过，六产物已按正常命令重建）。随后又在[真实 Electron 原生渲染层](client-g04k-native-cdp-verification-2026-10-19.md)完成 A 登录→原退出→原模型菜单普查→B 重认证：修复前产物复现 `G04K_CATALOG_STALE`，修复后退出态菜单为空且 B 只得到自己的可选用模型，两轮均 0 模型调用。该探针不是受审的 source-lock/Go/actor 流程，G04k 的正式验收层保持未勾选，也无 Send 或新增计量。178 公开文件和五已知 PID／四端口／BH 关闭已独核，12:58 UTC 正常后台九表保持、健康及入口 200。G04k、G07e、G05e1、G05f 和整体 U02–U05／T13 仍开放。
+
 2026-10-17。当前目标为继续自动覆盖所有尚未验证的真实联动，发现问题修复并复测。真实企微、外部 MCP 和网盘按用户要求排除。本表保留未完成项；通过一个层次不自动证明其他层次或整个项目完成。
 
 2026-10-19 当前：G04h v8空身份原登录三epoch、freshDraft实际自动选模与G07c v3原文件A/B链已通过。Standalone Web v8已在Electron41内嵌Chromium完成11项原DOM业务；[G04i v5](client-plugin-skill-bridge-test-2026-10-19.md)已完成插件安装到Skill正文消费与同会话撤权拒绝，5模型/5settled/5Trace、45 Credit。后续补上[W02成功连接后断线](client-web-disconnect-recovery-test-2026-10-19.md)：原RPC与浏览器实际复现后修复两处问题，42 项相关回归、完整门禁与 Server/Web/Desktop 正常构建通过；v4 实际断线、四宽、原键盘 Retry、Cookie/项目/文件恢复通过，console0/script0。此前本机切片全部完成的概括撤回；跨环境边界及U02–U05保持开放，历史具名切片保留原日期/候选。
 
 新增 [G09b Native用量取消](client-native-gateway-usage-logout-test-2026-10-19.md)已通过：原刷新真实200暂挂、原Back后退出触发abort/drop、匿名重开无旧资料/额度/用量；模型/账本/Trace/Credit增量0，console0/script0。初始化2/2/2/44单列，Common关闭超时与Root精准终止分列，五已知PID/四端口/BH socket独立收口、私有根保留。有限剩余审计发现的[G04j推荐卡绑定](client-native-installed-plugin-suggestion-test-2026-10-19.md)也已实际通过：原Native自有安装setup、原卡mention＋prompt、原User禁用后同卡纯prompt/mention0；八业务click、每卡HTTP不增与Native计量增量0，console0/script0。其setup与G04f/G04i旧验收分列，六已知PID/五端口/BH socket独核收口，私有根保留。
+
+[W03 server-cli 前台生命周期](client-server-cli-lifecycle-test-2026-10-19.md)随后通过：修复真实 ESM builtin require 加载缺陷，RED1→GREEN1、五门禁/五正常构建0；v3 原 serve/status、重复拒绝、restart/Core换代、新WS哨兵和stop七事件通过。原PTY exit0，33已知PID/两端口/control socket独核关闭且FD0、私有根保留。前台之外的显式opt-out detached fallback随后由[W04](client-server-cli-detached-fallback-test-2026-10-19.md)补齐；Native G07e、OS服务注册及发行安装目标仍单列。
+
+[G07e附件修复](client-attachment-consumption-test-2026-10-19.md)的Core 39项、相关Core 89项及Shared/Host 31项通过，正常构建完成；八轮Native均未执行Send。最新v8已确认焦点且六帧系统按键API返回，但未证明投递或观察到路径输入框，资源独立闭合。2026-10-19 04:11:30 UTC的最小只读控制台状态明确锁定，暂停系统输入重试；不将此新事实回填为历史失败的唯一原因，G07e继续未验收。
 
 判定依据是 `SPEC-uwork-client.md`、`SPEC-client-policy.md`、`SPEC-ai-assets.md` 及客户端 enterprise specs、实际 UI/Host/CLI 入口、测试代码和执行证据。原始审计在 ignored `evidence/client-coverage-audit-20261017/`。只审计当前支持的行为，不为了造通过而增加云服务、远端身份或协作产品。
 
@@ -232,3 +238,15 @@ Root独核9公开文件/23 journals，275已知PID及两端口均闭。controlle
 [W02 联测](client-web-disconnect-recovery-test-2026-10-19.md)补上 W01 手动新 WS 与 Web v8 reload 未覆盖的成功后断线。原 RPC 和浏览器均取得真实 RED；修复连接关闭时释放 RPC/旧 Root，并在复测中修复三个服务 Hook 随恢复路径改变调用序列的错误。最终 42 项相关回归、完整门禁及正常 Server/Web/Desktop 构建通过，源码与产物均独立核验。
 
 最终 v4 在 Electron41 独立 Web 中沿原界面完成目录/文件→精确自有 Server 断开→匹配 WS Closed 与错误页→四种宽度/Tab→同配置 Server 恢复→唯一 Enter Retry→新 document、Cookie200、原项目/文件恢复，console0/script0，文件字节不变。三 UI driver exit0，控制器 exit1 仅因 FD 查询不完整按原策略保留目录；305 个已知 PID 与两端口已独立核对关闭。此项没有企业登录或发送模型动作，不替代 Native UI、自动重连、Web 企业认证、Chrome 和平台安装验收；U02–U05、T13 边界不变。
+
+## W03 原 server-cli 前台生命周期（v3通过）
+
+[W03 报告](client-server-cli-lifecycle-test-2026-10-19.md)补齐直接Server入口之外的原CLI控制面与Supervisor/Core所有者：同root重复serve实际拒绝、原restart等待旧Core终态并更换代次、显式新WS读取同一File/System哨兵、原stop真实退出。v3七事件、30子句柄实际closed、原PTY exit0；Root核17公开文件全SHA、33已知PID/两端口/control socket闭，fixture完整FD0，保留0700根。
+
+源码a650的最小ESM banner修复经真实tsup→Node RED1/GREEN1、五项标准门禁及五条正常构建验证；v1 env guard误报、v2真实启动失败及不完整FD查询保留各自历史。无模型调用，不包含Cookie/企业authority、daemon、OS服务、Node22发行或跨平台安装。当时另列的“CLI退出、Supervisor存活”边界后续已由W04独立实测，不由本前台结果代替。Native G07e仍独立待验，U02–U05/T13不由本项关闭。
+
+## W04 原 server-cli detached fallback（通过）
+
+[W04 报告](client-server-cli-detached-fallback-test-2026-10-19.md)已验证原serve --daemon显式跳过OS注册后，启动CLI真实exit0而Supervisor继续持有Core；独立status、原SocketProtocol File/System哨兵、唯一原stop均通过。实际2.715s/四安全事件，原PTY66321 exit0；23子句柄与Supervisor/Core/driver共26已知PID独核不存在，端口64420/control socket闭，原完整FD0、0700私有根保留。未观察中间reparent、不声称detached直接exitCode，关闭后未再访问根。
+
+本项复用a650正常产物，无产品修改/重建、模型操作或企业authority；OS service注册、安装/更新/卸载、Node22与目标平台边界保留。W03历史及Native G07e、U02–U05/T13状态不变。
