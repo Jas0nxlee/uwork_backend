@@ -79,9 +79,6 @@ export function WorkspacePinnedTasksSection({
     (state) => state.sessionIdByWorkspaceIdentity,
   );
   const removeTaskState = useZCodeSessionStore((state) => state.removeTaskState);
-  const upsertOptimisticTaskListItem = useZCodeSessionStore(
-    (state) => state.upsertOptimisticTaskListItem,
-  );
   const removeOptimisticTaskListItem = useZCodeSessionStore(
     (state) => state.removeOptimisticTaskListItem,
   );
@@ -98,7 +95,6 @@ export function WorkspacePinnedTasksSection({
   const intlRef = useRef(intl);
   const onSelectTaskRef = useRef(onSelectTask);
   const removeTaskStateRef = useRef(removeTaskState);
-  const upsertOptimisticTaskListItemRef = useRef(upsertOptimisticTaskListItem);
   const removeOptimisticTaskListItemRef = useRef(removeOptimisticTaskListItem);
   const setTaskUnreadIndicatorRef = useRef(setTaskUnreadIndicator);
   const taskItemHandlersByKeyRef = useRef(new Map<string, PinnedTaskItemHandlers>());
@@ -107,7 +103,6 @@ export function WorkspacePinnedTasksSection({
   intlRef.current = intl;
   onSelectTaskRef.current = onSelectTask;
   removeTaskStateRef.current = removeTaskState;
-  upsertOptimisticTaskListItemRef.current = upsertOptimisticTaskListItem;
   removeOptimisticTaskListItemRef.current = removeOptimisticTaskListItem;
   setTaskUnreadIndicatorRef.current = setTaskUnreadIndicator;
   const { items: localItems } = useGlobalTaskList({
@@ -357,7 +352,12 @@ export function WorkspacePinnedTasksSection({
             true,
             item.workspaceIdentity,
           );
-          upsertOptimisticTaskListItemRef.current(item.workspacePath, meta, item.workspaceIdentity);
+          // 已置顶元数据由 pinned 查询缓存接管，不能向普通项目列表新增乐观任务。
+          removeOptimisticTaskListItemRef.current(
+            item.workspacePath,
+            item.taskId,
+            item.workspaceIdentity,
+          );
           if (item.workspaceIdentity) {
             useRemotePinnedTaskStore.getState().upsertTask(meta);
           }
@@ -505,7 +505,12 @@ export function WorkspacePinnedTasksSection({
                 title: renameDraft.trim(),
               })
               .then((meta) => {
-                upsertOptimisticTaskListItem(item.workspacePath, meta, item.workspaceIdentity);
+                // 重命名不改变 pinned 归属；普通列表 overlay 会把同一任务再插入项目区。
+                removeOptimisticTaskListItem(
+                  item.workspacePath,
+                  item.taskId,
+                  item.workspaceIdentity,
+                );
                 if (item.workspaceIdentity) {
                   useRemotePinnedTaskStore.getState().upsertTask(meta);
                 }
@@ -722,9 +727,10 @@ export function WorkspacePinnedTasksSection({
                     true,
                     contextMenuItem.workspaceIdentity,
                   );
-                  upsertOptimisticTaskListItem(
+                  // 未读指示器可能更新普通 overlay；置顶任务只保留原 pinned 缓存投影。
+                  removeOptimisticTaskListItem(
                     contextMenuItem.workspacePath,
-                    meta,
+                    contextMenuItem.taskId,
                     contextMenuItem.workspaceIdentity,
                   );
                   if (contextMenuItem.workspaceIdentity) {
