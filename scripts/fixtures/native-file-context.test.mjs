@@ -438,9 +438,51 @@ test("file ESM installs the actual sole guard before Main, preserves allow/deny 
   );
   const start = source.indexOf("async function saveExperienceProof(name)"),
     end = source.indexOf("let closing = false;", start);
+  // The reviewed dual-organization branch is the only sanctioned change in this region;
+  // removing exactly that branch must still recover the frozen original proof.
+  const snapshot = source.slice(start, end);
   assert.equal(
-    createHash("sha256").update(source.slice(start, end)).digest("hex"),
+    snapshot.split(`        ...(twoOrganizationAuth
+          ? {
+              modelRequestsCount: modelRequests.length,
+              twoOrganization: {
+                auth: twoOrganizationAuth.safeStatus(),
+                baseline: projectTwoOrganizationBaseline(
+                  app.services.db,
+                  twoOrganizationMetadata,
+                ),
+              },
+            }
+          : { modelRequests }),
+`).length - 1,
+    1,
+  );
+  assert.equal(
+    createHash("sha256")
+      .update(
+        snapshot.replace(
+          `        ...(twoOrganizationAuth
+          ? {
+              modelRequestsCount: modelRequests.length,
+              twoOrganization: {
+                auth: twoOrganizationAuth.safeStatus(),
+                baseline: projectTwoOrganizationBaseline(
+                  app.services.db,
+                  twoOrganizationMetadata,
+                ),
+              },
+            }
+          : { modelRequests }),
+`,
+          "        modelRequests,\n",
+        ),
+      )
+      .digest("hex"),
     "f17ae3d5813b4c24e91f43e1732197ebd652d8726138eebe92340e893594240c",
+  );
+  assert.equal(
+    createHash("sha256").update(snapshot).digest("hex"),
+    "564ad5244237c513117f057b016c770d468e7914304ee3a1dad6dc2ca01e86d3",
   );
   const fileStart = source.indexOf("async function saveFileContextProof(name)"),
     fileEnd = source.indexOf(

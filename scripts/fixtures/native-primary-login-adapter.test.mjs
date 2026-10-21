@@ -18,7 +18,6 @@ import {
   startPrimaryMainEntry,
 } from "./native-primary-login-adapter.mjs";
 import {
-  createPrimaryLoginHold,
   primaryLimitMemberId,
   primaryLoginModeEnabled,
 } from "./native-primary-login.mjs";
@@ -559,11 +558,32 @@ test("generated primary ESM entry imports the guard first and contains no RAM bi
     "async function saveExperienceProof(name)",
   );
   const snapshotEnd = source.indexOf("let closing = false;", snapshotStart);
+  const snapshot = source.slice(snapshotStart, snapshotEnd);
+  // The reviewed dual-organization branch retains counts, without model bodies.
+  // Removing only that exact branch must recover the frozen original proof.
+  const dualProof = `        ...(twoOrganizationAuth
+          ? {
+              modelRequestsCount: modelRequests.length,
+              twoOrganization: {
+                auth: twoOrganizationAuth.safeStatus(),
+                baseline: projectTwoOrganizationBaseline(
+                  app.services.db,
+                  twoOrganizationMetadata,
+                ),
+              },
+            }
+          : { modelRequests }),
+`;
+  assert.equal(snapshot.split(dualProof).length - 1, 1);
   assert.equal(
     createHash("sha256")
-      .update(source.slice(snapshotStart, snapshotEnd))
+      .update(snapshot.replace(dualProof, "        modelRequests,\n"))
       .digest("hex"),
     "f17ae3d5813b4c24e91f43e1732197ebd652d8726138eebe92340e893594240c",
+  );
+  assert.equal(
+    createHash("sha256").update(snapshot).digest("hex"),
+    "564ad5244237c513117f057b016c770d468e7914304ee3a1dad6dc2ca01e86d3",
   );
 });
 

@@ -18,6 +18,18 @@ import { pathToFileURL } from "node:url";
 import { createInterface } from "node:readline";
 import { createApp } from "../../src/app.ts";
 import { bootstrap } from "../../src/identity.ts";
+import { billingPeriod } from "../../src/entitlements.ts";
+import { wecomIdentityConfigSchema } from "../../clients/uwork/packages/shared/src/wecom-identity-config.ts";
+import {
+  createTwoOrganizationAuth,
+  twoOrganizationModeEnabled,
+  twoOrganizationExecutionModeEnabled,
+  twoOrganizationPublicConfig,
+  TWO_ORG_PROFILES,
+  assertTwoOrganizationCommand,
+  seedTwoOrganizationLedgerBaseline,
+  projectTwoOrganizationBaseline,
+} from "./native-two-organization-login.mjs";
 import { copyNativeOutSnapshot } from "./native-out-snapshot.mjs";
 import { copyNativeAdminSnapshot } from "./native-admin-snapshot.mjs";
 import { createNativeTraceCapture } from "./native-trace-capture.mjs";
@@ -29,6 +41,7 @@ import {
   createNativeControlledViewerAuth,
 } from "./native-controlled-viewer-auth.mjs";
 import { validateOwnedNativeWorkspace } from "./native-owned-workspace.mjs";
+import { loadOwnedPackagedRuntime } from "./native-packaged-runtime.mjs";
 import { createPrimaryMainEntry } from "./native-primary-entry.mjs";
 import {
   fileContextModeEnabled,
@@ -79,11 +92,26 @@ const viewerAuthEnabled = viewerAuthModeEnabled(
   dynamicWorkflowMode,
   process.env.UWORK_NATIVE_VIEWER_AUTH,
 );
-const primaryLoginEnabled = primaryLoginModeEnabled(
+const singlePrimaryLoginEnabled = primaryLoginModeEnabled(
   experienceMode,
   dynamicWorkflowMode,
   process.env.UWORK_NATIVE_VIEWER_AUTH,
   process.env.UWORK_NATIVE_PRIMARY_LOGIN,
+);
+const twoOrganizationLoginEnabled = twoOrganizationModeEnabled(
+  experienceMode,
+  dynamicWorkflowMode,
+  process.env.UWORK_NATIVE_TWO_ORGANIZATION_LOGIN,
+  process.env.UWORK_NATIVE_PRIMARY_LOGIN,
+  process.env.UWORK_NATIVE_VIEWER_AUTH,
+  process.env.UWORK_NATIVE_FILE_CONTEXT,
+  process.env.UWORK_NATIVE_GATEWAY_USAGE_HOLD,
+);
+const primaryLoginEnabled =
+  singlePrimaryLoginEnabled || twoOrganizationLoginEnabled;
+const twoOrganizationExecutionEnabled = twoOrganizationExecutionModeEnabled(
+  twoOrganizationLoginEnabled,
+  process.env.UWORK_NATIVE_TWO_ORGANIZATION_EXECUTION,
 );
 const configurationWitnessEnabled = isNativeConfigurationWitnessEnabled(
   experienceMode,
@@ -118,8 +146,23 @@ if (
 const exec = promisify(execFile),
   evidence = "evidence/" + fixtureName;
 await mkdir(evidence, { recursive: true, mode: 0o700 });
+const packagedRuntime = await loadOwnedPackagedRuntime(
+  process.env.UWORK_NATIVE_PACKAGED_MANIFEST,
+  process.cwd(),
+  {
+    experience: experienceMode,
+    otherMode: Boolean(
+      primaryLoginEnabled ||
+        viewerAuthEnabled ||
+        dynamicWorkflowMode ||
+        fileContextEnabled ||
+        gatewayUsageRaceEnabled,
+    ),
+  },
+);
 const runtime = {
   electron:
+    packagedRuntime?.executable ??
     process.env.UWORK_NATIVE_ELECTRON ??
     join(
       process.cwd(),
@@ -423,7 +466,12 @@ const upstream = httpServer(async (req, res) => {
                 ? "native-ui-workflow-rejected"
                 : "native-ui-workflow",
               description: "Native UI two-step workflow",
-              scope: "project",
+              // 全局分支供「提升为全局」的会话路径使用；缺省仍是项目档。
+              scope: messageText(currentUser).includes(
+                "NATIVE_UI_WORKFLOW_GLOBAL",
+              )
+                ? "global"
+                : "project",
               script: workflowScript,
             }),
           },
@@ -681,13 +729,24 @@ const origin = `https://127.0.0.1:${proxy.address().port}`;
 const controlledViewerAuth = viewerAuthEnabled
   ? createNativeControlledViewerAuth()
   : undefined;
-const controlledPrimaryAuth = primaryLoginEnabled
+const controlledPrimaryAuth = singlePrimaryLoginEnabled
   ? createNativeControlledViewerAuth()
   : undefined;
 const primaryNonce = primaryLoginEnabled
   ? randomBytes(32).toString("base64url")
   : undefined;
-let primaryLoginHold, primaryMember, primaryBridge;
+const twoOrganizationAuth = twoOrganizationLoginEnabled
+  ? createTwoOrganizationAuth({
+      origin,
+      nonce: primaryNonce,
+      makeHold: createPrimaryLoginHold,
+    })
+  : undefined;
+let primaryLoginHold = twoOrganizationAuth?.hold,
+  primaryMember,
+  primaryBridge,
+  twoOrganizationMetadata,
+  twoOrganizationBaseline;
 const app = await createApp({
   database: join(root, "backend.sqlite"),
   masterKey: randomBytes(32),
@@ -698,14 +757,20 @@ const app = await createApp({
   ...(controlledPrimaryAuth
     ? { wecomProvider: controlledPrimaryAuth.provider }
     : {}),
+  ...(twoOrganizationAuth
+    ? { wecomProvider: twoOrganizationAuth.provider }
+    : {}),
   allowPrivateUpstreams: true,
   worker: true,
 });
 // 仅被动投影原响应；解析/绑定失败记录到测试守卫，不能重写认证响应。
 app.addHook("onSend", async (req, reply, payload) => {
-  if (primaryLoginHold && req.method === "POST") {
+  if (primaryLoginHold && (twoOrganizationAuth || req.method === "POST")) {
     try {
       primaryLoginHold.observeResponse({
+        method: req.method,
+        requestTenantId: req.body?.tenantId,
+        authorization: req.headers.authorization,
         path: req.raw.url?.split(/[?#]/u, 1)[0],
         status: reply.statusCode,
         payload,
@@ -725,7 +790,7 @@ app.addHook("onResponse", async (req, reply) => {
     routeTemplate,
     pathname: controlledViewerAuth
       ? viewerAuthSafePath(req.raw.url)
-      : controlledPrimaryAuth
+      : primaryLoginEnabled
         ? viewerAuthSafePath(req.raw.url)
         : pathOnly?.startsWith("/")
           ? pathOnly
@@ -779,7 +844,7 @@ const credential = await api(p + "/credentials", "POST", {
   value: primarySupplierKey ?? randomBytes(24).toString("hex"),
 });
 const model = await api(p + "/models", "POST", {
-  name: "联动受控模型",
+  name: twoOrganizationLoginEnabled ? TWO_ORG_PROFILES.A.model : "联动受控模型",
   upstreamModel: "controlled",
   credentialId: credential.id,
   baseUrl: `http://127.0.0.1:${upstream.address().port}/v1`,
@@ -832,11 +897,104 @@ if (controlledPrimaryAuth) {
       controlledPrimaryAuth.complete({ origin, ca: await readFile(cert) }),
   });
 }
+if (twoOrganizationAuth) {
+  const passwordB = randomBytes(24).toString("hex");
+  const ownerB = await bootstrap(app.services.db, {
+    name: "G04k backend tenant B",
+    email: "g04k-owner-b@example.test",
+    password: passwordB,
+  });
+  const adminB = (
+    await api(
+      "/api/auth/login",
+      "POST",
+      {
+        email: "g04k-owner-b@example.test",
+        password: passwordB,
+        tenantId: ownerB.tenantId,
+      },
+      null,
+    )
+  ).token;
+  const apiB = (path, method = "GET", body) => api(path, method, body, adminB);
+  twoOrganizationMetadata = await twoOrganizationAuth.seed({
+    A: { tenantId: owner.tenantId, api },
+    B: { tenantId: ownerB.tenantId, api: apiB },
+    certificate: await readFile(cert),
+  });
+  primaryMember = { id: twoOrganizationMetadata.A.memberId };
+  const credentialB = await apiB(
+    `/api/tenants/${ownerB.tenantId}/credentials`,
+    "POST",
+    { name: "G04k controlled model B", value: primarySupplierKey },
+  );
+  const modelB = await apiB(`/api/tenants/${ownerB.tenantId}/models`, "POST", {
+    name: TWO_ORG_PROFILES.B.model,
+    upstreamModel: "controlled",
+    credentialId: credentialB.id,
+    baseUrl: `http://127.0.0.1:${upstream.address().port}/v1`,
+    scope: { all: true },
+    maxOutputTokens: 1024,
+    supportsTools: true,
+  });
+  for (const key of ["A", "B"]) {
+    const adminApi = key === "A" ? api : apiB,
+      info = twoOrganizationMetadata[key],
+      prefix = `/api/tenants/${info.organizationId}`;
+    await adminApi(prefix + "/limits", "PUT", {
+      subjectType: "member",
+      subjectId: info.memberId,
+      amount: TWO_ORG_PROFILES[key].memberLimit,
+    });
+    const menus = await adminApi(prefix + "/configurations/menus");
+    const saved = await adminApi(prefix + "/configurations/menus", "PUT", {
+      revision: menus.revision,
+      data: {
+        ...menus.published,
+        items: menus.published.items.map((item) =>
+          item.id === "agents"
+            ? { ...item, name: `G04k 自动化 ${key}`, enabled: key === "A" }
+            : item.id === "assets"
+              ? { ...item, name: `G04k 插件 ${key}`, enabled: key === "B" }
+              : item,
+        ),
+      },
+    });
+    await adminApi(prefix + "/configurations/menus/publish", "POST", {
+      revision: saved.revision,
+    });
+    const chat = await adminApi(prefix + "/configurations/new-chat");
+    const chatSaved = await adminApi(
+      prefix + "/configurations/new-chat",
+      "PUT",
+      {
+        revision: chat.revision,
+        data: { welcome: `G04k 欢迎 ${key}`, riskNotice: `G04k 风险 ${key}` },
+      },
+    );
+    await adminApi(prefix + "/configurations/new-chat/publish", "POST", {
+      revision: chatSaved.revision,
+    });
+    info.modelId = key === "A" ? model.id : modelB.id;
+    info.menus = ["对话", key === "A" ? "G04k 自动化 A" : "G04k 插件 B"];
+    info.welcome = `G04k 欢迎 ${key}`;
+    info.risk = `G04k 风险 ${key}`;
+  }
+  twoOrganizationBaseline = seedTwoOrganizationLedgerBaseline(
+    app.services.db,
+    twoOrganizationMetadata,
+    { A: model.id, B: modelB.id },
+    billingPeriod,
+  );
+}
 const initialLimitAmounts = {
   department:
     dynamicWorkflowMode === "alwaysOn" || experienceMode ? 3000000 : 200000,
-  member:
-    dynamicWorkflowMode === "alwaysOn" || experienceMode ? 3000000 : 150000,
+  member: twoOrganizationLoginEnabled
+    ? TWO_ORG_PROFILES.A.memberLimit
+    : dynamicWorkflowMode === "alwaysOn" || experienceMode
+      ? 3000000
+      : 150000,
 };
 const departmentLimitAcknowledgement = await api(p + "/limits", "PUT", {
   subjectType: "department",
@@ -885,6 +1043,7 @@ if (dynamicWorkflowMode === "alwaysOn" || primaryLoginEnabled) {
   );
 }
 let identity, me;
+let resetBootstrapDataBaseDir;
 await runNativeEmailBootstrap(primaryLoginEnabled, async () => {
   const bobPassword = randomBytes(24).toString("hex");
   await api(p + "/members", "POST", {
@@ -927,21 +1086,31 @@ await runNativeEmailBootstrap(primaryLoginEnabled, async () => {
 });
 const configDir = join(home, ".uwork", "v2");
 await mkdir(configDir, { recursive: true, mode: 0o700 });
-const publicConfig = primaryLoginEnabled
-  ? primaryLoginPublicConfig(origin, owner.tenantId)
-  : {
-      backend: "uwork",
-      apiBaseUrl: origin,
-      callbackUrl: origin + "/api/auth/wecom/callback",
-      organizations: [
-        {
-          orgId: owner.tenantId,
-          corpId: "ww-controlled-unused",
-          agentId: "1",
-          label: "本机联动测试",
-        },
-      ],
-    };
+const publicConfig = twoOrganizationAuth
+  ? twoOrganizationPublicConfig(
+      origin,
+      {
+        A: twoOrganizationMetadata.A.organizationId,
+        B: twoOrganizationMetadata.B.organizationId,
+      },
+      primaryLoginPublicConfig,
+      (value) => wecomIdentityConfigSchema.parse(value),
+    )
+  : primaryLoginEnabled
+    ? primaryLoginPublicConfig(origin, owner.tenantId)
+    : {
+        backend: "uwork",
+        apiBaseUrl: origin,
+        callbackUrl: origin + "/api/auth/wecom/callback",
+        organizations: [
+          {
+            orgId: owner.tenantId,
+            corpId: "ww-controlled-unused",
+            agentId: "1",
+            label: "本机联动测试",
+          },
+        ],
+      };
 await writeFile(
   join(configDir, "enterprise-identity.json"),
   JSON.stringify(publicConfig),
@@ -956,6 +1125,7 @@ await runNativeEmailBootstrap(primaryLoginEnabled, async () => {
   const load = (path) => import(pathToFileURL(join(client, path)).href);
   const paths = await load("packages/services/src/paths.ts");
   paths.setDataBaseDir(home);
+  resetBootstrapDataBaseDir = () => paths.setDataBaseDir(null);
   const { createCredentialService } = await load(
     "packages/services/src/credential/credentialService.ts",
   );
@@ -1085,18 +1255,32 @@ const meta = {
   dynamicWorkflowMode: dynamicWorkflowMode ?? null,
   ...(fileContextEnabled ? { nativeFileContextMode: "controlled" } : {}),
   ...(workflowTestLimits ? { workflowTestLimits } : {}),
-  copiedProductionMain: true,
+  copiedProductionMain: !packagedRuntime,
+  ...(packagedRuntime ? { packagedRuntime } : {}),
   supplierOrigin: `http://127.0.0.1:${upstream.address().port}`,
   tenantId: owner.tenantId,
   memberId: primaryMember?.id ?? member.id,
+  ...(twoOrganizationAuth
+    ? {
+        twoOrganizationLogin: {
+          schema: "g04k-public-metadata-v1",
+          slots: twoOrganizationMetadata,
+          baseline: twoOrganizationBaseline,
+          sameControlledCorpAgent: true,
+          differentOrdinaryMembers: true,
+          actualModelCallsPlanned: twoOrganizationExecutionEnabled ? 2 : 0,
+        },
+      }
+    : {}),
   departmentId: dA.id,
   cdpPort,
   pid: process.pid,
   identityInitialization: primaryLoginEnabled
     ? "empty native identity; public backend config only; no member email/store/model bootstrap"
     : "email HTTP session encrypted with production credential/shared-store; no WeCom request",
-  nativeBoundary:
-    "default URL protocol registration and recent-document clearing suppressed in owned launcher only; no OS registration/recent-document acceptance claimed",
+  nativeBoundary: packagedRuntime
+    ? "original signed Preview package, isolated data; external driver preserves OS protocol and clipboard state"
+    : "default URL protocol registration and recent-document clearing suppressed in owned launcher only; no OS registration/recent-document acceptance claimed",
 };
 await writeFile(
   evidence + "/desktop-state.json",
@@ -1211,10 +1395,14 @@ function nativeEnvironment() {
     ZCODE_CREDENTIAL_SECRET: credentialSecret,
     NODE_EXTRA_CA_CERTS: cert,
     ZCODE_STORAGE_DIR: join(home, ".uwork"),
-    ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: join(
-      client,
-      "config/provider/zcode-builtin.json",
-    ),
+    ...(!packagedRuntime
+      ? {
+          ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: join(
+            client,
+            "config/provider/zcode-builtin.json",
+          ),
+        }
+      : { ZCODE_UPDATE_FEED_URL: origin + "/owned-test-no-updates" }),
     ZCODE_ENV: "production",
     ZCODE_BASE_URL: origin,
     ...(experienceMode
@@ -1237,7 +1425,7 @@ async function launch() {
   electron = spawn(
     runtime.electron,
     [
-      appRoot,
+      ...(!packagedRuntime ? [appRoot] : []),
       ...(dynamicWorkflowMode === "alwaysOn"
         ? ["--open-workspace", workflowWorkspacePath]
         : []),
@@ -1329,11 +1517,15 @@ async function openWorkspace(workspacePath) {
     primary.signalCode !== null
   )
     throw Error("Owned Native Main changed");
-  const child = spawn(runtime.electron, [appRoot, "--open-workspace", target], {
-    cwd: appRoot,
-    env: nativeEnvironment(),
-    stdio: "ignore",
-  });
+  const child = spawn(
+    runtime.electron,
+    [...(!packagedRuntime ? [appRoot] : []), "--open-workspace", target],
+    {
+      cwd: appRoot,
+      env: nativeEnvironment(),
+      stdio: "ignore",
+    },
+  );
   console.log(
     JSON.stringify({
       event: "workspace-secondary-started",
@@ -1428,7 +1620,18 @@ async function saveWorkflowProof(name) {
         workflowFacts,
         workflowPendingReplies: workflowPendingReplies.size,
         traffic,
-        modelRequests,
+        ...(twoOrganizationAuth
+          ? {
+              modelRequestsCount: modelRequests.length,
+              twoOrganization: {
+                auth: twoOrganizationAuth.safeStatus(),
+                baseline: projectTwoOrganizationBaseline(
+                  app.services.db,
+                  twoOrganizationMetadata,
+                ),
+              },
+            }
+          : { modelRequests }),
         ledger: usage.items.map((row) => ({
           id: row.id,
           status: row.status,
@@ -1492,7 +1695,18 @@ async function saveExperienceProof(name) {
         modelCalls,
         configurations,
         traffic,
-        modelRequests,
+        ...(twoOrganizationAuth
+          ? {
+              modelRequestsCount: modelRequests.length,
+              twoOrganization: {
+                auth: twoOrganizationAuth.safeStatus(),
+                baseline: projectTwoOrganizationBaseline(
+                  app.services.db,
+                  twoOrganizationMetadata,
+                ),
+              },
+            }
+          : { modelRequests }),
         rendererTraceBatches: traceCapture?.batches,
         ...(configurationCapture?.snapshot() ?? {}),
         ledger: usage.items.map((row) => ({
@@ -1516,6 +1730,7 @@ async function close() {
   controlledViewerAuth?.dispose();
   controlledPrimaryAuth?.dispose();
   primaryLoginHold?.dispose();
+  twoOrganizationAuth?.dispose();
   primarySupplierWitness?.dispose();
   gatewayUsageHold?.dispose();
   primaryBridge?.expectStop();
@@ -1531,6 +1746,19 @@ async function close() {
   if (dynamicWorkflowMode === "alwaysOn")
     await attempt(() => saveWorkflowProof("final"));
   if (experienceMode) await attempt(() => saveExperienceProof("final"));
+  // 双组织统计必须在 app.close() 关闭 SQLite 前取快照；否则优雅退出会读已关闭的 DB。
+  const finalTwoOrganization = twoOrganizationAuth
+    ? {
+        modelRequestsCount: modelRequests.length,
+        twoOrganization: {
+          auth: twoOrganizationAuth.safeStatus(),
+          baseline: projectTwoOrganizationBaseline(
+            app.services.db,
+            twoOrganizationMetadata,
+          ),
+        },
+      }
+    : null;
   await attempt(() => app.close());
   for (const server of [upstream, proxy])
     await attempt(async () => {
@@ -1545,7 +1773,7 @@ async function close() {
       {
         modelCalls,
         traffic,
-        modelRequests,
+        ...(finalTwoOrganization ?? { modelRequests }),
         ...(traceCapture ? { rendererTraceBatches: traceCapture.batches } : {}),
         ...(configurationCapture?.snapshot() ?? {}),
         ...(dynamicWorkflowMode === "alwaysOn" ? { workflowFacts } : {}),
@@ -1555,9 +1783,15 @@ async function close() {
     ),
     { mode: 0o600 },
   );
-  paths.setDataBaseDir(null);
+  // 空身份登录不运行 email bootstrap；只复位确实由本夹具设置过的数据根。
+  resetBootstrapDataBaseDir?.();
   // 本用例的 EOF/TERM 也必须保留新根，不能因旧 close() 无错误就删除未知 FD 仍可能持有的资料。
-  if (!errors.length && !gatewayUsageRaceEnabled)
+  if (
+    !errors.length &&
+    !gatewayUsageRaceEnabled &&
+    !twoOrganizationAuth &&
+    !packagedRuntime
+  )
     await attempt(() => rm(root, { recursive: true, force: true }));
   await writeFile(
     evidence + "/cleanup.json",
@@ -1566,8 +1800,14 @@ async function close() {
         errors,
         electronExited: !electron,
         serversClosed: !upstream.listening && !proxy.listening,
-        ownedRootRemoved: !errors.length && !gatewayUsageRaceEnabled,
-        ...(gatewayUsageRaceEnabled ? { ownedRootPreserved: true } : {}),
+        ownedRootRemoved:
+          !errors.length &&
+          !gatewayUsageRaceEnabled &&
+          !twoOrganizationAuth &&
+          !packagedRuntime,
+        ...(gatewayUsageRaceEnabled || twoOrganizationAuth || packagedRuntime
+          ? { ownedRootPreserved: true }
+          : {}),
       },
       null,
       2,
@@ -1582,10 +1822,33 @@ const rl = createInterface({ input: process.stdin });
 rl.on("line", async (line) => {
   try {
     const c = JSON.parse(line);
-    if (primaryLoginEnabled) assertPrimaryCommand(c);
+    if (twoOrganizationAuth)
+      assertTwoOrganizationCommand(c, assertPrimaryCommand);
+    else if (primaryLoginEnabled) assertPrimaryCommand(c);
     if (fileContextEnabled)
       assertNativeFileContextCommand(c, fileContext.workspacePath);
-    if (c.op === "completePrimaryLogin" && primaryLoginHold) {
+    if (
+      twoOrganizationAuth &&
+      ["completeTwoOrganizationA", "completeTwoOrganizationB"].includes(c.op)
+    ) {
+      await twoOrganizationAuth.completeCallback(
+        c.op === "completeTwoOrganizationA" ? "A" : "B",
+      );
+    } else if (twoOrganizationAuth && c.op === "primaryLoginStatus") {
+      console.log(
+        JSON.stringify({
+          ...twoOrganizationAuth.hold.safeStatus(),
+          dual: twoOrganizationAuth.safeStatus(),
+          adapter: primaryBridge?.safeStatus() ?? null,
+          supplier: primarySupplierWitness.safeStatus(),
+          baseline: projectTwoOrganizationBaseline(
+            app.services.db,
+            twoOrganizationMetadata,
+          ),
+        }),
+      );
+      return;
+    } else if (c.op === "completePrimaryLogin" && primaryLoginHold) {
       await primaryLoginHold.completeCallback();
     } else if (c.op === "primaryLoginStatus" && primaryLoginHold) {
       const ledger = app.services.db.all(
@@ -1630,7 +1893,66 @@ rl.on("line", async (line) => {
       dynamicWorkflowMode === "alwaysOn"
     )
       await saveWorkflowProof(c.name);
-    else if (c.op === "experienceSnapshot" && experienceMode)
+    else if (c.op === "packagedRuntimeProof" && packagedRuntime) {
+      if (Object.keys(c).length !== 1)
+        throw Error("Invalid packaged proof command");
+      const rows = app.services.db.all(
+        "SELECT user_id,status,amount,input_tokens,output_tokens FROM ledger WHERE tenant_id=?",
+        owner.tenantId,
+      );
+      const summarize = (values) => ({
+        count: values.length,
+        settled: values.filter((row) => row.status === "settled").length,
+        amount: values.reduce((total, row) => total + row.amount, 0),
+        inputTokens: values.reduce((total, row) => total + row.input_tokens, 0),
+        outputTokens: values.reduce(
+          (total, row) => total + row.output_tokens,
+          0,
+        ),
+      });
+      const shares = app.services.db.all(
+        "SELECT creator_user_id,status,share_code,artifact_count FROM conversation_shares WHERE tenant_id=?",
+        owner.tenantId,
+      );
+      console.log(
+        JSON.stringify({
+          op: c.op,
+          status: "done",
+          facts: {
+            modelCalls,
+            modelWorkingDirectories: [
+              ...new Set(
+                modelRequests
+                  .slice(2)
+                  .flatMap((request) =>
+                    (request.messages ?? [])
+                      .filter((message) => message.role === "system")
+                      .flatMap((message) =>
+                        [
+                          ...messageText(message).matchAll(
+                            /^- Primary working directory: ([^\r\n]+)$/gm,
+                          ),
+                        ].map((match) => match[1]),
+                      ),
+                  ),
+              ),
+            ],
+            own: summarize(rows.filter((row) => row.user_id === member.id)),
+            other: summarize(rows.filter((row) => row.user_id !== member.id)),
+            shares: shares.map((row) => ({
+              status: row.status,
+              ownedByCurrentMember: row.creator_user_id === member.id,
+              artifacts: row.artifact_count,
+            })),
+            shareUrl:
+              shares.length === 1 && shares[0].status === "confirmed"
+                ? new URL(`/share/${shares[0].share_code}`, origin).href
+                : null,
+          },
+        }),
+      );
+      return;
+    } else if (c.op === "experienceSnapshot" && experienceMode)
       await (fileContextEnabled
         ? saveFileContextProof(c.name)
         : saveExperienceProof(c.name));
@@ -1754,5 +2076,22 @@ rl.on("line", async (line) => {
     );
   }
 });
-for (const s of ["SIGTERM", "SIGINT"]) process.on(s, () => void close());
+for (const s of ["SIGTERM", "SIGINT"])
+  process.on(s, () => {
+    void close().catch((error) => {
+      // 仅输出错误类型/代码与源码栈位置，避免异常消息携带请求或凭据。
+      console.error(
+        JSON.stringify({
+          event: "fixture-close-failed",
+          name: String(error?.name ?? "unknown").slice(0, 80),
+          code: /^[A-Z_0-9]+$/.test(error?.code ?? "") ? error.code : "unknown",
+          frames: String(error?.stack ?? "")
+            .split("\n")
+            .filter((line) => line.trim().startsWith("at "))
+            .slice(0, 5),
+        }),
+      );
+      process.exit(1);
+    });
+  });
 console.log(JSON.stringify({ event: "ready", origin, root, cdpPort }));

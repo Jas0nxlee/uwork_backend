@@ -124,6 +124,7 @@ export async function liveFixture(
     backendSessionModule,
     policyModule,
     networkModule,
+    catalogModule,
   ] = await Promise.all([
     source("paths.ts"),
     source("credential/credentialService.ts"),
@@ -140,6 +141,7 @@ export async function liveFixture(
     source("enterprise-identity/uworkBackendSession.ts"),
     source("model-provider/uworkProviderSettingsPolicy.ts"),
     source("providers/api/nodeApiNetwork.ts"),
+    source("ucas-gateway/gatewayCatalogLifecycle.ts"),
   ]);
   paths.setDataBaseDir(join(directory, "client-home"));
   earlyCleanup.push(() => paths.setDataBaseDir(null));
@@ -591,6 +593,13 @@ export async function liveFixture(
       },
     });
   const gateway = createGateway();
+  // 与 Host 组合根（packages/services/src/node.ts）同序接线：目录读侧准入先绑定，
+  // 身份事件订阅再交给原 Gateway owner；两者都不是第二份身份或目录写入者。
+  const catalogAuthority = gateway[catalogModule.gatewayCatalogAuthority];
+  catalogAuthority.bindIdentityChanges((listener: () => void) =>
+    identity.onDidChange(listener),
+  );
+  runtime.bindGatewayCatalogAuthority(catalogAuthority);
   const checks: string[] = [];
   const check = (value: string) => checks.push(value);
   let ledger: Row[] = [];
@@ -758,7 +767,7 @@ export async function liveFixture(
       );
       assert.equal(
         createHash("sha256").update(cliBytes).digest("hex"),
-        "03adc56b7687a0ca74ce7839aea13f42fef9bdb2fdc5e6d94a439c5a047e84dd",
+        "6cd2e95f7e9783a98832365919b104cf030e0543a81974154565df22ecd445b9",
       );
       const selectionView: ModelSelectionView =
         await runtime.modelSelection.getView();
@@ -1142,14 +1151,22 @@ export async function liveFixture(
                 !transportText.includes(secret),
                 "CLI streams and Host model RPC frames cannot contain any credential",
               );
-            assert.deepEqual(
-              runtime.registryService
-                .getProvider("ucas")
-                ?.config.access.toJSON(),
-              {
+            // 身份已退出时企业候选目录按当前契约被撤销：企业会话提供方不再可构造，
+            // 也不得残留任何可执行候选；仍在登录态时才要求托管访问方式原样保留。
+            const managedProvider = runtime.registryService.getProvider("ucas");
+            const managedIds = (
+              managedProvider?.config as unknown as Row | undefined
+            )?.enterpriseModelIds;
+            if (!lifecycle.readEnterpriseIdentityAuthority(identity)?.session)
+              assert.ok(
+                !managedProvider ||
+                  !(Array.isArray(managedIds) && managedIds.length),
+                "a signed-out Host must not keep a managed executable catalog",
+              );
+            else
+              assert.deepEqual(managedProvider?.config.access.toJSON(), {
                 type: "enterprise-session",
-              },
-            );
+              });
             assert.ok(
               !(await readFile(personalPath, "utf8")).includes(session.token),
             );

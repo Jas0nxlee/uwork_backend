@@ -81,8 +81,10 @@ def validate_projection(value):
 
 
 class FirstRunUi:
-    def __init__(self, mode, raw_js, raw_cdp, owned_guard, action_budget, claim_once, auth_started):
+    def __init__(self, mode, raw_js, raw_cdp, owned_guard, action_budget, claim_once, auth_started, *, press_release_only=False):
         require(mode in MODES, 'MODE_NOT_ALLOWED')
+        require(type(press_release_only) is bool, 'MODE_NOT_ALLOWED')
+        self.__press_release_only = press_release_only
         self.__mode, self.__js, self.__cdp = mode, raw_js, raw_cdp
         self.__guard, self.__budget, self.__claim = owned_guard, action_budget, claim_once
         self.__locked, self.__stopped = auth_started, False
@@ -114,7 +116,10 @@ class FirstRunUi:
         # 与主编排共用持久一次性 journal；这些前置步骤从不设置认证锁。
         require(self.__claim('first_run_' + step, starts_auth=False) is True, 'ACTION_ALREADY_USED')
         require(self._guard() == epoch, 'ROOT_CHANGED_BEFORE_INPUT')
-        for kind, extra in [('mouseMoved', {}), ('mousePressed', {'button': 'left', 'clickCount': 1}), ('mouseReleased', {'button': 'left', 'clickCount': 1})]:
+        frames = [('mousePressed', {'button': 'left', 'clickCount': 1}), ('mouseReleased', {'button': 'left', 'clickCount': 1})]
+        if not self.__press_release_only:
+            frames.insert(0, ('mouseMoved', {}))
+        for kind, extra in frames:
             require(self._guard() == epoch, 'ROOT_CHANGED_DURING_INPUT')
             self.__cdp('Input.dispatchMouseEvent', type=kind, x=point['x'], y=point['y'], **extra)
 

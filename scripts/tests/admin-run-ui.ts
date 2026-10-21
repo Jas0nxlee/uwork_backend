@@ -33,6 +33,12 @@ const uiDrivers: Record<string, string> = {
   assets: "admin-assets-ui.py",
   directory: "admin-directory-ui.py",
   limits: "admin-limits-ui.py",
+  subscription: "admin-subscription-ui.py",
+  security: "admin-security-ui.py",
+  agent: "admin-agent-ui.py",
+  configuration: "admin-configuration-ui.py",
+  binding: "admin-binding-ui.py",
+  sessions: "admin-sessions-ui.py",
   "settings-race": "admin-settings-race-ui.py",
   credentials: "admin-credentials-ui.py",
   categories: "admin-categories-ui.py",
@@ -129,6 +135,17 @@ const upstream = createServer(async (req, res) => {
   supplier.push({
     held: isHeld,
     keyPhase,
+    ...(scenario === "agent"
+      ? {
+          agentInstruction: body.messages
+            .map((m) => m.content)
+            .find(
+              (content) =>
+                typeof content === "string" &&
+                /^OWNED_AGENT_SYSTEM_V[12]$/.test(content),
+            ),
+        }
+      : {}),
     ...(evaluationInput ? { evaluationInput } : {}),
     ...(automationInput ? { automationInput } : {}),
   });
@@ -206,6 +223,14 @@ try {
     logger: false,
   });
   app.addHook("onSend", async (req, reply, payload) => {
+    if (
+      scenario === "configuration" &&
+      req.routeOptions.url === "/api/client/configuration" &&
+      reply.statusCode === 200
+    ) {
+      const etags = (facts.configurationEtags ??= []) as unknown[];
+      etags.push(reply.getHeader("etag"));
+    }
     if (
       scenario === "settings-race" &&
       req.headers["x-owned-test-source"] !== "controller"
@@ -461,6 +486,28 @@ try {
       facts,
       releaseReadReply: () => releaseReadReply!(),
     });
+  } else if (scenario === "sessions") {
+    const { runAdminSessionsCase } = await import("./admin-sessions-case.js");
+    await runAdminSessionsCase(casePorts);
+  } else if (scenario === "binding") {
+    const { runAdminBindingCase } = await import("./admin-binding-case.js");
+    await runAdminBindingCase(casePorts);
+  } else if (scenario === "configuration") {
+    const { runAdminConfigurationCase } = await import(
+      "./admin-configuration-case.js"
+    );
+    await runAdminConfigurationCase(casePorts);
+  } else if (scenario === "agent") {
+    const { runAdminAgentCase } = await import("./admin-agent-case.js");
+    await runAdminAgentCase(casePorts);
+  } else if (scenario === "security") {
+    const { runAdminSecurityCase } = await import("./admin-security-case.js");
+    await runAdminSecurityCase(casePorts);
+  } else if (scenario === "subscription") {
+    const { runAdminSubscriptionCase } = await import(
+      "./admin-subscription-case.js"
+    );
+    await runAdminSubscriptionCase(casePorts);
   } else if (scenario === "limits") {
     const { runAdminLimitsCase } = await import("./admin-limits-case.js");
     await runAdminLimitsCase(casePorts);

@@ -20,7 +20,11 @@ assert.ok(
   clientRoot === resolve("clients/uwork"),
   "client source must remain inside this backend repository",
 );
-const evidence = resolve("evidence/client-live-20261017-keyless-gateway");
+const evidence = resolve(
+  process.env.UWORK_GATEWAY_EVIDENCE_DIRECTORY ??
+    "evidence/client-live-20261017-keyless-gateway",
+);
+assert.ok(evidence.startsWith(resolve("evidence") + "/"));
 const runLabel =
   process.env.UWORK_GATEWAY_EVIDENCE_RUN === "red" ? "red" : "green";
 const digest = (value: string) =>
@@ -35,7 +39,11 @@ const deferred = () => {
   return { promise, resolve: resolveValue };
 };
 
-async function liveFixture(t: TestContext, name: string) {
+async function liveFixture(
+  t: TestContext,
+  name: string,
+  ordinaryMember = false,
+) {
   await mkdir(evidence, { recursive: true });
   const directory = await mkdtemp(join(tmpdir(), "uwork-client-live-gateway-"));
   const earlyCleanup: (() => Promise<void> | void)[] = [
@@ -69,6 +77,7 @@ async function liveFixture(t: TestContext, name: string) {
     policyModule,
     networkModule,
     relayModule,
+    catalogModule,
   ] = await Promise.all([
     source("paths.ts"),
     source("credential/credentialService.ts"),
@@ -86,6 +95,7 @@ async function liveFixture(t: TestContext, name: string) {
     source("model-provider/uworkProviderSettingsPolicy.ts"),
     source("providers/api/nodeApiNetwork.ts"),
     source("enterprise-model-relay/relay.ts"),
+    source("ucas-gateway/gatewayCatalogLifecycle.ts"),
   ]);
   paths.setDataBaseDir(join(directory, "client-home"));
   earlyCleanup.push(() => paths.setDataBaseDir(null));
@@ -247,10 +257,32 @@ async function liveFixture(t: TestContext, name: string) {
     "POST",
     { email: "live-gateway-a@example.test", password },
   );
+  const identityEmail = ordinaryMember
+    ? "live-gateway-member@example.test"
+    : "live-gateway-a@example.test";
+  const identityUserId = ordinaryMember
+    ? String(
+        (
+          await api(
+            `${p}/members`,
+            "POST",
+            {
+              email: identityEmail,
+              name: "Live synthetic ordinary member",
+              password,
+              role: "member",
+              seat: true,
+            },
+            adminLogin.token,
+            201,
+          )
+        ).id,
+      )
+    : owner.userId;
   const login = await api<{ token: string; expiresAt: number }>(
     "/api/auth/login",
     "POST",
-    { email: "live-gateway-a@example.test", password },
+    { email: identityEmail, password },
   );
   const credential = await api(
     `${p}/credentials`,
@@ -299,7 +331,7 @@ async function liveFixture(t: TestContext, name: string) {
     expiresAt: login.expiresAt,
     issuerOrigin: origin,
     profile: {
-      id: owner.userId,
+      id: identityUserId,
       tenantId: owner.tenantId,
       provider: "wecom",
       displayName: "Live synthetic A",
@@ -388,17 +420,27 @@ async function liveFixture(t: TestContext, name: string) {
       },
     });
   let gateway = createGateway();
+  // 与 Host 组合根（packages/services/src/node.ts）同序接线：目录读侧准入先绑定，
+  // 身份事件订阅再交给原 Gateway owner；两者都不是第二份身份或目录写入者。
+  const bindCatalogAuthority = () => {
+    const authority = gateway[catalogModule.gatewayCatalogAuthority];
+    authority.bindIdentityChanges((listener: () => void) =>
+      identity.onDidChange(listener),
+    );
+    runtime.bindGatewayCatalogAuthority(authority);
+  };
+  bindCatalogAuthority();
   const checks: string[] = [];
   const check = (value: string) => checks.push(value);
   const personal = () => readFile(personalPath, "utf8");
-  const resolved = async () => {
+  const resolved = async (modelId = String(model.id)) => {
     const resolution = await runtime.providerSettings.resolveModelConfig({
       providerId: "ucas",
-      modelId: String(model.id),
+      modelId,
     });
     const provider = runtime.registryService.getProvider("ucas");
     assert.ok(
-      provider && runtime.registryService.getModel("ucas", String(model.id)),
+      provider && runtime.registryService.getModel("ucas", modelId),
       "actual executable Registry provider/model must exist",
     );
     return { ...resolution, providerConfig: provider.config };
@@ -407,8 +449,9 @@ async function liveFixture(t: TestContext, name: string) {
     key = "live-provider-call",
     expected = 200,
     stream = false,
+    modelId = String(model.id),
   ) => {
-    const config = (await resolved()).providerConfig;
+    const config = (await resolved(modelId)).providerConfig;
     assert.equal(config.api.baseUrl, origin + "/v1");
     assert.equal(config.access.type, "enterprise-session");
     assert.equal(config.access.apiKey, undefined);
@@ -424,7 +467,7 @@ async function liveFixture(t: TestContext, name: string) {
         ownerKey: ownerProof.value,
         url: config.api.baseUrl + "/chat/completions",
         body: JSON.stringify({
-          model: model.id,
+          model: modelId,
           messages: [{ role: "user", content: "synthetic local model" }],
           max_tokens: 8,
           ...(stream ? { stream: true } : {}),
@@ -527,6 +570,7 @@ async function liveFixture(t: TestContext, name: string) {
     api,
     p,
     owner,
+    identityUserId,
     origin,
     login: adminLogin,
     model,
@@ -542,7 +586,165 @@ async function liveFixture(t: TestContext, name: string) {
     resolved,
     modelRequest,
     calls: () => modelCalls,
+    captureOwner: async () => {
+      const scope = await backend.run(
+        (value: { ownerKey: string }) => value.ownerKey,
+      );
+      assert.ok(scope.managed);
+      return scope.value;
+    },
+    openWithOwner: (ownerKey: string, modelId: string) =>
+      modelRelay.request({
+        ...modelBinding,
+        traceId: "cross-organization-denied",
+        request: {
+          kind: "open",
+          ownerKey,
+          url: origin + "/v1/chat/completions",
+          body: JSON.stringify({
+            model: modelId,
+            messages: [{ role: "user", content: "owned isolation check" }],
+            max_tokens: 8,
+          }),
+        },
+      }),
+    closeStream: (streamId: string) =>
+      modelRelay.request({
+        ...modelBinding,
+        request: { kind: "close", streamId },
+      }),
+    readStream: (streamId: string) =>
+      modelRelay.request({
+        ...modelBinding,
+        request: { kind: "read", streamId },
+      }),
+    // 仅夹具初始化第二组织；会话恢复必须通过真实后台与原身份所有者，不能注入投影。
+    authenticateOtherOrganization: async () => {
+      const other = await bootstrap(app.services.db, {
+        name: "Live synthetic B",
+        email: "live-gateway-b@example.test",
+        password,
+      });
+      const issued = await api<{ token: string; expiresAt: number }>(
+        "/api/auth/login",
+        "POST",
+        { email: "live-gateway-b@example.test", password },
+      );
+      const prefix = `/api/tenants/${other.tenantId}`;
+      const secret = await api(
+        `${prefix}/credentials`,
+        "POST",
+        { name: "Other local vendor", value: "live-gateway-synthetic-vendor" },
+        issued.token,
+        201,
+      );
+      const otherModel = await api(
+        `${prefix}/models`,
+        "POST",
+        {
+          name: "Other organization model",
+          upstreamModel: "controlled",
+          credentialId: secret.id,
+          baseUrl: `http://127.0.0.1:${providerPort}/v1`,
+          scope: { all: true },
+          inputRate: 1000,
+          outputRate: 2000,
+          maxOutputTokens: 16,
+        },
+        issued.token,
+        201,
+      );
+      const next = await adapter.restore(
+        {
+          ...session,
+          ...issued,
+          profile: {
+            ...session.profile,
+            id: other.userId,
+            tenantId: other.tenantId,
+          },
+        },
+        new AbortController().signal,
+      );
+      assert.ok(next);
+      const current = await sessionStore.read();
+      assert.ok(
+        (await sessionStore.write(next, current.revision, () => true)).accepted,
+      );
+      assert.equal((await identity.restoreSession()).status, "authenticated");
+      return {
+        ...other,
+        prefix,
+        token: issued.token,
+        modelId: String(otherModel.id),
+      };
+    },
     settings: () => runtime.providerSettings,
+    // 原 Registry 的 provider 事实：撤销托管候选不能连提供方规则一起移除。
+    registryProvider: () => {
+      const provider = runtime.registryService.getProvider("ucas");
+      return {
+        present: !!provider,
+        accessType: provider?.config.access?.type ?? null,
+        enterpriseModelIds: provider?.config.enterpriseModelIds ?? null,
+      };
+    },
+    // 身份撤销后原私有 Writer 的异步清盘：等它真正落盘，避免把退出自身的清理误判成迟到写。
+    settleCatalogClear: async (timeoutMs = 10000) => {
+      const deadline = Date.now() + timeoutMs;
+      const cleared = (raw: string) => {
+        const found: { ids: unknown; names: unknown }[] = [];
+        const visit = (value: unknown) => {
+          if (Array.isArray(value)) return value.forEach(visit);
+          if (!value || typeof value !== "object") return;
+          const row = value as Row;
+          if ("enterpriseModelIds" in row || "enterpriseModelNames" in row)
+            found.push({
+              ids: row.enterpriseModelIds,
+              names: row.enterpriseModelNames,
+            });
+          Object.values(row).forEach(visit);
+        };
+        visit(JSON.parse(raw));
+        return (
+          found.length > 0 &&
+          found.every(
+            (row) =>
+              Array.isArray(row.ids) &&
+              row.ids.length === 0 &&
+              Object.keys(row.names ?? {}).length === 0,
+          )
+        );
+      };
+      for (;;) {
+        const raw = await readFile(personalPath, "utf8");
+        if (cleared(raw) || Date.now() >= deadline) return raw;
+        await new Promise((done) => setTimeout(done, 25));
+      }
+    },
+    // 原 Registry/ModelSelectionFacade 的当前视图：不复制选型算法，也不读取第二份目录。
+    managedCatalog: async () => {
+      const view = await runtime.modelSelection.getView();
+      const providers = view.providers as readonly {
+        providerId: string;
+        config: { access?: { type?: string } };
+        models: readonly { modelId: string }[];
+      }[];
+      const managed = providers.filter(
+        (provider) =>
+          provider.providerId === "ucas" &&
+          provider.config.access?.type === "enterprise-session",
+      );
+      return {
+        managedProviders: managed.length,
+        modelIds: managed.flatMap((provider) =>
+          provider.models.map((entry) => entry.modelId),
+        ),
+        preferredSelection: view.preferredSelection ?? null,
+        effectiveSelection: view.effectiveSelection ?? null,
+        selectionIssue: view.selectionIssue ?? null,
+      };
+    },
     seedLegacyModel: () =>
       runtime.providerSettings[
         facadeModule.providerSettingsTrustedGatewayProvisioning
@@ -551,7 +753,7 @@ async function liveFixture(t: TestContext, name: string) {
       const issued = await api<{ token: string; expiresAt: number }>(
         "/api/auth/login",
         "POST",
-        { email: "live-gateway-a@example.test", password },
+        { email: identityEmail, password },
       );
       const next = await adapter.restore(
         { ...session, token: issued.token, expiresAt: issued.expiresAt },
@@ -596,11 +798,12 @@ async function liveFixture(t: TestContext, name: string) {
       });
       await runtime.start();
       gateway = createGateway();
+      bindCatalogAuthority();
     },
-    assertSafe: async () => {
+    assertSafe: async (modelId = String(model.id)) => {
       const view = await gateway.getView();
       const record = await sessionStore.read();
-      const config = (await resolved()).providerConfig;
+      const config = (await resolved(modelId)).providerConfig;
       const projection = JSON.stringify({
         view,
         store: await gatewayStore.read(),
@@ -718,6 +921,8 @@ test("a delayed real models HTTP response cannot provision after identity owner 
   const syncing = f.gateway().sync("delayed-refresh");
   await delayed.reached;
   await f.identity.logout();
+  // 退出自身的托管候选清盘是当前契约：先等它落定，再释放旧响应，才能只判定迟到写。
+  const afterLogoutClear = digest(await f.settleCatalogClear());
   delayed.release();
   const result = await syncing;
   await writeFile(
@@ -727,7 +932,9 @@ test("a delayed real models HTTP response cannot provision after identity owner 
         expectedCommitted: false,
         observedCommitted: result.committed,
         returnedStatus: result.view.status,
-        providerChanged: digest(await f.personal()) !== before,
+        // 与退出清盘落定后的字节比较：这里只表示迟到响应是否写入了任何内容。
+        providerChanged: digest(await f.personal()) !== afterLogoutClear,
+        logoutClearedManagedCandidates: digest(afterLogoutClear) !== before,
         remainingOwnedDevices: (
           await f.api<unknown[]>(
             "/api/auth/device-tokens",
@@ -749,11 +956,237 @@ test("a delayed real models HTTP response cannot provision after identity owner 
   );
   assert.equal(
     digest(await f.personal()),
-    before,
+    afterLogoutClear,
     "stale synchronization must not mutate Provider storage",
   );
   assert.equal((await f.gateway().getView()).status, "signed-out");
   f.check("real-late-model-response-discarded-before-provider-write");
+});
+
+test("real identity owner logout revokes the managed candidates from the current model selection catalog", async (t) => {
+  const f = await liveFixture(t, "logout-catalog-revocation");
+  assert.ok((await f.gateway().sync("login")).committed);
+  const admitted = await f.managedCatalog();
+  assert.equal(admitted.managedProviders, 1);
+  assert.deepEqual(admitted.modelIds, [String(f.model.id)]);
+  f.check("signed-in-catalog-admits-exactly-the-owning-organization-model");
+
+  await f.identity.logout();
+  assert.equal((await f.gateway().getView()).status, "signed-out");
+  // 同一身份撤销内读侧即失效：不等异步清盘，也不等下一次目录读取。
+  const revoked = await f.managedCatalog();
+  assert.equal(revoked.managedProviders, 0);
+  assert.deepEqual(revoked.modelIds, []);
+  assert.equal(
+    revoked.effectiveSelection,
+    null,
+    "a revoked catalog cannot keep an effective managed selection",
+  );
+  f.check(
+    "signed-out-view-offers-no-managed-candidate-and-no-effective-selection",
+  );
+
+  // 隐藏读侧不等于清盘：原私有 Writer 必须把持久候选真正清掉，且不动连接与偏好。
+  const enterpriseCandidates = (raw: string) => {
+    const found: { ids: unknown; names: unknown }[] = [];
+    const visit = (value: unknown) => {
+      if (Array.isArray(value)) return value.forEach(visit);
+      if (!value || typeof value !== "object") return;
+      const row = value as Row;
+      if ("enterpriseModelIds" in row || "enterpriseModelNames" in row)
+        found.push({
+          ids: row.enterpriseModelIds,
+          names: row.enterpriseModelNames,
+        });
+      Object.values(row).forEach(visit);
+    };
+    visit(JSON.parse(raw));
+    return found;
+  };
+  const clearDeadline = Date.now() + 10000;
+  let persisted = await f.personal();
+  while (Date.now() < clearDeadline) {
+    const candidates = enterpriseCandidates(persisted);
+    if (
+      candidates.length &&
+      candidates.every(
+        (row) =>
+          Array.isArray(row.ids) &&
+          row.ids.length === 0 &&
+          Object.keys(row.names ?? {}).length === 0,
+      )
+    )
+      break;
+    await new Promise((done) => setTimeout(done, 25));
+    persisted = await f.personal();
+  }
+  const cleared = enterpriseCandidates(persisted);
+  assert.ok(
+    cleared.length &&
+      cleared.every((row) => Array.isArray(row.ids) && row.ids.length === 0),
+    "the original private Writer must clear the persisted managed candidates",
+  );
+  assert.equal((await f.gateway().getView()).authMode, "enterprise-session");
+  // 原 Registry 以当前配置为准；空的企业候选目录不再构成可执行提供方。
+  const settleRegistry = async () => {
+    const deadline = Date.now() + 10000;
+    for (;;) {
+      const state = f.registryProvider();
+      if (!state.present || (state.enterpriseModelIds ?? []).length === 0)
+        return state;
+      if (Date.now() >= deadline) return state;
+      await new Promise((done) => setTimeout(done, 25));
+    }
+  };
+  const settledRegistry = await settleRegistry();
+  assert.ok(
+    !settledRegistry.present ||
+      (settledRegistry.enterpriseModelIds ?? []).length === 0,
+    "a revoked managed catalog cannot stay executable in the Registry",
+  );
+  assert.ok(
+    settledRegistry.present
+      ? settledRegistry.accessType === "enterprise-session"
+      : true,
+    "a still present managed provider keeps its enterprise-session access",
+  );
+  await mkdir(evidence, { recursive: true });
+  await writeFile(
+    join(evidence, `logout-catalog-revocation-observation-${runLabel}.json`),
+    JSON.stringify(
+      {
+        boundary:
+          "real backend HTTPS/TCP, actual identity owner, Gateway, private Writer and ProviderRuntime Registry; no mocked fetch, no model generation",
+        admitted,
+        revoked,
+        persistedEnterpriseCandidates: cleared,
+        registryAfterClear: settledRegistry,
+        modelCalls: f.calls(),
+      },
+      null,
+      2,
+    ),
+    { mode: 0o600 },
+  );
+  f.check("persisted-managed-catalog-cleared-without-changing-the-connection");
+
+  // 仅重新认证不取回旧目录；只有新 owner 自己的完整提交才发布候选。
+  await f.relogin();
+  const reauthenticated = await f.managedCatalog();
+  assert.equal(reauthenticated.managedProviders, 0);
+  assert.deepEqual(reauthenticated.modelIds, []);
+  f.check("re-authentication-alone-admits-no-catalog");
+
+  assert.ok((await f.gateway().sync("relogin")).committed);
+  const restored = await f.managedCatalog();
+  assert.equal(restored.managedProviders, 1);
+  assert.deepEqual(restored.modelIds, [String(f.model.id)]);
+  f.check("only-the-new-owners-own-commit-publishes-candidates");
+  assert.equal(f.calls(), 0, "catalog revocation must not call any model");
+});
+
+test("same-profile organization change fences old execution authority and settles only the current organization", async (t) => {
+  const f = await liveFixture(t, "cross-organization-execution");
+  assert.ok((await f.gateway().sync("login")).committed);
+  const ownerA = await f.captureOwner();
+  await f.modelRequest("organization-a-success");
+  assert.equal(f.calls(), 1);
+  const aBefore = await f.api<{ items: Row[] }>(
+    `${f.p}/usage`,
+    "GET",
+    undefined,
+    f.login.token,
+  );
+  assert.equal(aBefore.items.length, 1);
+  assert.equal(aBefore.items[0]!.status, "settled");
+  assert.equal(aBefore.items[0]!.amount, 9);
+  await f.identity.logout();
+  assert.deepEqual((await f.managedCatalog()).modelIds, []);
+  const b = await f.authenticateOtherOrganization();
+  assert.ok((await f.gateway().sync("other-organization")).committed);
+  assert.deepEqual((await f.managedCatalog()).modelIds, [b.modelId]);
+  const ownerB = await f.captureOwner();
+  assert.notEqual(ownerA, ownerB);
+  const stale = await f.openWithOwner(ownerA, b.modelId);
+  assert.equal(stale.status, "denied");
+  assert.equal(stale.code, "enterprise_identity_changed");
+  assert.equal(f.calls(), 1, "old A authority cannot dispatch under B");
+  f.check("A-logout-B-restore-stale-owner-denied-before-supplier-dispatch");
+
+  await f.modelRequest("organization-b-success", 200, false, b.modelId);
+  assert.equal(f.calls(), 2);
+  const usageB = await f
+    .gateway()
+    .refreshUsage({ period: "month", metric: "cost", force: true });
+  assert.equal(usageB.usage.summary.requestCount, 1);
+  assert.equal(usageB.usage.summary.totalTokens, 7);
+  assert.equal(usageB.usage.summary.cost, 9);
+  const foreign = await f.openWithOwner(ownerB, String(f.model.id));
+  assert.equal(foreign.status, "ok");
+  assert.equal(foreign.httpStatus, 404);
+  assert.ok(foreign.streamId);
+  await f.closeStream(foreign.streamId);
+  assert.equal(f.calls(), 2, "B cannot invoke A's model");
+  await f.api(`${f.p}/usage`, "GET", undefined, b.token, 403);
+  const aAfter = await f.api<{ items: Row[] }>(
+    `${f.p}/usage`,
+    "GET",
+    undefined,
+    f.login.token,
+  );
+  assert.deepEqual(aAfter.items, aBefore.items);
+  const bAfter = await f.api<{ items: Row[] }>(
+    `${b.prefix}/usage`,
+    "GET",
+    undefined,
+    b.token,
+  );
+  const settledB = bAfter.items.filter((row) => row.status === "settled");
+  assert.equal(settledB.length, 1);
+  assert.equal(settledB[0]!.amount, 9);
+  assert.notEqual(settledB[0]!.id, aBefore.items[0]!.id);
+  await f.assertSafe(b.modelId);
+  f.check("B-model-success-own-usage-7-tokens-9-credits-A-ledger-unchanged");
+  f.check("B-foreign-model-and-tenant-ledger-denied-without-supplier-dispatch");
+});
+
+test("an unread real A model response cannot cross logout into B on the same Host binding", async (t) => {
+  const f = await liveFixture(t, "cross-organization-unread-stream");
+  assert.ok((await f.gateway().sync("login")).committed);
+  const opened = await f.openWithOwner(
+    await f.captureOwner(),
+    String(f.model.id),
+  );
+  assert.equal(opened.status, "ok");
+  assert.equal(opened.httpStatus, 200);
+  assert.ok(opened.streamId);
+  assert.equal(f.calls(), 1);
+  await f.identity.logout();
+  const b = await f.authenticateOtherOrganization();
+  assert.ok((await f.gateway().sync("other-organization")).committed);
+  const stale = await f.readStream(opened.streamId);
+  assert.equal(stale.status, "denied");
+  assert.equal(stale.code, "enterprise_model_stream_closed");
+  assert.equal(stale.chunk, undefined, "no A response bytes may reach B");
+  assert.equal(f.calls(), 1);
+  assert.deepEqual(await f.closeStream(opened.streamId), {
+    status: "ok",
+    done: true,
+  });
+  await f.modelRequest(
+    "organization-b-after-old-stream",
+    200,
+    false,
+    b.modelId,
+  );
+  assert.equal(f.calls(), 2);
+  const usage = await f
+    .gateway()
+    .refreshUsage({ period: "month", metric: "cost", force: true });
+  assert.equal(usage.usage.summary.requestCount, 1);
+  assert.equal(usage.usage.summary.cost, 9);
+  f.check("unread-A-stream-closed-on-logout-no-bytes-or-request-replayed-to-B");
+  f.check("same-Host-binding-B-new-model-call-and-own-ledger-remain-usable");
 });
 
 test("managed Gateway without its private identity authority never provisions", async (t) => {
@@ -796,8 +1229,9 @@ test("late real usage response is discarded after the identity owner logs out", 
 test("applyModels reads the current identity instead of reusing an old ready projection", async (t) => {
   const f = await liveFixture(t, "apply-after-logout");
   assert.ok((await f.gateway().sync("login")).committed);
-  const before = digest(await f.personal());
   await f.identity.logout();
+  // 退出自身的候选清盘是当前契约；先等它落定，再验证命令不得复用旧投影重写。
+  const afterLogoutClear = digest(await f.settleCatalogClear());
   // 不先调用getView清空缓存，验证真实命令自身执行当前身份裁决。
   const result = await f.gateway().applyModels();
   assert.equal(
@@ -805,7 +1239,7 @@ test("applyModels reads the current identity instead of reusing an old ready pro
     false,
     "cached model list is not authority after logout",
   );
-  assert.equal(digest(await f.personal()), before);
+  assert.equal(digest(await f.personal()), afterLogoutClear);
   f.check("model-apply-command-refuses-stale-view-after-logout");
 });
 
@@ -1069,4 +1503,165 @@ test("real backend JSON and SSE model responses traverse private Host byte strea
   );
   await f.assertSafe();
   f.check("actual-backend-SSE-bytes-private-Host-no-device-key");
+});
+
+test("backend member disable and reenable require a fresh identity before the same Host can execute again", async (t) => {
+  const f = await liveFixture(t, "member-disable-reauth-recovery", true);
+  assert.ok((await f.gateway().sync("login")).committed);
+  await f.modelRequest("member-before-disable");
+  assert.equal(f.calls(), 1);
+  const before = await f.api<{ items: Row[] }>(
+    `${f.p}/usage`,
+    "GET",
+    undefined,
+    f.login.token,
+  );
+  assert.equal(before.items.length, 1);
+  assert.equal(before.items[0]!.user_id, f.identityUserId);
+  assert.equal(before.items[0]!.amount, 9);
+  assert.equal(before.items[0]!.input_tokens, 5);
+  assert.equal(before.items[0]!.output_tokens, 2);
+  const oldOwner = await f.captureOwner();
+  f.check("ordinary-member-real-model-call-settles-nine-credits");
+
+  await f.api(
+    `${f.p}/members/${f.identityUserId}`,
+    "PATCH",
+    { status: "disabled" },
+    f.login.token,
+  );
+  await f.api("/api/auth/me", "GET", undefined, f.session.token, 401);
+  const denied = await f.openWithOwner(oldOwner, String(f.model.id));
+  assert.equal(denied.status, "ok");
+  assert.equal(denied.httpStatus, 401);
+  assert.ok(denied.streamId);
+  await f.closeStream(denied.streamId);
+  assert.equal(f.calls(), 1);
+  const rejected = await f.gateway().sync("disabled-member");
+  assert.equal(rejected.committed, false);
+  assert.equal(rejected.view.error, "unauthorized");
+  assert.deepEqual((await f.managedCatalog()).modelIds, []);
+  const afterDenial = await f.api<{ items: Row[] }>(
+    `${f.p}/usage`,
+    "GET",
+    undefined,
+    f.login.token,
+  );
+  assert.deepEqual(afterDenial.items, before.items);
+  f.check(
+    "admin-disable-revokes-live-session-clears-catalog-and-dispatches-zero",
+  );
+
+  await f.api(
+    `${f.p}/members/${f.identityUserId}`,
+    "PATCH",
+    { status: "active" },
+    f.login.token,
+  );
+  await f.api("/api/auth/me", "GET", undefined, f.session.token, 401);
+  assert.equal(
+    await f.adapter.restore(f.session, new AbortController().signal),
+    null,
+  );
+  // restoreSession 对已认证 owner 幂等；重新登录沿原退出入口，不把 Gateway 拒绝伪造成身份退出。
+  await f.identity.logout();
+  assert.equal((await f.identity.getView()).status, "signed-out");
+  assert.equal((await f.sessionStore.read()).session, null);
+  assert.deepEqual((await f.managedCatalog()).modelIds, []);
+  assert.equal(f.calls(), 1);
+  f.check("reenable-does-not-resurrect-revoked-token-or-local-candidates");
+
+  await f.relogin();
+  assert.deepEqual((await f.managedCatalog()).modelIds, []);
+  assert.ok(
+    (await f.gateway().sync("reenabled-member-reauthenticated")).committed,
+  );
+  await f.modelRequest("member-after-reauth");
+  assert.equal(f.calls(), 2);
+  const after = await f.api<{ items: Row[] }>(
+    `${f.p}/usage`,
+    "GET",
+    undefined,
+    f.login.token,
+  );
+  assert.equal(after.items.length, 2);
+  assert.ok(
+    after.items.every(
+      (row) =>
+        row.user_id === f.identityUserId &&
+        row.status === "settled" &&
+        row.amount === 9 &&
+        row.input_tokens === 5 &&
+        row.output_tokens === 2,
+    ),
+  );
+  assert.deepEqual(
+    after.items.find((row) => row.id === before.items[0]!.id),
+    before.items[0],
+  );
+  const usage = await f
+    .gateway()
+    .refreshUsage({ period: "month", metric: "cost", force: true });
+  assert.equal(usage.usage.summary.requestCount, 2);
+  assert.equal(usage.usage.summary.cost, 18);
+  assert.equal(usage.usage.summary.totalTokens, 14);
+  const stale = await f.openWithOwner(oldOwner, String(f.model.id));
+  assert.equal(stale.status, "denied");
+  assert.equal(stale.code, "enterprise_identity_changed");
+  assert.equal(f.calls(), 2);
+  await f.assertSafe();
+  f.check(
+    "fresh-login-original-host-reacquires-catalog-executes-and-settles-only-member",
+  );
+  f.check("new-login-never-restores-old-private-owner-proof");
+  await writeFile(
+    join(
+      evidence,
+      `member-disable-reauth-recovery-observation-${runLabel}.json`,
+    ),
+    JSON.stringify(
+      {
+        ordinaryMember: true,
+        originalHostAndProfileRetained: true,
+        phases: [
+          {
+            phase: "before-disable",
+            calls: 1,
+            settled: before.items.length,
+            credits: 9,
+          },
+          {
+            phase: "disabled",
+            oldTokenHttpStatus: 401,
+            privateRelayHttpStatus: denied.httpStatus,
+            gatewayError: rejected.view.error,
+            catalogModels: 0,
+            calls: 1,
+            ledgerUnchanged: true,
+          },
+          {
+            phase: "reenabled-with-old-token",
+            oldTokenHttpStatus: 401,
+            adapterRestore: null,
+            catalogModels: 0,
+            calls: 1,
+          },
+          {
+            phase: "fresh-login-and-sync",
+            calls: f.calls(),
+            settled: after.items.length,
+            credits: usage.usage.summary.cost,
+            originalLedgerRowUnchanged: true,
+            allSettlementsBelongToMember: true,
+            oldOwnerProofStatus: stale.status,
+          },
+        ],
+        boundary:
+          "public admin HTTP member disable/reenable; email/store initialization bridge; original identity/Gateway/ProviderRuntime/private Host relay; actual isolated SQLite and controlled local supplier; not Native login or real WeCom authorization",
+      },
+      null,
+      2,
+    ),
+    { mode: 0o600 },
+  );
 });

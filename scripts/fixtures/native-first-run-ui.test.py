@@ -92,15 +92,60 @@ class Fixture:
         self.refresh_controls()
         return {}
 
-    def actor(self):
+    def actor(self, **options):
         return ui.FirstRunUi(self.mode, self.js, self.cdp, self.guard, self.budget,
-                             self.claim, lambda: self.locked)
+                             self.claim, lambda: self.locked, **options)
 
     def clicks(self):
         return [event for event in self.events if event[0] == 'Input.dispatchMouseEvent']
 
 
 class Contracts(unittest.TestCase):
+    def test_explicit_press_release_optin_preserves_both_original_sequences_and_claims(self):
+        for mode in ui.MODES:
+            with self.subTest(mode=mode):
+                f = Fixture(mode)
+                steps = ui.PRIMARY_STEPS if mode == 'primary-prelogin' else ui.ONBOARDING_STEPS
+                for step in steps:
+                    f.actor(press_release_only=True).phase(step)
+                self.assertEqual([row[1]['type'] for row in f.clicks()], ['mousePressed', 'mouseReleased'] * len(steps))
+                self.assertEqual(len(f.used), len(steps))
+                for index, row in enumerate(f.events):
+                    if row[0] == 'Input.dispatchMouseEvent' and row[1]['type'] == 'mousePressed':
+                        self.assertEqual(f.events[index - 1][0], 'claim')
+                self.assertEqual(f.locked, mode == 'file-restored')
+                self.assertTrue(f.raw['memoryUnchecked'] and f.raw['migrationUnchecked'])
+
+    def test_two_frame_mode_is_explicit_boolean_and_timeout_claim_cannot_replay(self):
+        for invalid in (None, 0, 1, 'true'):
+            f = Fixture()
+            with self.assertRaises(ui.FirstRunUiError):
+                f.actor(press_release_only=invalid)
+            self.assertFalse(f.clicks())
+        f = Fixture(); f.fail_input = True
+        actor = f.actor(press_release_only=True)
+        with self.assertRaises(ui.FirstRunUiError): actor.phase('skip_login')
+        with self.assertRaises(ui.FirstRunUiError): actor.phase('skip_login')
+        f.fail_input = False
+        with self.assertRaises(ui.FirstRunUiError): f.actor(press_release_only=True).phase('skip_login')
+        self.assertEqual([row[1]['type'] for row in f.clicks()], ['mousePressed'])
+        self.assertEqual(f.used, {'first_run_skip_login'})
+
+    def test_two_frame_owner_or_privacy_change_after_press_blocks_release(self):
+        for change in ('owner', 'privacy'):
+            with self.subTest(change=change):
+                f = Fixture()
+                def changed(method, **parameters):
+                    result = f.cdp(method, **parameters)
+                    if parameters['type'] == 'mousePressed':
+                        if change == 'owner': f.change_at = f.guard_calls + 1
+                        else: f.locked = True
+                    return result
+                actor = ui.FirstRunUi(f.mode, f.js, changed, f.guard, f.budget,
+                                     f.claim, lambda: f.locked, press_release_only=True)
+                with self.assertRaises(ui.FirstRunUiError): actor.phase('skip_login')
+                self.assertEqual([row[1]['type'] for row in f.clicks()], ['mousePressed'])
+
     def test_primary_original_sequence_claims_before_physical_input_without_auth_or_preference_changes(self):
         f = Fixture()
         for step in ui.PRIMARY_STEPS:

@@ -275,14 +275,16 @@ test("actual Common retirement branch preserves the new-mode root on empty error
     "utf8",
   );
   const branch = source.slice(
-    source.indexOf("  paths.setDataBaseDir(null);"),
+    source.indexOf("  resetBootstrapDataBaseDir?.();"),
     source.indexOf('  await writeFile(\n    evidence + "/cleanup.json"'),
   );
   assert.match(branch, /!gatewayUsageRaceEnabled/);
   const run = new (Object.getPrototypeOf(async function () {}).constructor)(
-    "paths",
+    "resetBootstrapDataBaseDir",
     "errors",
     "gatewayUsageRaceEnabled",
+    "twoOrganizationAuth",
+    "packagedRuntime",
     "attempt",
     "rm",
     "root",
@@ -291,9 +293,11 @@ test("actual Common retirement branch preserves the new-mode root on empty error
   for (const enabled of [false, true]) {
     let removals = 0;
     await run(
-      { setDataBaseDir() {} },
+      undefined,
       [],
       enabled,
+      false,
+      false,
       async (fn) => fn(),
       async () => {
         removals++;
