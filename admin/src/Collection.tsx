@@ -54,8 +54,10 @@ export function Collection({
     } | null>(null),
     [detail, setDetail] = useState<unknown>(null),
     [pendingDelete, setPendingDelete] = useState<Row | null>(null),
+    [pendingDeleteBusy, setPendingDeleteBusy] = useState(false),
     [filters, setFilters] = useState<Record<string, string>>({});
   const requestGeneration = useRef(0);
+  const deleteInFlight = useRef(false);
   const mounted = useRef(true);
   const currentLoad = useRef<() => Promise<void>>(async () => {});
   const filterQuery = () =>
@@ -127,6 +129,25 @@ export function Collection({
         setError(e instanceof Error ? e.message : "操作失败");
     }
   };
+  function closeDelete() {
+    if (!deleteInFlight.current) setPendingDelete(null);
+  }
+  async function confirmDelete() {
+    if (!pendingDelete || deleteInFlight.current) return;
+    // 连续点击曾在首个响应返回前重复DELETE；同步准入锁也覆盖React提交busy前的窗口。
+    const selected = pendingDelete;
+    deleteInFlight.current = true;
+    setPendingDeleteBusy(true);
+    try {
+      await invoke(async () => {
+        await api(`${base}${view.path}/${selected.id}`, "DELETE");
+        setPendingDelete(null);
+      });
+    } finally {
+      deleteInFlight.current = false;
+      if (mounted.current) setPendingDeleteBusy(false);
+    }
+  }
   function create() {
     if (!view.fields) return;
     setForm({
@@ -674,7 +695,7 @@ export function Collection({
         </Modal>
       )}
       {pendingDelete && (
-        <Modal title="确认操作" onClose={() => setPendingDelete(null)}>
+        <Modal title="确认操作" onClose={closeDelete}>
           <p>
             确认
             {["assets", "agents", "models", "credentials"].includes(view.id)
@@ -688,20 +709,15 @@ export function Collection({
             </p>
           )}
           <footer>
-            <button onClick={() => setPendingDelete(null)}>取消</button>
+            <button disabled={pendingDeleteBusy} onClick={closeDelete}>
+              取消
+            </button>
             <button
               className="danger"
-              onClick={() =>
-                void invoke(async () => {
-                  await api(
-                    `${base}${view.path}/${pendingDelete.id}`,
-                    "DELETE",
-                  );
-                  setPendingDelete(null);
-                })
-              }
+              disabled={pendingDeleteBusy}
+              onClick={() => void confirmDelete()}
             >
-              确认
+              {pendingDeleteBusy ? "处理中…" : "确认"}
             </button>
           </footer>
         </Modal>

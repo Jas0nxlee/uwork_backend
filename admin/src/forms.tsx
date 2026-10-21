@@ -41,7 +41,14 @@ export function Modal({
     ref.current?.showModal();
   }, []);
   return (
-    <dialog ref={ref} onCancel={onClose}>
+    <dialog
+      ref={ref}
+      onCancel={(event) => {
+        // 原生Esc默认关闭会绕过调用方的在途保护；关闭必须由React状态所有者裁决。
+        event.preventDefault();
+        onClose();
+      }}
+    >
       <div className="modal-heading">
         <h2>{title}</h2>
         <button

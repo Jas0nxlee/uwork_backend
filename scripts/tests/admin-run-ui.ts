@@ -18,7 +18,10 @@ const scenario = process.env.UWORK_ADMIN_UI_CASE ?? "run";
 assert.ok(
   scenario === "run" ||
     scenario === "evaluation" ||
-    scenario === "evaluation-cancel",
+    scenario === "evaluation-cancel" ||
+    scenario === "automation" ||
+    scenario === "model" ||
+    scenario === "delete-pending",
 );
 const profile = process.argv[2];
 assert.ok(profile);
@@ -35,6 +38,17 @@ let held = false,
   heldClosed = false,
   heldCloseCount = 0;
 const upstream = createServer(async (req, res) => {
+  if (req.method === "GET" && req.url === "/v1/models") {
+    if (req.headers.authorization !== `Bearer ${supplierSecret}`) {
+      res.writeHead(401).end();
+      return;
+    }
+    const count = Number(facts.supplierDiscoveryCalls ?? 0);
+    facts.supplierDiscoveryCalls = count + 1;
+    res.setHeader("content-type", "application/json");
+    res.end(JSON.stringify({ data: [{ id: "owned" }] }));
+    return;
+  }
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   assert.equal(req.headers.authorization, `Bearer ${supplierSecret}`);
@@ -53,9 +67,17 @@ const upstream = createServer(async (req, res) => {
     .find(
       (value) => value === "OWNED_EVAL_FIRST" || value === "OWNED_EVAL_SECOND",
     );
+  const automationInput = body.messages
+    .map((message) => message.content)
+    .find(
+      (value) =>
+        value === "OWNED_AUTOMATION_ONCE" ||
+        value === "OWNED_AUTOMATION_PAUSED",
+    );
   supplier.push({
     held: isHeld,
     ...(evaluationInput ? { evaluationInput } : {}),
+    ...(automationInput ? { automationInput } : {}),
   });
   if (isHeld) {
     held = true;
@@ -78,6 +100,10 @@ let browser: OwnedAdminBrowser | undefined;
 let backendPort = 0,
   providerPort = 0;
 let token = "";
+let releaseDeleteReply: (() => void) | undefined;
+const deleteReplyGate = new Promise<void>((resolve) => {
+  releaseDeleteReply = resolve;
+});
 const facts: Row = {
   status: "failed",
   worker: true,
@@ -105,6 +131,8 @@ try {
     logger: false,
   });
   app.addHook("onSend", async (req, reply, payload) => {
+    if (typeof payload === "string" && payload.includes(supplierSecret))
+      facts.responseLeakedSupplierSecret = true;
     if (
       req.routeOptions.url === "/api/tenants/:tenantId/audit" &&
       typeof payload === "string"
@@ -126,6 +154,15 @@ try {
       route: req.routeOptions.url,
       status: reply.statusCode,
     });
+    if (
+      scenario === "delete-pending" &&
+      req.headers["x-owned-test-source"] !== "controller" &&
+      req.method === "DELETE" &&
+      req.routeOptions.url === "/api/tenants/:tenantId/automations/:id"
+    ) {
+      facts.deleteReplyAttempts = Number(facts.deleteReplyAttempts ?? 0) + 1;
+      if (reply.statusCode === 204) await deleteReplyGate;
+    }
     return payload;
   });
   const owner = await bootstrap(app.services.db, {
@@ -199,6 +236,9 @@ try {
     tenantId: owner.tenantId,
     userId: owner.userId,
     agentId: agent.id,
+    modelId: model.id,
+    credentialId: credential.id,
+    modelBaseUrl: `http://127.0.0.1:${providerPort}/v1`,
   };
   const saveControl = () =>
     writeFile(controlPath, JSON.stringify(control), { mode: 0o600 });
@@ -215,13 +255,70 @@ try {
   });
   await browser.start();
   const stages = facts.stages as Row[];
-  const run = async (stage: string) =>
-    stages.push(
-      await browser!.run(resolve("scripts/tests/admin-run-ui.py"), stage, {
+  const run = async (stage: string) => {
+    const receipt = await browser!.run(
+      resolve(
+        scenario === "automation"
+          ? "scripts/tests/admin-automation-ui.py"
+          : scenario === "model"
+            ? "scripts/tests/admin-model-ui.py"
+            : scenario === "delete-pending"
+              ? "scripts/tests/admin-delete-pending-ui.py"
+              : "scripts/tests/admin-run-ui.py",
+      ),
+      stage,
+      {
         UWORK_ADMIN_RUN_CONTROL: controlPath,
-      }),
+      },
     );
-  if (scenario === "evaluation" || scenario === "evaluation-cancel") {
+    stages.push(receipt);
+    return receipt;
+  };
+  if (scenario === "delete-pending") {
+    const { runAdminDeletePendingCase } = await import(
+      "./admin-delete-pending-case.js"
+    );
+    await runAdminDeletePendingCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+      releaseDeleteReply: () => releaseDeleteReply!(),
+    });
+  } else if (scenario === "model") {
+    const { runAdminModelCase } = await import("./admin-model-case.js");
+    await runAdminModelCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "automation") {
+    const { runAdminAutomationCase } = await import(
+      "./admin-automation-case.js"
+    );
+    await runAdminAutomationCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "evaluation" || scenario === "evaluation-cancel") {
     await run("create-dataset");
     const datasets = await api(prefix + "/datasets");
     assert.ok(Array.isArray(datasets));
@@ -535,6 +632,7 @@ try {
         }
       : { kind: error instanceof Error ? error.name : "unknown" };
 } finally {
+  releaseDeleteReply?.();
   facts.traffic = traffic;
   facts.browserCleanup = await browser?.close();
   if (browser && !(facts.browserCleanup as Row)?.fullyClosed)
