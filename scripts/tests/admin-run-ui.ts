@@ -37,6 +37,7 @@ const uiDrivers: Record<string, string> = {
   credentials: "admin-credentials-ui.py",
   categories: "admin-categories-ui.py",
   enterprise: "admin-enterprise-ui.py",
+  telemetry: "admin-telemetry-ui.py",
 };
 assert.ok(
   Object.hasOwn(uiDrivers, scenario),
@@ -384,7 +385,20 @@ try {
     stages.push(receipt);
     return receipt;
   };
-  if (scenario === "enterprise") {
+  if (scenario === "telemetry") {
+    const { runAdminTelemetryCase } = await import("./admin-telemetry-case.js");
+    await runAdminTelemetryCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "enterprise") {
     const { runAdminEnterpriseCase } = await import(
       "./admin-enterprise-case.js"
     );

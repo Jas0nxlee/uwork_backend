@@ -1,5 +1,7 @@
 # 编译发布前联动测试进展
 
+> 观测页和实际留存删除新增见[原始验证报告](prepublish-admin-telemetry-test-2026-10-21.md)：v28原按钮清理4类过期行各1，保留近期/其他企业/账本，原页面与3维聚合仍28Credit，重复清理0。
+
 > 最新新增见[凭据、分类与企业信息](prepublish-credentials-categories-enterprise-test-2026-10-21.md)：v22/v23新增真实生命周期通过；v24复现企业改名后顶部组织标签陈旧，修复当前身份视图的同组织元数据同步后v25通过。新3条逻辑测试、类型/Lint/build通过。
 
 > 最新状态见[部门/成员席位/额度与设置晚读修复](prepublish-directory-limits-read-order-test-2026-10-21.md)：v16/v17新增原页面生命周期通过；v19真实发现旧读取回灌已删除规则，原Settings加当前代交付保护后v20通过，并以v21仅回归受影响正常限量流程。类型/Lint/build通过，原晚成功真实送达、自有资源关闭；未宣称全部功能覆盖。
