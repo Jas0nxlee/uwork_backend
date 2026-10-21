@@ -42,6 +42,9 @@ facts = {'stage':stage}
 if stage == 'login-config':
     new_tab(origin)
     wait("!!document.querySelector('input[name=email]')", 'login form')
+    if control['development']:
+        assert js("!!document.querySelector('script[type=module][src=\"/src/main.tsx\"]')")
+        facts['sourceModuleEntry']=True
     fill('input[name=email]', control['email'])
     fill('input[name=password]', control['password'])
     click_ax('button','登录')

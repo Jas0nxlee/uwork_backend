@@ -1,6 +1,6 @@
 # 真实企微管理端与浏览器会话复测
 
-2026-10-21。可信 IP 更新后，真实企微 API 与后台同步已恢复。本轮进一步验证原管理页面消费链路，最终 `real-wecom-admin-v6-20261021` 全部通过。
+2026-10-21。可信 IP 更新后，真实企微 API 与后台同步已恢复。本轮进一步验证原管理页面消费链路，静态管理页面 `real-wecom-admin-v6-20261021` 与 Vite 源码页面 `real-wecom-admin-v7-20261021` 均通过全部六阶段。
 
 ## 实际结果
 
@@ -22,6 +22,14 @@
 新增三个回归覆盖 Cookie 切换/旧会话失效、无 Origin 拒绝且旧会话保持、Native token 兼容。真实 RED 为两个新 cookie 用例失败，修复后相关 17 项通过。完整后端 309 项通过，typecheck、lint、build 通过。按正确性、可读性、架构、安全、性能复核：复用原策略与事务，无新依赖、权限或额外查询循环；本轮没有遗留代码审查阻断项。
 
 v1 弹框未关闭、v2 SQLite 行对象原型比较、v5 macOS 原生 select 箭头未提交均为驱动/断言设施失败，原结果保留。v4 已通过原五阶段；v6 使用现有严格 CDP 字符键盘加 Tab 验证新增切换阶段，不写 DOM 值、不注入 React/store、不替换业务响应。
+
+## 源码开发页面与本机运行服务
+
+v7 从原 Vite 配置运行 `/src/main.tsx`，proxy 指向独立后台，后台 PUBLIC_URL 与实际 Vite 浏览器 origin 一致。没有改写 Origin、放宽同源校验或修改主配置。登录/切组织/两次真实同步/目录/退出的相同断言全部通过，额外开发服务端口关闭；[源码模式结果](../evidence/real-wecom-admin-v7-20261021/result.json)。增量严格 typecheck/lint 再次通过。复跑前缀为 `UWORK_WECOM_ADMIN_DEV=1`。
+
+正常 `127.0.0.1:3000` 仍是旧后端进程时，新静态页面与切换接口会不同步。本轮确认运行/排队任务、评测、沙箱执行及待投递均为0，保存0700/0600一致性备份并核完整性后，正常SIGTERM退出并通过原 `npm run dev` 启动修复代码。当前PID47829，原首页和两个管理端资源/health均200。另做实际HTTP登录与同组织切换：JSON无token、HttpOnly Cookie、旧会话401、当前tenant正确、退出204及退出会话401全部通过。该小段是本机HTTP验证，不重复计为浏览器六阶段。主库人员/成员/部门摘要保持；正常会话及审计写入属于此HTTP检查，不能称全库零写。主服务保持运行。
+
+[重载前检查与备份](../evidence/prepublish-continuation-20261021/admin-cookie-main-before-reload.json)、[本机运行服务验证](../evidence/prepublish-continuation-20261021/admin-cookie-main-after-reload.json)。
 
 ## 验收边界
 

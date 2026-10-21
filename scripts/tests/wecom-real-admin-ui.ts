@@ -5,6 +5,7 @@ import { createServer } from "node:net";
 import { resolve, join } from "node:path";
 import { DatabaseSync, backup } from "node:sqlite";
 import { parseEnv } from "node:util";
+import type { ViteDevServer } from "vite";
 import { createApp } from "../../src/app.js";
 import { bootstrap as createTenant } from "../../src/identity.js";
 import {
@@ -13,6 +14,7 @@ import {
 } from "../fixtures/owned-admin-browser.js";
 
 const profile = process.argv[2];
+const development = process.env.UWORK_WECOM_ADMIN_DEV === "1";
 assert.ok(profile && /^real-wecom-admin-v\d+-20261021$/.test(profile));
 const evidence = resolve("evidence", profile);
 const root = join("/Users/ljp/Library/Caches/uwork-backend", profile);
@@ -50,12 +52,15 @@ const facts: Record<string, unknown> = {
   status: "failed",
   mainReadOnly: true,
   worker: false,
+  frontend: development ? "vite-source" : "static-build",
   stages: [],
 };
 const traffic: { kind: string; status: number }[] = [];
 let app: Awaited<ReturnType<typeof createApp>> | undefined;
 let browser: OwnedAdminBrowser | undefined;
 let port = 0;
+let frontendPort = 0;
+let frontend: ViteDevServer | undefined;
 let secretLeaked = false;
 let readDb: DatabaseSync | undefined;
 try {
@@ -76,7 +81,25 @@ try {
   await new Promise<void>((done, reject) =>
     reservation.close((error) => (error ? reject(error) : done())),
   );
-  const origin = `http://127.0.0.1:${port}`;
+  const backendOrigin = `http://127.0.0.1:${port}`;
+  if (development) {
+    const { createServer: createViteServer } = await import("vite");
+    frontend = await createViteServer({
+      configFile: resolve("admin/vite.config.ts"),
+      server: {
+        host: "127.0.0.1",
+        port: 0,
+        strictPort: true,
+        open: false,
+        proxy: { "/api": backendOrigin, "/v1": backendOrigin },
+      },
+    });
+    await frontend.listen();
+    frontendPort = (frontend.httpServer!.address() as { port: number }).port;
+  }
+  const origin = development
+    ? `http://127.0.0.1:${frontendPort}`
+    : backendOrigin;
   app = await createApp({
     database: clonePath,
     masterKey: Buffer.from(env.MASTER_KEY!, "hex"),
@@ -133,6 +156,7 @@ try {
     control,
     JSON.stringify({
       origin,
+      development,
       email: field("Email"),
       password: field("Password"),
       corpId: env.CorpId,
@@ -259,12 +283,21 @@ try {
   facts.browserCleanup = browserCleanup;
   if (browserCleanup && !browserCleanup.fullyClosed) facts.status = "failed";
   readDb?.close();
+  await frontend?.close();
+  facts.frontendPortClosed = frontendPort
+    ? await portClosed(frontendPort)
+    : true;
   await app?.close();
   facts.backendPortClosed = port ? await portClosed(port) : true;
   facts.mainUnchanged =
     JSON.stringify(identitySnapshot(main)) === JSON.stringify(beforeMain);
   main.close();
-  if (!facts.mainUnchanged || !facts.backendPortClosed) facts.status = "failed";
+  if (
+    !facts.mainUnchanged ||
+    !facts.backendPortClosed ||
+    !facts.frontendPortClosed
+  )
+    facts.status = "failed";
   if (!browserCleanup || browserCleanup.fullyClosed) {
     await rm(root, { recursive: true, force: true });
     facts.privateRootRemoved = true;
