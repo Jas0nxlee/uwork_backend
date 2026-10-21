@@ -118,6 +118,18 @@ try:
             if os.environ.get('PREPUBLISH_GIT_BRANCH_UNTRACKED')=='1':(workspace/'target-only.txt').write_text('OWNED_BRANCH_LOCAL_UNTRACKED\n')
             else:(workspace/'conflict.txt').write_text('OWNED_BRANCH_LOCAL\n')
             (workspace/'unrelated.txt').write_text('OWNED_BRANCH_UNRELATED\n')
+    if os.environ.get('PREPUBLISH_GIT_GRAPH')=='1':
+        git_env={**os.environ,'GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
+        git=lambda *args:subprocess.run(['/usr/bin/git','-C',str(workspace),*args],env=git_env,check=True,capture_output=True,text=True)
+        git('config','--local','user.name','Owned Graph 图谱');git('config','--local','user.email','owned-graph@example.test');git('config','--local','commit.gpgsign','false');git('symbolic-ref','HEAD','refs/heads/main')
+        if os.environ.get('PREPUBLISH_GIT_GRAPH_EMPTY')!='1':
+            for i in range(52):
+                (workspace/'history.txt').write_text('OWNED_GRAPH_LINE_'+str(i)+'\n');git('add','history.txt');git('commit','--quiet','-m',f'OWNED_GRAPH_{i:03d} 中文记录')
+            git('switch','--quiet','-c','owned-graph-feature')
+            for i in range(1,3):
+                (workspace/'feature.txt').write_text('OWNED_GRAPH_FEATURE_'+str(i)+'\n');git('add','feature.txt');git('commit','--quiet','-m','OWNED_GRAPH_FEATURE_'+str(i))
+            git('switch','--quiet','main');(workspace/'fork.txt').write_text('OWNED_GRAPH_FORK\n');git('add','fork.txt');git('commit','--quiet','-m','OWNED_GRAPH_MAIN_FORK');git('merge','--no-ff','owned-graph-feature','-m','OWNED_GRAPH_MERGE 合并分支');git('tag','owned-release')
+            tree=git('rev-parse','HEAD^{tree}').stdout.strip();hidden=git('commit-tree',tree,'-m','OWNED_GRAPH_INTERNAL_ONLY').stdout.strip();git('update-ref','refs/zcode/checkpoints/owned-graph',hidden)
     f.command('openWorkspace',30,workspacePath=str(workspace))
     guards=BASE['Guards'](evidence)
     first=FIRST['FirstRunUi']('file-restored',b.evaluate,b.raw_cdp,guards.guard,budget,guards.claim,guards.auth_started)
@@ -139,7 +151,11 @@ try:
         cold=evidence/('question-cold' if os.environ.get('PREPUBLISH_QUESTION_HISTORY')=='1' else 'project-cold');cold.mkdir(mode=0o700)
         b=HarnessBridge(launch['cdpPort'],evidence=cold);f.command('openWorkspace',30,workspacePath=str(workspace))
         return b
-    if os.environ.get('PREPUBLISH_GIT_BRANCH')=='1':
+    if os.environ.get('PREPUBLISH_GIT_GRAPH')=='1':
+        assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_GIT_BRANCH','PREPUBLISH_GIT_COMMIT','PREPUBLISH_PLAN_APPROVAL','PREPUBLISH_QUESTIONS','PREPUBLISH_PERMISSION_PROJECT','PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
+        runpy.run_path(str(ROOT/'scripts/tests/prepublish-git-graph-case.py'))['run_graph_case'](
+            bridge=b,click=click,until=until,proof=proof,baseline=baseline,meta=meta,workspace=workspace,evidence=evidence,result=result,budget=budget)
+    elif os.environ.get('PREPUBLISH_GIT_BRANCH')=='1':
         assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_GIT_COMMIT','PREPUBLISH_PLAN_APPROVAL','PREPUBLISH_QUESTIONS','PREPUBLISH_PERMISSION_PROJECT','PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
         runpy.run_path(str(ROOT/'scripts/tests/prepublish-git-branch-case.py'))['run_branch_case'](
             bridge=b,click=click,until=until,proof=proof,baseline=baseline,meta=meta,workspace=workspace,evidence=evidence,result=result,budget=budget)

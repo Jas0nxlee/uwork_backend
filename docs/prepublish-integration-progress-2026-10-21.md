@@ -1,5 +1,7 @@
 # 编译发布前联动测试进展
 
+> 最新[Git图谱与提交详情](prepublish-git-graph-test-2026-10-21.md)：v65原首50/滚动56条顺序与Git一致，merge/root元数据、引用、SVG、排除内部独立checkpoint、刷新/关闭/reload通过；v66空仓及刷新通过。直接Host Graph读取3/2次，repo/账本保持、当前成员调用新增0，资源独立闭合，无产品改动。
+
 > 最新[本地分支与覆盖保护](prepublish-git-branch-test-2026-10-21.md)：v61原创建/无效名/搜索/切换/reload通过；v62真实发现警告只列1项却计2项，修复affectedFiles计数后3项回归及类型/Lint/架构/正常Desktop构建通过，v63 tracked保护完整复测、v64独立untracked保护通过。原取消/先提交当前分支再切目标均保留数据，四轮模型/账本新增0、资源独立闭合；未重跑v61。
 
 > 最新[原Git生成/取消/提交](prepublish-git-commit-test-2026-10-21.md)：v58已暂存scope真实入模/取消不改库具名阶段通过，原整体设施失败保留；v59仅补原手写stagedOnly与剩余文件生成提交，最终两条真实commit/clean/reload零重放。另[v60同文件暂存B/工作C](prepublish-git-staged-snapshot-test-2026-10-21.md)通过，实际commit B且C/其他文件保持。五轮资源闭合，无产品新增缺陷；未重跑已通过生成/取消阶段。
