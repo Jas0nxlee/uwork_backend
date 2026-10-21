@@ -169,6 +169,8 @@ export interface ZCodeTaskIndexSyncer {
   onSessionReadyEvent: Event<ZCodeTaskIndexReadyEvent>;
   /** 释放所有 v4 订阅和 workspace emitter；不关闭注入的 taskIndexRepo。 */
   disposeAll(): void;
+  /** 封闭摄入后等待已发出的订阅、迟到 ACK 退订与主动退订完成。 */
+  disposeAllAndWait(): Promise<void>;
 }
 
 interface CreateZCodeTaskIndexSyncerOptions {
@@ -314,6 +316,16 @@ export function createZCodeTaskIndexSyncer(
   const terminalEventEmitter = new Emitter<ZCodeTaskIndexTerminalEvent>();
   const readyEventEmitter = new Emitter<ZCodeTaskIndexReadyEvent>();
   let disposed = false;
+  const subscriptionOperations = new Set<Promise<void>>();
+  let disposal: Promise<void> | undefined;
+  const trackSubscriptionOperation = (operation: Promise<void>): Promise<void> => {
+    subscriptionOperations.add(operation);
+    void operation.then(
+      () => subscriptionOperations.delete(operation),
+      () => subscriptionOperations.delete(operation),
+    );
+    return operation;
+  };
 
   const indexTopicFor = (state: WorkspaceIngestState) =>
     sessionsIndexTopic(resolveWorkspaceKey(state.target));
@@ -412,7 +424,9 @@ export function createZCodeTaskIndexSyncer(
     if (state.assemblyTimer) clearTimeout(state.assemblyTimer);
     state.assemblyTimer = null;
   };
-  const unsubscribeIndex = async (
+  const unsubscribeIndex = (state: WorkspaceIngestState, subscriptionId: string): Promise<void> =>
+    trackSubscriptionOperation(performUnsubscribeIndex(state, subscriptionId));
+  const performUnsubscribeIndex = async (
     state: WorkspaceIngestState,
     subscriptionId: string,
   ): Promise<void> => {
@@ -430,7 +444,9 @@ export function createZCodeTaskIndexSyncer(
       );
     }
   };
-  const unsubscribeConfig = async (
+  const unsubscribeConfig = (state: WorkspaceIngestState, subscriptionId: string): Promise<void> =>
+    trackSubscriptionOperation(performUnsubscribeConfig(state, subscriptionId));
+  const performUnsubscribeConfig = async (
     state: WorkspaceIngestState,
     subscriptionId: string,
   ): Promise<void> => {
@@ -1414,7 +1430,15 @@ export function createZCodeTaskIndexSyncer(
     state.configRetryTimer = timer;
   }
 
-  async function subscribeIndexTopic(
+  function subscribeIndexTopic(
+    state: WorkspaceIngestState,
+    reason: TopicSubscribeReason,
+    unsubscribeActive: boolean,
+  ): Promise<void> {
+    return trackSubscriptionOperation(performSubscribeIndexTopic(state, reason, unsubscribeActive));
+  }
+
+  async function performSubscribeIndexTopic(
     state: WorkspaceIngestState,
     reason: TopicSubscribeReason,
     unsubscribeActive: boolean,
@@ -1455,7 +1479,17 @@ export function createZCodeTaskIndexSyncer(
     }
   }
 
-  async function subscribeConfigTopic(
+  function subscribeConfigTopic(
+    state: WorkspaceIngestState,
+    reason: TopicSubscribeReason,
+    unsubscribeActive: boolean,
+  ): Promise<void> {
+    return trackSubscriptionOperation(
+      performSubscribeConfigTopic(state, reason, unsubscribeActive),
+    );
+  }
+
+  async function performSubscribeConfigTopic(
     state: WorkspaceIngestState,
     reason: TopicSubscribeReason,
     unsubscribeActive: boolean,
@@ -1742,7 +1776,7 @@ export function createZCodeTaskIndexSyncer(
     }
   }
 
-  return {
+  const syncer: ZCodeTaskIndexSyncer = {
     ensureWorkspaceSubscription,
 
     ensureSessionSubscription(
@@ -1778,7 +1812,20 @@ export function createZCodeTaskIndexSyncer(
 
     onSessionReadyEvent: readyEventEmitter.event,
 
+    disposeAllAndWait(): Promise<void> {
+      syncer.disposeAll();
+      // 退订前先封闭所有入口；迟到 ACK 会沿原 stale 分支加入退订，必须一并等完。
+      // RPC 的既有超时仍负责有界失败，不能用 sleep 猜测协议是否已清理。
+      disposal ??= (async () => {
+        while (subscriptionOperations.size) {
+          await Promise.allSettled(subscriptionOperations);
+        }
+      })();
+      return disposal;
+    },
+
     disposeAll(): void {
+      if (disposed) return;
       disposed = true;
       for (const state of workspaceIngests.values()) {
         state.indexSubscriptionGeneration += 1;
@@ -1813,6 +1860,7 @@ export function createZCodeTaskIndexSyncer(
       availableRuntimeGenerationByWorkspaceKey.clear();
     },
   };
+  return syncer;
 }
 
 function buildMetaFromSnapshot(
