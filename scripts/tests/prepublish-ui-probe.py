@@ -49,11 +49,16 @@ def click(selector, label):
     expression='''(()=>{const es=[...document.querySelectorAll(%s)].filter(e=>e.getClientRects().length&&!e.closest('[inert],[aria-hidden=true]'));const e=es.length===1?es[0]:null,r=e?.getBoundingClientRect();return {ok:!!r&&!e.disabled&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)),n:es.length,x:r?.x+r?.width/2,y:r?.y+r?.height/2}})()'''%json.dumps(selector)
     p=until(expression,label)
     for kind in ['mouseMoved','mousePressed','mouseReleased']:
+        # 发送/停止共用同一位置，React换按钮后不能继续按旧坐标误点停止。
+        if kind!='mouseMoved':
+            same=b.evaluate('''(()=>{const e=document.querySelector(%s);return{ok:!!e&&!e.disabled&&e.contains(document.elementFromPoint(%s,%s))}})()'''%(json.dumps(selector),p['x'],p['y']))
+            assert same['ok'], 'original click target changed: '+label
         budget(); b.raw_cdp('Input.dispatchMouseEvent',type=kind,x=p['x'],y=p['y'],**({} if kind=='mouseMoved' else dict(button='left',clickCount=1)))
     result['actions'].append(label)
 def send(text):
     click('[contenteditable="true"]','composer '+text)
     b.raw_cdp('Input.insertText',text=text)
+    until('(()=>({ok:document.querySelector("[contenteditable=true]")?.innerText.trim()==='+json.dumps(text)+'}))()','composer exact readback before send')
     click('[data-testid="v4-composer-send"]','send '+text)
 def proof(name):
     f.command('queueProof',name=name)
@@ -88,21 +93,47 @@ try:
     send('PREPUBLISH_QUEUE_C')
     until('(()=>({ok:!!document.querySelector("[data-testid^=v4-queue-item-delete-]")}))()','queued C')
     c=proof('queued-c'); assert c['modelCalls']==a['modelCalls']
+    drained_marker='PREPUBLISH_QUEUE_C'
+    if os.environ.get('PREPUBLISH_QUEUE_EDIT')=='1':
+        drained_marker=runpy.run_path(str(ROOT/'scripts/tests/prepublish-queue-edit-case.py'))['run_queue_edit_case'](
+            bridge=b,click=click,until=until,proof=proof,queued=c,result=result,budget=budget)
+    reorder=os.environ.get('PREPUBLISH_QUEUE_REORDER')=='1'
+    if reorder:
+        assert os.environ.get('PREPUBLISH_QUEUE_EDIT')=='1'
+        runpy.run_path(str(ROOT/'scripts/tests/prepublish-queue-reorder-case.py'))['run_queue_reorder_case'](
+            bridge=b,click=click,until=until,proof=proof,queued=c,result=result,budget=budget)
     f.command('queueRelease')
-    until('(()=>({ok:!document.querySelector("[data-testid=v4-stop]")&&!document.querySelector("[data-testid^=v4-queue-item-delete-]")&&document.body.innerText.includes("PREPUBLISH_QUEUE_C")}))()','drained C',45)
+    until('(()=>({ok:!document.querySelector("[data-testid=v4-stop]")&&!document.querySelector("[data-testid^=v4-queue-item-delete-]")&&document.body.innerText.includes('+json.dumps(drained_marker)+')}))()','drained queued input',45)
     done=proof('drained')
     payload=json.dumps(done['modelRequests'],ensure_ascii=False)
     assert 'PREPUBLISH_QUEUE_B' not in payload
-    assert any('PREPUBLISH_QUEUE_C' in json.dumps(req) and req.get('stream') for req in done['modelRequests'])
+    assert any(drained_marker in json.dumps(req) and req.get('stream') for req in done['modelRequests'])
+    if os.environ.get('PREPUBLISH_QUEUE_EDIT')=='1':
+        assert 'PREPUBLISH_QUEUE_C' not in payload
+        assert 'PREPUBLISH_DRAFT_KEEP' not in payload
+    if reorder:
+        current_inputs=[json.dumps(req['messages'][-1]) for req in done['modelRequests'] if req.get('stream')]
+        assert len(current_inputs)==3
+        assert all(marker in text for marker,text in zip(['PREPUBLISH_QUEUE_A','PREPUBLISH_QUEUE_E',drained_marker],current_inputs))
     assert all(row['status']=='settled' for row in done['ledger'])
     assert [r for r in done['ledger'] if r['user_id']!=meta['memberId']]==[r for r in baseline['ledger'] if r['user_id']!=meta['memberId']]
     result['checks'].append('real-busy-composer-queue-remove-drain-no-B-dispatch-settled-and-other-member-unchanged')
-    assert done['modelCalls']==baseline['modelCalls']+3
-    assert sum(r['amount'] for r in done['ledger'] if r['user_id']==meta['memberId'])==66
+    assert done['modelCalls']==baseline['modelCalls']+(4 if reorder else 3)
+    assert sum(r['amount'] for r in done['ledger'] if r['user_id']==meta['memberId'])==(88 if reorder else 66)
     active=until('(()=>{const a=[...document.querySelectorAll("[data-session-id]")].filter(e=>e.getClientRects().length);return {ok:a.length===1,sid:a[0]?.getAttribute("data-session-id")}})()','active task')
     sid=active['sid']; assert sid.startswith('sess_')
     index=Path(meta['home'])/'.uwork/v2/tasks-index.sqlite'
     cli=next(Path(meta['home']).glob('.*/cli/db/db.sqlite'))
+    if reorder:
+        with sqlite3.connect(cli.as_uri()+'?mode=ro',uri=True) as db:
+            users=[]
+            for mid,data in db.execute('SELECT id,data FROM message WHERE session_id=? ORDER BY id',(sid,)):
+                if json.loads(data).get('role')!='user': continue
+                parts=[json.loads(row[0]) for row in db.execute('SELECT data FROM part WHERE session_id=? AND message_id=? ORDER BY id',(sid,mid))]
+                users.append(''.join(part.get('text','') for part in parts if part.get('type')=='text'))
+        assert users==['PREPUBLISH_QUEUE_A','PREPUBLISH_QUEUE_E',drained_marker], users
+        (evidence/'queue-executed-inputs.json').write_text(json.dumps(dict(userInputs=users,modelOrderVerified=True),indent=2))
+        result['checks'].append('actual-queued-E-before-D-dispatch-and-CLI-user-history-order')
     if os.environ.get('PREPUBLISH_FEEDBACK')=='1':
         feedback_target=until('(()=>{const es=[...document.querySelectorAll("[data-testid^=v4-feedback-like-]")].filter(e=>e.getClientRects().length),e=es.at(-1);return {ok:es.length===2,like:e?.getAttribute("data-testid")}})()','two original assistant reactions')
         like_id=feedback_target['like'];dislike_id=like_id.replace('v4-feedback-like-','v4-feedback-dislike-')
@@ -145,7 +176,7 @@ try:
             session=db.execute('SELECT id,directory,path,title FROM session WHERE id=?',(sid,)).fetchall()
             messages=db.execute('SELECT * FROM message WHERE session_id=? ORDER BY id',(sid,)).fetchall()
             parts=db.execute('SELECT * FROM part WHERE session_id=? ORDER BY id',(sid,)).fetchall()
-        assert len(session)==1 and len(messages)==4
+        assert len(session)==1 and len(messages)==(6 if reorder else 4)
         digest=hashlib.sha256(repr((session,messages,parts)).encode()).hexdigest()
         out=dict(stage=stage,index=rows[0],retainedCliDigest=digest,messageCount=len(messages))
         (evidence/('delete-'+stage+'.json')).write_text(json.dumps(out,indent=2))
@@ -190,6 +221,8 @@ try:
     result['status']='passed'
 except BaseException as error:
     result['failure']=str(error) or type(error).__name__
+    if isinstance(error, FIRST['FirstRunUiError']):
+        result['firstRunDiagnostic']=getattr(error, 'diagnostic', None)
     if b:
         try: result['dom']=b.evaluate('(()=>({text:document.body.innerText.slice(0,9000),inputs:[...document.querySelectorAll("input,textarea,[contenteditable]")].map(e=>({tag:e.tagName,role:e.getAttribute("role"),tid:e.getAttribute("data-testid")}))}))()')
         except Exception: pass
