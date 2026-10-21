@@ -1,0 +1,9 @@
+# 原写工具拒绝一次与后继恢复
+
+独立PREPUBLISH_PERMISSION_DENY=1。未打包原Main/Host/UI/CLI、隔离后台、受控供应商及生产Read/Write；新建私有Git工作区owned-permission.txt，后台HTTP仅发布文件权限true作为工具执行前置。原审批面板选择当前Native实际提供的rejectOnce/Deny，不虚构不存在的始终拒绝入口。
+
+A由原Composer发送，供应商先请求Read再Write。原面板拒绝Write后，文件必须保持初始UTF8字节，CLI tool part为error，后继模型实际收到原permission-options的完整用户拒绝说明（含NOT written与STOP/wait），再生成受控等待用户回复。任务正常终态；原reload不重放。拒绝工具不等于此前模型调用免费，预期A含Read/Write提议/拒绝后回复及自然标题共4笔88Credit。
+
+同session后继原用户问题B再提议写同一文件，必须再次显示原审批；选择allowOnce后由生产Write改成B内容并完成，新增2次模型调用、无新title。由此证明本次拒绝没有形成跨问题永久封锁。当前成员最终6笔132Credit，全部先前与另一成员完整账本行保持；无uncertain/重复请求。只读SQLite/canonical与真实文件/实际供应商请求共同验收，不写业务DB/store，不发Runtime业务RPC代UI，不重跑旧回滚/Fork/队列流程。排除外部MCP/网盘/企微/远程/发布后客户端。
+
+独立反馈分支PREPUBLISH_PERMISSION_FEEDBACK=1：原Write审批的空反馈焦点使原确认禁用；输入带外层空白、中文引号及内部换行的拒绝反馈后，点击原确认。真实后继模型须收到原buildPermissionDeniedContent(trimmedFeedback)完整内容及内部换行，canonical Write error也保留反馈，文件仍初始字节，4笔88Credit；reload零重放，不再执行B恢复分支。

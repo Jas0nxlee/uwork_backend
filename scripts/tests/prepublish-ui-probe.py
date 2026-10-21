@@ -21,6 +21,8 @@ class Fixture(BASE['Fixture']):
                 HOME=str(evidence/'home'), TMPDIR=str(evidence/'tmp'), UWORK_NATIVE_FIXTURE_NAME=profile,
                 UWORK_NATIVE_CLIENT_EXPERIENCE='enabled',
                 UWORK_NATIVE_REWIND_FILES='1' if os.environ.get('PREPUBLISH_REWIND_FILES')=='1' else '0',
+                UWORK_NATIVE_PERMISSION_DENY='1' if os.environ.get('PREPUBLISH_PERMISSION_DENY')=='1' else '0',
+                UWORK_NATIVE_PERMISSION_PROJECT='1' if os.environ.get('PREPUBLISH_PERMISSION_PROJECT')=='1' else '0',
                 **(dict(UWORK_NATIVE_OUT_MANIFEST=os.environ['UWORK_NATIVE_OUT_MANIFEST'],UWORK_NATIVE_OUT_CACHE_BASE=str(Path.home()/'.cache/uwork-prepublish-desktop')) if os.environ.get('UWORK_NATIVE_OUT_MANIFEST') else {})),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         threading.Thread(target=self._read, daemon=True).start()
@@ -69,8 +71,10 @@ try:
     f=Fixture()
     f.wait_event(lambda e:e.get('event')=='ready',60,'fixture ready')
     if os.environ.get('PREPUBLISH_REWIND_FILES')=='1':f.command('rewindSetup')
+    if any(os.environ.get(k)=='1' for k in ['PREPUBLISH_PERMISSION_DENY','PREPUBLISH_PERMISSION_PROJECT']):f.command('permissionSetup')
     f.command('launch',30)
     launch=f.wait_event(lambda e:e.get('event')=='launched',5,'launched')
+    result['nativePids']=[launch['pid']]
     b=HarnessBridge(launch['cdpPort'],evidence=evidence)
     meta=json.loads((evidence/'desktop-state.json').read_text())
     workspace=Path(meta['root'])/'prepublish-workspace'; workspace.mkdir()
@@ -80,6 +84,16 @@ try:
         git_env={**os.environ,'GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
         subprocess.run(['/usr/bin/git','-C',str(workspace),'add','owned-rewind.txt'],env=git_env,check=True)
         subprocess.run(['/usr/bin/git','-C',str(workspace),'-c','user.name=Owned rewind','-c','user.email=owned-rewind@example.test','-c','commit.gpgsign=false','commit','--quiet','-m','Owned rewind baseline'],env=git_env,check=True)
+    if os.environ.get('PREPUBLISH_PERMISSION_DENY')=='1':
+        (workspace/'owned-permission.txt').write_text('OWNED_PERMISSION_INITIAL\n第二行保持\n')
+        git_env={**os.environ,'GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
+        subprocess.run(['/usr/bin/git','-C',str(workspace),'add','owned-permission.txt'],env=git_env,check=True)
+        subprocess.run(['/usr/bin/git','-C',str(workspace),'-c','user.name=Owned permission','-c','user.email=owned-permission@example.test','-c','commit.gpgsign=false','commit','--quiet','-m','Owned permission baseline'],env=git_env,check=True)
+    if os.environ.get('PREPUBLISH_PERMISSION_PROJECT')=='1':
+        (workspace/'owned-permission.txt').write_text('OWNED_PERMISSION_INITIAL\n第二行保持\n');(workspace/'other-permission.txt').write_text('OWNED_PROJECT_OTHER_INITIAL\n')
+        git_env={**os.environ,'GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
+        subprocess.run(['/usr/bin/git','-C',str(workspace),'add','owned-permission.txt','other-permission.txt'],env=git_env,check=True)
+        subprocess.run(['/usr/bin/git','-C',str(workspace),'-c','user.name=Owned project rule','-c','user.email=owned-project-rule@example.test','-c','commit.gpgsign=false','commit','--quiet','-m','Owned project rule baseline'],env=git_env,check=True)
     f.command('openWorkspace',30,workspacePath=str(workspace))
     guards=BASE['Guards'](evidence)
     first=FIRST['FirstRunUi']('file-restored',b.evaluate,b.raw_cdp,guards.guard,budget,guards.claim,guards.auth_started)
@@ -90,7 +104,28 @@ try:
     until('(()=>({ok:!!document.querySelector("[data-testid=enterprise-identity-name]")}))()','restored identity')
     result['checks'].append('fresh-shared-ui-original-onboarding-and-restored-test-identity')
     baseline=proof('baseline')
-    if os.environ.get('PREPUBLISH_REWIND_FILES')=='1':
+    if os.environ.get('PREPUBLISH_PERMISSION_PROJECT')=='1':
+        assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
+        def restart_owned_ui():
+            global b,launch
+            b.kill();f.command('stopNative',30)
+            with f.lock:start=len(f.events)
+            f.command('launch',30)
+            with f.lock:events=[e for e in f.events[start:] if e.get('event')=='launched']
+            assert len(events)==1 and events[0]['pid']!=launch['pid']
+            launch=events[0];result['nativePids'].append(launch['pid'])
+            cold=evidence/'project-cold';cold.mkdir(mode=0o700)
+            b=HarnessBridge(launch['cdpPort'],evidence=cold);f.command('openWorkspace',30,workspacePath=str(workspace))
+            return b
+        runpy.run_path(str(ROOT/'scripts/tests/prepublish-project-permission-case.py'))['run_project_permission_case'](
+            bridge=b,click=click,until=until,proof=proof,send=send,restart=restart_owned_ui,baseline=baseline,meta=meta,
+            workspace=workspace,evidence=evidence,result=result,budget=budget,node=NODE,root=ROOT)
+    elif os.environ.get('PREPUBLISH_PERMISSION_DENY')=='1':
+        assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
+        runpy.run_path(str(ROOT/'scripts/tests/prepublish-permission-case.py'))['run_permission_case'](
+            bridge=b,click=click,until=until,proof=proof,send=send,baseline=baseline,meta=meta,
+            workspace=workspace,evidence=evidence,result=result,budget=budget,node=NODE,root=ROOT)
+    elif os.environ.get('PREPUBLISH_REWIND_FILES')=='1':
         assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
         runpy.run_path(str(ROOT/'scripts/tests/prepublish-rewind-case.py'))['run_rewind_case'](
             bridge=b,click=click,until=until,proof=proof,send=send,baseline=baseline,meta=meta,

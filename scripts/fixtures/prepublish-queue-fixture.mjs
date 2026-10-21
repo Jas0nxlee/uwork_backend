@@ -15,6 +15,16 @@ const url = pathToFileURL(
 ).href;
 let source = readFileSync(new URL(url), "utf8");
 const rewindEnabled = process.env.UWORK_NATIVE_REWIND_FILES === "1";
+const permissionProject = process.env.UWORK_NATIVE_PERMISSION_PROJECT === "1";
+const permissionEnabled =
+  process.env.UWORK_NATIVE_PERMISSION_DENY === "1" || permissionProject;
+assert.ok(
+  !(permissionProject && process.env.UWORK_NATIVE_PERMISSION_DENY === "1"),
+);
+assert.ok(
+  !(rewindEnabled && permissionEnabled),
+  "independent file scenarios cannot share a supplier",
+);
 function once(from, to) {
   assert.equal(source.split(from).length, 2);
   source = source.replace(from, to);
@@ -78,6 +88,35 @@ if (rewindEnabled) {
   once(
     '    } else if (c.op === "queueRelease")',
     `    } else if (c.op === "rewindSetup") {
+      const old=await api(p+'/configurations/security');
+      const saved=await api(p+'/configurations/security','PUT',{revision:old.revision,data:{...old.draft,allowFilesystem:true}});
+      await api(p+'/configurations/security/publish','POST',{revision:saved.revision});
+    } else if (c.op === "queueRelease")`,
+  );
+}
+if (permissionEnabled) {
+  source =
+    (permissionProject
+      ? 'import { createProjectPermissionSupplier as createPermissionSupplier } from "./prepublish-project-permission-supplier.mjs";\n'
+      : 'import { createPermissionSupplier } from "./prepublish-permission-supplier.mjs";\n') +
+    source;
+  once(
+    "const modelRequests = [];",
+    "const modelRequests = [];\nconst permissionSupplier = createPermissionSupplier(root);",
+  );
+  once(
+    "  const currentHasTool = body.messages",
+    `  try { fileReply = await permissionSupplier.reply(body) ?? fileReply; }
+  catch { res.writeHead(400, {'content-type':'application/json'}).end(JSON.stringify({error:'OWNED_PERMISSION_PROTOCOL'}));return; }
+  const currentHasTool = body.messages`,
+  );
+  once(
+    "const facts = {held:queueHeld,modelCalls,modelRequests,",
+    "const facts = {held:queueHeld,modelCalls,modelRequests,permission:permissionSupplier.status(),",
+  );
+  once(
+    '    } else if (c.op === "queueRelease")',
+    `    } else if (c.op === "permissionSetup") {
       const old=await api(p+'/configurations/security');
       const saved=await api(p+'/configurations/security','PUT',{revision:old.revision,data:{...old.draft,allowFilesystem:true}});
       await api(p+'/configurations/security/publish','POST',{revision:saved.revision});

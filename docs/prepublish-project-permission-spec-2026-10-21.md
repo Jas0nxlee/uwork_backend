@@ -1,0 +1,9 @@
+# 原项目级匹配请求授权的冷恢复与范围
+
+PREPUBLISH_PERMISSION_PROJECT=1使用独立未打包实例，仅补当前Native已有“在此项目始终允许”入口。新私有Git项目内两个测试文件，A先Read/Write第一个文件，原allowAlways项目选项必须持久化仅Write+该精确file_path的allow规则，不能设yolo/full access或无条件工具许可；通过生产getProjectPermission只读读取。
+
+停止本case原Main/Host/CLI，再从同一私有profile正常启动，原UI打开该项目/原task，模型和账本零重放、持久规则相同。原新问题B先Read同文件再Write，应不再审批并真实写B内容。原新问题C针对另一个文件Read/Write必须再次审批，原拒绝后保持该文件初始字节且模型收到原用户拒绝说明；第一个文件保持B。reload无重放。
+
+A4次模型调用88Credit，B新增3次共154，C新增3次共220，无额外title/重试，另一成员完整账本保持。冷启平台动作复用夹具原stopNative/launch/openWorkspace，所有工具授权/提问/拒绝必须经原UI，不直接写权限库或发Runtime业务RPC。只读源API/SQLite证明实际项目id/规则/历史；所有新旧Main PID、原Host/CLI和两套browser-harness精确回收。外部MCP/网盘/企微/远程和发布后系统客户端排除。
+
+冷恢复Read可返回生产read.ts的精确file_unchanged收据；仅在P原Write参数/成功tool result已在实际请求历史、且目标文件在Q写入前为A、写入后为B时接受，不把它误判为缺少正文，不改变3次Q模型请求或授权断言。
