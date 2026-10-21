@@ -1,0 +1,7 @@
+# 原资产分类页面到发布资产引用保护
+
+独立categories模式。原分类新建表单创建skill分类，同kind/name重复创建409 CATEGORY_EXISTS且不多插行。真实HTTP仅作为资产消费者静态准备：将一个skill的categoryId设为原UI新id并审核发布V1；客户端目录categoryId应匹配。原分类删除409 CATEGORY_IN_USE，取消错误弹框后原行保持。
+
+真实API准备该asset的V2草稿categoryId=null，V1仍发布；此时原分类删除仍409，因为已发布版本还引用分类。审核发布V2后目录categoryId为空；原分类删除取消保留行，确认/reload删除成功，原资产和两条版本历史原行保持。没有在UI里虚构当前不存在的分类绑定字段，也不重跑旧原资产发布UI；API关联/发布明确为消费者前置。
+
+原browser-harness只发Input和DOM只读，不改业务表/响应/fetch/store，不调用模型，ledger0。审计分类create1/delete1、原浏览器201/409创建与两409/一204删除匹配，自有资源关闭后通过。

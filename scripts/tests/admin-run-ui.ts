@@ -34,6 +34,9 @@ const uiDrivers: Record<string, string> = {
   directory: "admin-directory-ui.py",
   limits: "admin-limits-ui.py",
   "settings-race": "admin-settings-race-ui.py",
+  credentials: "admin-credentials-ui.py",
+  categories: "admin-categories-ui.py",
+  enterprise: "admin-enterprise-ui.py",
 };
 assert.ok(
   Object.hasOwn(uiDrivers, scenario),
@@ -50,6 +53,27 @@ const root = await mkdtemp(join(tmpdir(), "uwork-owned-admin-run-"));
 const email = "owned-admin-run@example.test";
 const password = randomBytes(24).toString("hex");
 const supplierSecret = randomBytes(24).toString("hex");
+const rotatedSupplierSecret = randomBytes(24).toString("hex");
+const restoredSupplierSecret = randomBytes(24).toString("hex");
+const providerSecrets = [
+  supplierSecret,
+  rotatedSupplierSecret,
+  restoredSupplierSecret,
+];
+const supplierKeyPhase = (authorization: string | undefined) => {
+  if (authorization === `Bearer ${supplierSecret}`) return "initial";
+  if (
+    scenario === "credentials" &&
+    authorization === `Bearer ${rotatedSupplierSecret}`
+  )
+    return "rotated";
+  if (
+    scenario === "credentials" &&
+    authorization === `Bearer ${restoredSupplierSecret}`
+  )
+    return "restored";
+  return undefined;
+};
 const supplier: Row[] = [];
 const traffic: Row[] = [];
 let held = false,
@@ -57,7 +81,7 @@ let held = false,
   heldCloseCount = 0;
 const upstream = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/v1/models") {
-    if (req.headers.authorization !== `Bearer ${supplierSecret}`) {
+    if (!supplierKeyPhase(req.headers.authorization)) {
       res.writeHead(401).end();
       return;
     }
@@ -69,7 +93,11 @@ const upstream = createServer(async (req, res) => {
   }
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
-  assert.equal(req.headers.authorization, `Bearer ${supplierSecret}`);
+  const keyPhase = supplierKeyPhase(req.headers.authorization);
+  if (!keyPhase) {
+    res.writeHead(401).end();
+    return;
+  }
   const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
     messages: { content: unknown }[];
   };
@@ -94,6 +122,7 @@ const upstream = createServer(async (req, res) => {
     );
   supplier.push({
     held: isHeld,
+    keyPhase,
     ...(evaluationInput ? { evaluationInput } : {}),
     ...(automationInput ? { automationInput } : {}),
   });
@@ -210,7 +239,10 @@ try {
         await oldReadGate;
       }
     }
-    if (typeof payload === "string" && payload.includes(supplierSecret))
+    if (
+      typeof payload === "string" &&
+      providerSecrets.some((secret) => payload.includes(secret))
+    )
       facts.responseLeakedSupplierSecret = true;
     if (
       req.routeOptions.url === "/api/tenants/:tenantId/audit" &&
@@ -318,6 +350,13 @@ try {
     modelId: model.id,
     credentialId: credential.id,
     modelBaseUrl: `http://127.0.0.1:${providerPort}/v1`,
+    ...(scenario === "credentials"
+      ? {
+          keyInitial: supplierSecret,
+          keyRotated: rotatedSupplierSecret,
+          keyRestored: restoredSupplierSecret,
+        }
+      : {}),
   };
   const saveControl = () =>
     writeFile(controlPath, JSON.stringify(control), { mode: 0o600 });
@@ -327,7 +366,7 @@ try {
     evidence,
     name: profile,
     redact: (value) =>
-      [password, supplierSecret, token].reduce(
+      [password, ...providerSecrets, token].reduce(
         (text, secret) => text.replaceAll(secret, "[redacted]"),
         value,
       ),
@@ -345,7 +384,52 @@ try {
     stages.push(receipt);
     return receipt;
   };
-  if (scenario === "settings-race") {
+  if (scenario === "enterprise") {
+    const { runAdminEnterpriseCase } = await import(
+      "./admin-enterprise-case.js"
+    );
+    await runAdminEnterpriseCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "categories") {
+    const { runAdminCategoriesCase } = await import(
+      "./admin-categories-case.js"
+    );
+    await runAdminCategoriesCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "credentials") {
+    const { runAdminCredentialsCase } = await import(
+      "./admin-credentials-case.js"
+    );
+    await runAdminCredentialsCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "settings-race") {
     const { runAdminSettingsRaceCase } = await import(
       "./admin-settings-race-case.js"
     );
