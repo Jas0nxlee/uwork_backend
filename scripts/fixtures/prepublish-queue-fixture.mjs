@@ -18,6 +18,7 @@ const rewindEnabled = process.env.UWORK_NATIVE_REWIND_FILES === "1";
 const permissionProject = process.env.UWORK_NATIVE_PERMISSION_PROJECT === "1";
 const questionEnabled = process.env.UWORK_NATIVE_QUESTIONS === "1";
 const planEnabled = process.env.UWORK_NATIVE_PLAN_APPROVAL === "1";
+const gitEnabled = process.env.UWORK_NATIVE_GIT_COMMIT === "1";
 const permissionEnabled =
   process.env.UWORK_NATIVE_PERMISSION_DENY === "1" || permissionProject;
 assert.ok(
@@ -30,6 +31,12 @@ assert.ok(
 assert.ok(!(questionEnabled && (rewindEnabled || permissionEnabled)));
 assert.ok(
   !(planEnabled && (rewindEnabled || permissionEnabled || questionEnabled)),
+);
+assert.ok(
+  !(
+    gitEnabled &&
+    (planEnabled || questionEnabled || permissionEnabled || rewindEnabled)
+  ),
 );
 function once(from, to) {
   assert.equal(source.split(from).length, 2);
@@ -165,6 +172,25 @@ if (planEnabled) {
   once(
     "const facts = {held:queueHeld,modelCalls,modelRequests,",
     "const facts = {held:queueHeld,modelCalls,modelRequests,planApproval:planSupplier.status(),",
+  );
+}
+if (gitEnabled) {
+  source =
+    'import { createGitCommitSupplier } from "./prepublish-git-commit-supplier.mjs";\n' +
+    source;
+  once(
+    "const modelRequests = [];",
+    `const modelRequests = [];\nconst gitSupplier = createGitCommitSupplier({commitOnly:process.env.UWORK_NATIVE_GIT_COMMIT_ONLY === "1"});`,
+  );
+  once(
+    "  const currentHasTool = body.messages",
+    `  try { fileReply = gitSupplier.reply(body) ?? fileReply; }
+  catch { res.writeHead(400,{'content-type':'application/json'}).end(JSON.stringify({error:'OWNED_GIT_PROTOCOL'}));return; }
+  const currentHasTool = body.messages`,
+  );
+  once(
+    "const facts = {held:queueHeld,modelCalls,modelRequests,",
+    "const facts = {held:queueHeld,modelCalls,modelRequests,gitCommit:gitSupplier.status(),",
   );
 }
 if (process.env.UWORK_NATIVE_OUT_MANIFEST) {

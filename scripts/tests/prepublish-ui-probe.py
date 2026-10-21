@@ -23,6 +23,8 @@ class Fixture(BASE['Fixture']):
                 UWORK_NATIVE_REWIND_FILES='1' if os.environ.get('PREPUBLISH_REWIND_FILES')=='1' else '0',
                 UWORK_NATIVE_PERMISSION_DENY='1' if os.environ.get('PREPUBLISH_PERMISSION_DENY')=='1' else '0',
                 UWORK_NATIVE_PERMISSION_PROJECT='1' if os.environ.get('PREPUBLISH_PERMISSION_PROJECT')=='1' else '0',
+                UWORK_NATIVE_GIT_COMMIT_ONLY='1' if os.environ.get('PREPUBLISH_GIT_COMMIT_ONLY')=='1' else '0',
+                UWORK_NATIVE_GIT_COMMIT='1' if os.environ.get('PREPUBLISH_GIT_COMMIT')=='1' else '0',
                 UWORK_NATIVE_PLAN_DECLINE='1' if os.environ.get('PREPUBLISH_PLAN_DECLINE')=='1' else '0',
                 UWORK_NATIVE_PLAN_DETAIL='1' if os.environ.get('PREPUBLISH_PLAN_DETAIL_ONLY')=='1' else '0',
                 UWORK_NATIVE_PLAN_APPROVAL='1' if os.environ.get('PREPUBLISH_PLAN_APPROVAL')=='1' else '0',
@@ -99,6 +101,13 @@ try:
         git_env={**os.environ,'GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
         subprocess.run(['/usr/bin/git','-C',str(workspace),'add','owned-permission.txt','other-permission.txt'],env=git_env,check=True)
         subprocess.run(['/usr/bin/git','-C',str(workspace),'-c','user.name=Owned project rule','-c','user.email=owned-project-rule@example.test','-c','commit.gpgsign=false','commit','--quiet','-m','Owned project rule baseline'],env=git_env,check=True)
+    if os.environ.get('PREPUBLISH_GIT_COMMIT')=='1':
+        git_env={**os.environ,'GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
+        git=lambda *args:subprocess.run(['/usr/bin/git','-C',str(workspace),*args],env=git_env,check=True,capture_output=True,text=True)
+        git('config','--local','user.name','Owned Git');git('config','--local','user.email','owned-git@example.test');git('config','--local','commit.gpgsign','false')
+        (workspace/'staged.txt').write_text('OWNED_STAGED_A\n');(workspace/'unstaged.txt').write_text('OWNED_UNSTAGED_A\n');git('add','staged.txt','unstaged.txt');git('commit','--quiet','-m','Owned Git baseline')
+        (workspace/'staged.txt').write_text('OWNED_STAGED_B\n');git('add','staged.txt');(workspace/'unstaged.txt').write_text('OWNED_UNSTAGED_C\n');(workspace/'new.txt').write_text('OWNED_NEW_D\n')
+        if os.environ.get('PREPUBLISH_GIT_STAGED_SNAPSHOT')=='1':(workspace/'staged.txt').write_text('OWNED_STAGED_C\n')
     f.command('openWorkspace',30,workspacePath=str(workspace))
     guards=BASE['Guards'](evidence)
     first=FIRST['FirstRunUi']('file-restored',b.evaluate,b.raw_cdp,guards.guard,budget,guards.claim,guards.auth_started)
@@ -120,7 +129,11 @@ try:
         cold=evidence/('question-cold' if os.environ.get('PREPUBLISH_QUESTION_HISTORY')=='1' else 'project-cold');cold.mkdir(mode=0o700)
         b=HarnessBridge(launch['cdpPort'],evidence=cold);f.command('openWorkspace',30,workspacePath=str(workspace))
         return b
-    if os.environ.get('PREPUBLISH_PLAN_APPROVAL')=='1':
+    if os.environ.get('PREPUBLISH_GIT_COMMIT')=='1':
+        assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_PLAN_APPROVAL','PREPUBLISH_QUESTIONS','PREPUBLISH_PERMISSION_PROJECT','PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
+        runpy.run_path(str(ROOT/'scripts/tests/prepublish-git-commit-case.py'))['run_git_case'](
+            bridge=b,click=click,until=until,proof=proof,send=send,baseline=baseline,meta=meta,workspace=workspace,evidence=evidence,result=result,budget=budget)
+    elif os.environ.get('PREPUBLISH_PLAN_APPROVAL')=='1':
         assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_QUESTIONS','PREPUBLISH_PERMISSION_PROJECT','PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
         assert os.environ.get('PREPUBLISH_PLAN_DECLINE')!='1' or os.environ.get('PREPUBLISH_PLAN_DETAIL_ONLY')!='1'
         runpy.run_path(str(ROOT/('scripts/tests/prepublish-plan-decline-case.py' if os.environ.get('PREPUBLISH_PLAN_DECLINE')=='1' else 'scripts/tests/prepublish-plan-approval-case.py')))['run_plan_case'](

@@ -1,5 +1,7 @@
 # 编译发布前联动测试进展
 
+> 最新[原Git生成/取消/提交](prepublish-git-commit-test-2026-10-21.md)：v58已暂存scope真实入模/取消不改库具名阶段通过，原整体设施失败保留；v59仅补原手写stagedOnly与剩余文件生成提交，最终两条真实commit/clean/reload零重放。另[v60同文件暂存B/工作C](prepublish-git-staged-snapshot-test-2026-10-21.md)通过，实际commit B且C/其他文件保持。五轮资源闭合，无产品新增缺陷；未重跑已通过生成/取消阶段。
+
 > 最新[计划忽略停轮与后续恢复](prepublish-plan-decline-test-2026-10-21.md)：v55原忽略后保持计划状态/无自行改写/无文件；原新用户输入才重启审批，批准B写入，旧拒绝与其他成员保持，最终5笔110Credit。v54夹具识别system-reminder失败保留，未改产品；两轮资源独立闭合。
 
 > 本批最终环境核对：常用3000端口无进程，按原.env启动源码后端后health 200/status ok；没有修改配置/主库或把此现象认定为产品根因。隔离测试进程仍全部关闭，常用后端保留运行。见[恢复收据](../evidence/prepublish-continuation-20261021/local-backend-restored.json)。
