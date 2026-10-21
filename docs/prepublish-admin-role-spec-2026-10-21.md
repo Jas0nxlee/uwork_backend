@@ -1,0 +1,7 @@
+# 原页面角色降级与权限消费者
+
+独立roles模式。控制器经真实owner HTTP创建合成admin并作为原浏览器登录人，打开原模型编辑表单。owner经真实PATCH将其降级auditor；不刷新原表单直接保存应403、弹框可见错误可取消，模型/资源审计/账本不得变化，浏览器仍使用原cookie会话。
+
+reload后原profile角色auditor，模型/成员列表可读，Collection不得提供新建/编辑/删除或企微绑定操作，客户端定制fieldset禁用。原企业修改表单提交应由原后台拒绝403，企业信息不变；凭据页读取403，不能取得Vault元数据。
+
+owner改operator后reload，原分类新建应成功并产生对应操作者审计；模型可读，成员/密钥的权限仍由原后台identity/vault门禁决定。最后owner改member后原reload显示无管理权限，点击多类原导航也不请求租户管理接口。账号始终同一user/tenant，不重新登录、不伪造浏览器角色/store/API响应，不改业务表。无模型供应商调用或计费，无外部集成。

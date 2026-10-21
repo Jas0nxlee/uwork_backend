@@ -39,6 +39,8 @@ const uiDrivers: Record<string, string> = {
   enterprise: "admin-enterprise-ui.py",
   telemetry: "admin-telemetry-ui.py",
   export: "admin-export-ui.py",
+  roles: "admin-role-ui.py",
+  viewport: "admin-viewport-ui.py",
 };
 assert.ok(
   Object.hasOwn(uiDrivers, scenario),
@@ -353,6 +355,7 @@ try {
     modelId: model.id,
     credentialId: credential.id,
     modelBaseUrl: `http://127.0.0.1:${providerPort}/v1`,
+    ...(scenario === "viewport" ? { viewportEvidence: evidence } : {}),
     ...(scenario === "credentials"
       ? {
           keyInitial: supplierSecret,
@@ -387,7 +390,33 @@ try {
     stages.push(receipt);
     return receipt;
   };
-  if (scenario === "export") {
+  if (scenario === "viewport") {
+    const { runAdminViewportCase } = await import("./admin-viewport-case.js");
+    await runAdminViewportCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "roles") {
+    const { runAdminRoleCase } = await import("./admin-role-case.js");
+    await runAdminRoleCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "export") {
     const { runAdminExportCase } = await import("./admin-export-case.js");
     await runAdminExportCase({
       app,
