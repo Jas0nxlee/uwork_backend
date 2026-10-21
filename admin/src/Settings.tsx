@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Save, RefreshCw, Plus, KeyRound } from "lucide-react";
 import { api, display, type Row } from "./api";
 import { FormDialog, Modal, type Field } from "./forms";
@@ -22,34 +22,55 @@ export function Settings({
     [detail, setDetail] = useState<unknown>(null),
     [retention, setRetention] = useState<Row>({}),
     [limits, setLimits] = useState<Row[]>([]);
+  const mounted = useRef(false);
+  const requestGeneration = useRef(0);
   async function load() {
+    if (!mounted.current) return;
+    const generation = ++requestGeneration.current;
+    const current = () =>
+      mounted.current && generation === requestGeneration.current;
     try {
       if (view === "enterprise") {
         const enterprise = await api<Row>(base);
         const settings = JSON.parse(String(enterprise.settings ?? "{}")) as Row;
+        const nextRetention = await api<Row>(`${base}/retention`);
+        if (!current()) return;
         setData({ ...enterprise, contact: settings.contact ?? "" });
-        setRetention(await api<Row>(`${base}/retention`));
-      } else if (view === "integrations")
-        setData(await api<Row>(`${base}/integrations`));
-      else {
-        setData(await api<Row>(`${base}/subscription`));
-        setLimits(await api<Row[]>(`${base}/limits`));
+        setRetention(nextRetention);
+      } else if (view === "integrations") {
+        const next = await api<Row>(`${base}/integrations`);
+        if (!current()) return;
+        setData(next);
+      } else {
+        const next = await api<Row>(`${base}/subscription`);
+        const nextLimits = await api<Row[]>(`${base}/limits`);
+        // 晚到旧读曾把已删除限量重新显示；同一代成对读取完整后才交给当前视图。
+        if (!current()) return;
+        setData(next);
+        setLimits(nextLimits);
       }
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      if (current()) setError(e instanceof Error ? e.message : "加载失败");
     }
   }
   useEffect(() => {
+    mounted.current = true;
     void load();
+    return () => {
+      mounted.current = false;
+      requestGeneration.current++;
+    };
   }, [view, base]);
   const perform = async (fn: () => Promise<unknown>, msg: string) => {
     try {
       await fn();
+      if (!mounted.current) return;
       notify(msg);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "操作失败");
+      if (mounted.current)
+        setError(e instanceof Error ? e.message : "操作失败");
     }
   };
   function open(
@@ -64,6 +85,7 @@ export function Settings({
       fields,
       submit: async (d) => {
         await api(path, method, transform(d));
+        if (!mounted.current) return;
         notify("已保存");
         await load();
       },

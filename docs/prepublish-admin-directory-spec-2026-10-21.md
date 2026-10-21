@@ -1,0 +1,7 @@
+# 原部门/成员席位页面到真实身份与Gateway
+
+独立directory模式，不运行旧模型/任务/策略/资产场景。原页面创建本地部门和该部门下无席位合成成员；新成员真实密码登录后completion403 NO_SEAT，ledger/supplier0。原成员编辑分配席位后原token可调用并结算14Credit归属该member/department；原撤席位即时403且不增账。原停用成员使原token401 SESSION_EXPIRED；原恢复active并分配seat后旧token仍401，新真实登录可调用再结算14。
+
+原部门编辑更名，member me实时投影新名称，部门id与既有账本归属保持。原删除被占用部门应409 DEPARTMENT_IN_USE且记录不变；原成员编辑清空部门后，me部门为空，原部门删除/reload消失，既有两条ledger原行保持。
+
+仅使用合成成员/私有SQLite/原FormDialog和真实HTTP，controller以独立member token验证消费者，不注入浏览器身份或业务表。密码只在私有控制文件/内存中，输出不含密码/token。只测原可达UI操作及对应后台事实；原owner及model资源保持，所有私有进程/端口/根关闭后通过。

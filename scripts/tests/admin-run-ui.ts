@@ -31,6 +31,9 @@ const uiDrivers: Record<string, string> = {
   runtime: "admin-runtime-ui.py",
   policy: "admin-policy-ui.py",
   assets: "admin-assets-ui.py",
+  directory: "admin-directory-ui.py",
+  limits: "admin-limits-ui.py",
+  "settings-race": "admin-settings-race-ui.py",
 };
 assert.ok(
   Object.hasOwn(uiDrivers, scenario),
@@ -120,6 +123,10 @@ let releaseDeleteReply: (() => void) | undefined;
 const deleteReplyGate = new Promise<void>((resolve) => {
   releaseDeleteReply = resolve;
 });
+let releaseReadReply: (() => void) | undefined;
+const oldReadGate = new Promise<void>((resolve) => {
+  releaseReadReply = resolve;
+});
 const facts: Row = {
   status: "failed",
   worker: true,
@@ -164,6 +171,45 @@ try {
     logger: false,
   });
   app.addHook("onSend", async (req, reply, payload) => {
+    if (
+      scenario === "settings-race" &&
+      req.headers["x-owned-test-source"] !== "controller"
+    ) {
+      if (req.routeOptions.url?.includes("/limits")) {
+        const records = (facts.limitIo ??= []) as Row[];
+        records.push({
+          method: req.method,
+          route: req.routeOptions.url,
+          params: req.params,
+          status: reply.statusCode,
+          rows:
+            req.method === "GET" && typeof payload === "string"
+              ? JSON.parse(payload)
+              : undefined,
+        });
+      }
+      if (
+        req.method === "DELETE" &&
+        req.routeOptions.url === "/api/tenants/:tenantId/limits/:type/:id" &&
+        (req.params as Row).type === "member" &&
+        reply.statusCode === 204
+      )
+        facts.memberLimitRemoved = true;
+      if (
+        req.method === "GET" &&
+        req.routeOptions.url === "/api/tenants/:tenantId/limits" &&
+        facts.memberLimitRemoved &&
+        !facts.heldLimitReadReady
+      ) {
+        facts.heldLimitReadReady = true;
+        facts.heldLimitSnapshot =
+          typeof payload === "string" ? JSON.parse(payload) : "non-json";
+        reply.raw.once("finish", () => {
+          facts.heldLimitReadFinished = true;
+        });
+        await oldReadGate;
+      }
+    }
     if (typeof payload === "string" && payload.includes(supplierSecret))
       facts.responseLeakedSupplierSecret = true;
     if (
@@ -299,7 +345,49 @@ try {
     stages.push(receipt);
     return receipt;
   };
-  if (scenario === "policy") {
+  if (scenario === "settings-race") {
+    const { runAdminSettingsRaceCase } = await import(
+      "./admin-settings-race-case.js"
+    );
+    await runAdminSettingsRaceCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+      releaseReadReply: () => releaseReadReply!(),
+    });
+  } else if (scenario === "limits") {
+    const { runAdminLimitsCase } = await import("./admin-limits-case.js");
+    await runAdminLimitsCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "directory") {
+    const { runAdminDirectoryCase } = await import("./admin-directory-case.js");
+    await runAdminDirectoryCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "policy") {
     const { runAdminPolicyCase } = await import("./admin-policy-case.js");
     await runAdminPolicyCase({
       app,
@@ -697,6 +785,11 @@ try {
       : { kind: error instanceof Error ? error.name : "unknown" };
 } finally {
   releaseDeleteReply?.();
+  releaseReadReply?.();
+  if (scenario === "settings-race" && app)
+    facts.backendLimitRowsAtFinish = app.services.db.all<Row>(
+      "SELECT subject_type,subject_id,amount FROM limits",
+    );
   facts.traffic = traffic;
   facts.browserCleanup = await browser?.close();
   if (browser && !(facts.browserCleanup as Row)?.fullyClosed)
