@@ -104,12 +104,12 @@ interface ScrollAlignment {
   inline: "center" | "end" | "nearest" | "start";
 }
 
-const POINTER_SCROLL_ALIGNMENTS: readonly ScrollAlignment[] = [
+const POINTER_SCROLL_ALIGNMENTS = [
   { block: "center", inline: "center" },
   { block: "end", inline: "end" },
   { block: "start", inline: "start" },
   { block: "nearest", inline: "nearest" },
-];
+] as const satisfies readonly ScrollAlignment[];
 
 type ActionProbeExecution =
   | { kind: "done"; value: ActionProbe }
@@ -319,7 +319,8 @@ class IabPlaywrightLocatorSession {
             scrollAlignment:
               action.force === true
                 ? POINTER_SCROLL_ALIGNMENTS[0]
-                : POINTER_SCROLL_ALIGNMENTS[pointerAttempt % POINTER_SCROLL_ALIGNMENTS.length],
+                : (POINTER_SCROLL_ALIGNMENTS[pointerAttempt % POINTER_SCROLL_ALIGNMENTS.length] ??
+                  POINTER_SCROLL_ALIGNMENTS[0]),
           },
           remaining,
         );

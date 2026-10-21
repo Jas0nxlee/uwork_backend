@@ -1,3 +1,4 @@
+import { setInterval, clearInterval } from "node:timers";
 import type {
   ArmsCustomEventPayload,
   ArmsRumEnv,
@@ -45,12 +46,12 @@ interface RemoteUsageArmsTelemetryConfig {
   sendCustom: (payload: FinalArmsCustomEventPayload) => void;
   e2eController?: FinalArmsCustomEventE2EController | null;
   logger: { warn: (...args: unknown[]) => void };
-  setInterval?: (callback: () => void, delayMs: number) => ReturnType<typeof setInterval>;
-  clearInterval?: (timer: ReturnType<typeof setInterval>) => void;
+  setInterval?: (callback: () => void, delayMs: number) => NodeJS.Timeout;
+  clearInterval?: (timer: NodeJS.Timeout) => void;
 }
 
 let telemetryConfig: RemoteUsageArmsTelemetryConfig | null = null;
-let periodicTimer: ReturnType<typeof setInterval> | null = null;
+let periodicTimer: NodeJS.Timeout | null = null;
 let lastGaugeRendererId: number | null = null;
 
 function buildRemoteConnectResultArmsPayload(params: {
@@ -113,9 +114,12 @@ function buildRemoteDisconnectArmsPayload(params: {
 export function configureRemoteUsageArmsTelemetry(config: RemoteUsageArmsTelemetryConfig): void {
   stopRemoteUsageArmsPeriodicSampling();
   telemetryConfig = config;
-  const schedule = config.setInterval ?? setInterval;
-  periodicTimer = schedule(reportPeriodicGauge, REMOTE_USAGE_GAUGE_INTERVAL_MS);
-  periodicTimer.unref?.();
+  // Main 使用 Node timer；页面回调所需的 DOM lib 不应把句柄推断成浏览器 number。
+  const timer = config.setInterval
+    ? config.setInterval(reportPeriodicGauge, REMOTE_USAGE_GAUGE_INTERVAL_MS)
+    : setInterval<[]>(reportPeriodicGauge, REMOTE_USAGE_GAUGE_INTERVAL_MS);
+  periodicTimer = timer;
+  timer.unref?.();
 }
 
 function dispatchSafely(rendererId: number, payload: ArmsCustomEventPayload): void {

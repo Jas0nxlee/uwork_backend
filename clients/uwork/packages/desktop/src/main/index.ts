@@ -1721,7 +1721,7 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
     initialWindowSize: currentDesktopWindowSize,
     currentApplicationLocale: () => currentApplicationLocale,
     resolveBrowserViewOwner: (webContentsId) =>
-      browserGuestManager.getTabOwnerByWebContentsId(webContentsId),
+      browserGuestManager.getTabOwnerByWebContentsId(webContentsId) ?? undefined,
     persistWindowSize: async (state) => {
       currentDesktopWindowSize = state;
       await mainSettingService.update({ desktopWindowSize: state });
@@ -2177,7 +2177,7 @@ app.whenReady().then(async () => {
   });
 
   const protocolUrl = extractDeepLinkUrlFromArgs(process.argv);
-  if (startupDeepLinkConsumptionGate.shouldHandleReadyProtocolUrl(protocolUrl)) {
+  if (protocolUrl && startupDeepLinkConsumptionGate.shouldHandleReadyProtocolUrl(protocolUrl)) {
     handleDeepLink(protocolUrl, logger, {
       confirmationCopy: resolveExternalWorkspaceConfirmationCopy(),
       isRequestActive: canHandleExternalWorkspaceRequests,

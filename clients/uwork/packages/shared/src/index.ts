@@ -138,6 +138,7 @@ export {
   buildLocalMediaPreviewUrl,
   createOpenInEditorRemoteTarget,
 } from "./platform.js";
+export type { BrowserViewSurfaceScaleMode, WindowControlsOverlayReadyPayload } from "./platform.js";
 export type {
   ArmsCustomEventPayload,
   ConfigureFinalArmsCustomEventE2ERequest,
