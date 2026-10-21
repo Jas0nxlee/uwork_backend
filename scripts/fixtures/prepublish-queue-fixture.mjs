@@ -39,7 +39,7 @@ once(
   `    } else if (c.op === "queueRelease") { queueRelease(); }
     else if (c.op === "queueProof") {
       const facts = {held:queueHeld,modelCalls,modelRequests,
-        ledger:app.services.db.all('SELECT id,user_id,model_id,status,amount,input_tokens,output_tokens FROM ledger WHERE tenant_id=? ORDER BY id',owner.tenantId)};
+        ledger:app.services.db.all('SELECT id,user_id,model_id,status,amount,reserved,input_tokens,output_tokens FROM ledger WHERE tenant_id=? ORDER BY id',owner.tenantId)};
       await writeFile(join(evidence,c.name+'-queue-proof.json'),JSON.stringify(facts,null,2),{mode:0o600,flag:'wx'});
       console.log(JSON.stringify({op:c.op,status:'done',facts:{held:queueHeld,modelCalls}}));return;
     } else if (c.op === "launch") await launch();`,

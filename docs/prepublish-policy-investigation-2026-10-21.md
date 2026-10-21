@@ -39,3 +39,5 @@
 编译后的多系统客户端、外部MCP和网盘继续按用户范围排除；未实现的云/手机入口保留实现边界，不能用模拟对象计为真实通过。整体覆盖仍以具名真实链路为准。
 
 续测最终结果：v24原队列草稿冲突/撤回编辑/物理拖拽排序/reload/实际A→E→D执行及CLI历史、4笔88Credit和另一成员隔离通过，4端口与自有资源关闭。详见[队列续测报告](prepublish-queue-edit-test-2026-10-21.md)。
+
+继续补测：v26原Stop/暂停队列/reload/Resume及实际A→C/CLI持久顺序通过；取消A为原reserved等额uncertain，C与标题2笔settled/44Credit，另一成员保持。详见[停止恢复报告](prepublish-queue-pause-test-2026-10-21.md)。

@@ -93,6 +93,12 @@ try:
     send('PREPUBLISH_QUEUE_C')
     until('(()=>({ok:!!document.querySelector("[data-testid^=v4-queue-item-delete-]")}))()','queued C')
     c=proof('queued-c'); assert c['modelCalls']==a['modelCalls']
+    pause=os.environ.get('PREPUBLISH_QUEUE_PAUSE')=='1'
+    paused_reservation=None
+    if pause:
+        assert os.environ.get('PREPUBLISH_QUEUE_EDIT')!='1' and os.environ.get('PREPUBLISH_QUEUE_REORDER')!='1'
+        paused_reservation=runpy.run_path(str(ROOT/'scripts/tests/prepublish-queue-pause-case.py'))['run_queue_pause_case'](
+            bridge=b,click=click,until=until,proof=proof,queued=c,member=meta['memberId'],result=result)
     drained_marker='PREPUBLISH_QUEUE_C'
     if os.environ.get('PREPUBLISH_QUEUE_EDIT')=='1':
         drained_marker=runpy.run_path(str(ROOT/'scripts/tests/prepublish-queue-edit-case.py'))['run_queue_edit_case'](
@@ -111,29 +117,33 @@ try:
     if os.environ.get('PREPUBLISH_QUEUE_EDIT')=='1':
         assert 'PREPUBLISH_QUEUE_C' not in payload
         assert 'PREPUBLISH_DRAFT_KEEP' not in payload
-    if reorder:
+    if reorder or pause or os.environ.get('PREPUBLISH_QUEUE_EDIT')=='1':
+        expected_inputs=['PREPUBLISH_QUEUE_A', *(['PREPUBLISH_QUEUE_E'] if reorder else []), drained_marker]
         current_inputs=[json.dumps(req['messages'][-1]) for req in done['modelRequests'] if req.get('stream')]
-        assert len(current_inputs)==3
-        assert all(marker in text for marker,text in zip(['PREPUBLISH_QUEUE_A','PREPUBLISH_QUEUE_E',drained_marker],current_inputs))
-    assert all(row['status']=='settled' for row in done['ledger'])
+        assert len(current_inputs)==len(expected_inputs)
+        assert all(marker in text for marker,text in zip(expected_inputs,current_inputs))
+    assert all(row['status']==('uncertain' if paused_reservation and row['id']==paused_reservation['id'] else 'settled') for row in done['ledger'])
+    if paused_reservation:
+        assert next(r for r in done['ledger'] if r['id']==paused_reservation['id'])['amount']==paused_reservation['reserved']
     assert [r for r in done['ledger'] if r['user_id']!=meta['memberId']]==[r for r in baseline['ledger'] if r['user_id']!=meta['memberId']]
     result['checks'].append('real-busy-composer-queue-remove-drain-no-B-dispatch-settled-and-other-member-unchanged')
     assert done['modelCalls']==baseline['modelCalls']+(4 if reorder else 3)
-    assert sum(r['amount'] for r in done['ledger'] if r['user_id']==meta['memberId'])==(88 if reorder else 66)
+    expected_amount=paused_reservation['reserved']+44 if paused_reservation else (88 if reorder else 66)
+    assert sum(r['amount'] for r in done['ledger'] if r['user_id']==meta['memberId'])==expected_amount
     active=until('(()=>{const a=[...document.querySelectorAll("[data-session-id]")].filter(e=>e.getClientRects().length);return {ok:a.length===1,sid:a[0]?.getAttribute("data-session-id")}})()','active task')
     sid=active['sid']; assert sid.startswith('sess_')
     index=Path(meta['home'])/'.uwork/v2/tasks-index.sqlite'
     cli=next(Path(meta['home']).glob('.*/cli/db/db.sqlite'))
-    if reorder:
+    if reorder or pause or os.environ.get('PREPUBLISH_QUEUE_EDIT')=='1':
         with sqlite3.connect(cli.as_uri()+'?mode=ro',uri=True) as db:
             users=[]
             for mid,data in db.execute('SELECT id,data FROM message WHERE session_id=? ORDER BY id',(sid,)):
                 if json.loads(data).get('role')!='user': continue
                 parts=[json.loads(row[0]) for row in db.execute('SELECT data FROM part WHERE session_id=? AND message_id=? ORDER BY id',(sid,mid))]
                 users.append(''.join(part.get('text','') for part in parts if part.get('type')=='text'))
-        assert users==['PREPUBLISH_QUEUE_A','PREPUBLISH_QUEUE_E',drained_marker], users
+        assert users==expected_inputs, users
         (evidence/'queue-executed-inputs.json').write_text(json.dumps(dict(userInputs=users,modelOrderVerified=True),indent=2))
-        result['checks'].append('actual-queued-E-before-D-dispatch-and-CLI-user-history-order')
+        result['checks'].append('actual-queued-dispatch-and-CLI-user-history-order')
     if os.environ.get('PREPUBLISH_FEEDBACK')=='1':
         feedback_target=until('(()=>{const es=[...document.querySelectorAll("[data-testid^=v4-feedback-like-]")].filter(e=>e.getClientRects().length),e=es.at(-1);return {ok:es.length===2,like:e?.getAttribute("data-testid")}})()','two original assistant reactions')
         like_id=feedback_target['like'];dislike_id=like_id.replace('v4-feedback-like-','v4-feedback-dislike-')
