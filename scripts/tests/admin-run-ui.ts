@@ -38,6 +38,7 @@ const uiDrivers: Record<string, string> = {
   categories: "admin-categories-ui.py",
   enterprise: "admin-enterprise-ui.py",
   telemetry: "admin-telemetry-ui.py",
+  export: "admin-export-ui.py",
 };
 assert.ok(
   Object.hasOwn(uiDrivers, scenario),
@@ -247,6 +248,7 @@ try {
       facts.responseLeakedSupplierSecret = true;
     if (
       req.routeOptions.url === "/api/tenants/:tenantId/audit" &&
+      (req.query as Row).format !== "csv" &&
       typeof payload === "string"
     ) {
       const body = JSON.parse(payload) as { items?: Row[] };
@@ -385,7 +387,20 @@ try {
     stages.push(receipt);
     return receipt;
   };
-  if (scenario === "telemetry") {
+  if (scenario === "export") {
+    const { runAdminExportCase } = await import("./admin-export-case.js");
+    await runAdminExportCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "telemetry") {
     const { runAdminTelemetryCase } = await import("./admin-telemetry-case.js");
     await runAdminTelemetryCase({
       app,
