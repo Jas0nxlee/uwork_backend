@@ -16,9 +16,25 @@ export function createGatewayProviderProvisioning(
     managedModels?: readonly UWorkGatewayModelDescriptor[],
     enterpriseSession = false,
     isCurrent?: () => boolean,
+    clearManagedCatalog?: true,
   ): Promise<UcasGatewayProvisioningResult> => {
     await ensureReady();
+    if (clearManagedCatalog && !isCurrent) throw new Error("enterprise_identity_changed");
     if (isCurrent && !isCurrent()) throw new Error("enterprise_identity_changed");
+    if (clearManagedCatalog) {
+      const cleared = await facade.applyUcasGatewayConfig({
+        baseUrl: input.baseUrl,
+        clearManagedCatalog: true,
+        ...(isCurrent ? { isCurrent } : {}),
+      });
+      return {
+        view: cleared.view,
+        apiKeyApplied: false,
+        hasApiKey: false,
+        modelsAdded: 0,
+        modelsSkipped: 0,
+      };
+    }
     await facade.waitForProviderOperations(UCAS_PROVIDER_ID);
     if (isCurrent && !isCurrent()) throw new Error("enterprise_identity_changed");
     // 复用既有唯一Writer原子清旧Key并更新endpoint，不能先发布仍有凭据的中间投影。

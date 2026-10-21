@@ -48,6 +48,35 @@ function initialState(
     : { status: "unavailable", reason: unavailableReason };
 }
 
+/** 明确撤掉的受管目录不能等异步回读；这里只移除旧引用，不替用户选择另一个模型。 */
+function withoutRevokedManagedCatalog(
+  previous: ModelSelectionView,
+  current: ModelSelectionView,
+): ModelSelectionView | null {
+  const managed = previous.providers.find(
+    (provider) =>
+      provider.providerId === "ucas" && provider.config.access?.type === "enterprise-session",
+  );
+  const next = current.providers.find((provider) => provider.providerId === "ucas");
+  if (
+    !managed ||
+    (next && (next.config.access?.type !== "enterprise-session" || next.models.length > 0))
+  )
+    return null;
+  const { preferredSelection, ...retained } = previous;
+  return {
+    ...retained,
+    revision: current.revision,
+    providers: previous.providers.filter((provider) => provider !== managed),
+    ...(preferredSelection && preferredSelection.providerId !== "ucas"
+      ? { preferredSelection }
+      : {}),
+    ...(previous.effectiveSelection?.providerId === "ucas"
+      ? { effectiveSelection: null, selectionIssue: "provider-not-found" as const }
+      : {}),
+  };
+}
+
 /** 订阅明确 Host Service；返回状态在同一次 render 即绑定新 owner，不暴露旧 Host View。 */
 export function useModelSelectionServiceView(
   service: IModelSelectionService | null | undefined,
@@ -153,8 +182,15 @@ export function useModelSelectionServiceView(
     };
     const subscription = normalizedService.onDidChange((candidate) => {
       if (generation !== generationRef.current) return;
+      if (candidate.revision < latestRevision) return;
       if (stableInput === undefined) commit(candidate);
       else {
+        const previous = ownedRef.current.state;
+        const revoked =
+          previous.status === "ready"
+            ? withoutRevokedManagedCatalog(previous.view, candidate)
+            : null;
+        if (revoked) commit(revoked);
         // 公共事件没有某个调用者的原意图；只能用它触发当前输入重读，不能直接接管结果。
         latestRevision = Math.max(latestRevision, candidate.revision);
         read();

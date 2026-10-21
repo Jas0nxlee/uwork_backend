@@ -64,6 +64,7 @@ export interface UcasGatewayProvisioningInput {
 
 /** 只供Host私有Symbol端口消费；公开个人配置方法不读取该字段。 */
 export interface TrustedUcasGatewayProvisioningInput extends UcasGatewayProvisioningInput {
+  readonly clearManagedCatalog?: true;
   readonly managedModels?: readonly UWorkGatewayModelDescriptor[];
   readonly authMode?: "enterprise-session";
   readonly isCurrent?: () => boolean;
@@ -257,7 +258,10 @@ export function createProviderSettingsService(
     setUcasApiKeyIfMissing: (apiKey) => personal(() => facade.setUcasApiKeyIfMissing(apiKey)),
     applyUcasGatewayProvisioning: (input) =>
       personal(() => {
-        if (Object.hasOwn(input, "enterpriseModelNames"))
+        if (
+          Object.hasOwn(input, "enterpriseModelNames") ||
+          Object.hasOwn(input, "clearManagedCatalog")
+        )
           throw new Error("enterprise_session_private_only");
         return applyGatewayProvisioning(input);
       }),
@@ -268,6 +272,7 @@ export function createProviderSettingsService(
         input.managedModels,
         input.authMode === "enterprise-session",
         input.isCurrent,
+        input.clearManagedCatalog,
       ),
     deletePersonalProvider: (providerId) =>
       personal(() => facade.deletePersonalProvider(providerId)),
@@ -336,6 +341,7 @@ export function createModelSelectionService(
   facade: ModelSelectionFacade,
   ensureReady: () => Promise<void> = async () => {},
   configuredDefaultSource?: ModelSelectionConfiguredDefaultSource,
+  onDidInvalidateManagedCatalog?: (listener: () => void) => () => void,
 ): IModelSelectionService & { dispose(): void } {
   const log = createServiceLogger("model-selection");
   let revision = 0;
@@ -369,6 +375,13 @@ export function createModelSelectionService(
   };
   const disposeFacade = facade.onDidChange(emit);
   const disposeConfiguredDefault = configuredDefaultSource?.onDidChange?.(emit);
+  const disposeInvalidation = onDidInvalidateManagedCatalog?.(() => {
+    if (disposed) return;
+    // 明确撤销先同步发当前候选；不能等待磁盘默认偏好读完才撤掉旧ready。
+    revision += 1;
+    const { preferredSelection: _preferred, ...current } = facade.getView(undefined, revision);
+    for (const listener of listeners) listener(current);
+  });
 
   return {
     onDidChange: (listener) => {
@@ -381,6 +394,7 @@ export function createModelSelectionService(
       disposed = true;
       disposeFacade();
       disposeConfiguredDefault?.();
+      disposeInvalidation?.();
       listeners.clear();
     },
   };

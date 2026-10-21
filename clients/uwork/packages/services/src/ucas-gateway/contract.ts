@@ -51,6 +51,8 @@ export interface UWorkGatewayModelDescriptor {
 export interface UcasGatewayProvisioningTarget {
   apply(input: {
     readonly baseUrl: string;
+    /** Host私有撤销命令，不经string RPC；只清当前受管候选。 */
+    readonly clearManagedCatalog?: true;
     readonly authMode?: "enterprise-session";
     /** 既有身份lease的只读准入检查，仅Host私有端口传递，不写盘。 */
     readonly isCurrent?: () => boolean;

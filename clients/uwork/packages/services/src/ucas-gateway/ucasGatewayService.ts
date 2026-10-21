@@ -1,8 +1,14 @@
 import {
   createGatewayProjectionAdmission,
+  createGatewayReadOperation,
   type GatewayProjectionScope,
 } from "./gatewayProjectionAdmission.js";
 import { Emitter } from "@zcode/rpc";
+import {
+  createGatewayCatalogLifecycle,
+  gatewayCatalogAuthority,
+  type GatewayCatalogLifecycleAuthority,
+} from "./gatewayCatalogLifecycle.js";
 import {
   ucasGatewayViewSchema,
   type UcasGatewayError,
@@ -11,7 +17,6 @@ import {
   type UcasGatewayView,
 } from "@zcode/shared";
 import type { IUcasGatewayService, UcasGatewayProvisioningTarget } from "./contract.js";
-import { type UcasGatewayClient } from "./ucasGatewayClient.js";
 import type { UcasGatewayStore } from "./ucasGatewayStore.js";
 import {
   createGatewayIdentityScopeFactory,
@@ -35,7 +40,6 @@ import {
   initialGatewayView,
   hydratedGatewayProjection,
   failedGatewayProjection,
-  recoveredGatewayProjection,
   refreshedUsageProjection,
   committedGatewayResult,
   readyGatewayProjection,
@@ -55,7 +59,11 @@ export interface UcasGatewayServiceOptions extends GatewayIdentitySource {
 
 export function createUcasGatewayService(
   options: UcasGatewayServiceOptions,
-): IUcasGatewayService & { dispose(): void; disposeAll(): void } {
+): IUcasGatewayService & {
+  dispose(): void;
+  disposeAll(): void;
+  readonly [gatewayCatalogAuthority]: GatewayCatalogLifecycleAuthority;
+} {
   const log = createServiceLogger("ucas-gateway");
   const now = options.now ?? Date.now;
   const changed = new Emitter<UcasGatewayView>();
@@ -120,6 +128,7 @@ export function createUcasGatewayService(
         !!managed,
       ),
     );
+    catalog.notify();
   };
   const admission = createGatewayProjectionAdmission({
     provisioning: options.provisioning,
@@ -128,8 +137,19 @@ export function createUcasGatewayService(
     onRejection: () => {
       usageSerial++;
       projectedScope = null;
+      catalog.notify();
     },
     onClearFailure: () => log.warn(undefined, "Rejected Gateway candidates could not be cleared"),
+  });
+  const catalog = createGatewayCatalogLifecycle({
+    ...options,
+    isProjectedCurrent: () => !!projectedScope?.managed && projectedScope.isCurrent(),
+    hasManagedProjection: () => !!projectedScope?.managed || view.authMode === "enterprise-session",
+    invalidateProjection: () => clearIdentityProjection(),
+    advance: () => admission.advance(),
+    isCurrentGeneration: (generation) => admission.isCurrent(generation),
+    onClearFailure: () =>
+      log.warn(undefined, "Revoked managed Gateway catalog could not be cleared"),
   });
   const runSync = async (reason: string, generation: number): Promise<UcasGatewaySyncResult> => {
     await hydrate();
@@ -151,6 +171,7 @@ export function createUcasGatewayService(
     let scope: GatewayProjectionScope | undefined;
     try {
       scope = admission.bind(createScope(session, apiBaseUrl, backend), generation);
+      catalog.watch(scope);
       await admission.prepare(scope, projectedScope, view.endpoint?.baseUrl, apiBaseUrl);
       const client = createScopedGatewayClient(options, session, apiBaseUrl, backend, scope);
       const user = await client.readProfile();
@@ -200,6 +221,7 @@ export function createUcasGatewayService(
       await scope.assertCurrent();
       if (!scope.isCurrent()) return signedOutResult();
       projectedScope = scope.identityScope;
+      catalog.notify();
       publish(
         readyGatewayProjection(
           view,
@@ -239,46 +261,23 @@ export function createUcasGatewayService(
     void task.then(cleanup, cleanup);
     return task;
   };
-  const withSession = async (
-    operation: (client: UcasGatewayClient, scope: GatewayProjectionScope) => Promise<void>,
-    isCurrent: () => boolean = () => true,
-  ): Promise<UcasGatewayView> => {
-    await hydrate();
-    const session = await options.readIdentitySession();
-    const apiBaseUrl = session ? await options.resolveApiBaseUrl() : undefined;
-    if (!session || !apiBaseUrl) {
-      if (!session) {
-        projectedScope = null;
-        clearIdentityProjection();
-      }
-      return structuredClone(view);
-    }
-    const backend = (await options.resolveBackend?.()) ?? "ucas";
-    let scope: GatewayProjectionScope | undefined;
-    try {
-      scope = admission.bind(createScope(session, apiBaseUrl, backend));
-      await scope.assertCurrent();
-      if (
-        scope.managed &&
-        !(await isGatewayProjectionCurrent(projectedScope, view.endpoint?.baseUrl, apiBaseUrl))
-      ) {
-        if (!scope.isCurrent()) throw new Error("Gateway projection admission changed");
-        clearIdentityProjection(scope.identityScope);
-      }
-      const client = createScopedGatewayClient(options, session, apiBaseUrl, backend, scope);
-      await operation(client, scope);
-      await scope.assertCurrent();
-      if (!isCurrent()) return structuredClone(view);
-      if (view.error !== null) publish(recoveredGatewayProjection(view, backend === "uwork"));
-    } catch (error) {
-      if (scope && !scope.isAdmitted()) return structuredClone(view);
-      if (backend === "uwork" && (!scope || !scope.isCurrent())) clearIdentityProjection(scope);
-      else if (isCurrent()) await admission.fail(error, scope, apiBaseUrl, backend, true);
-    }
-    return structuredClone(view);
-  };
+  const withSession = createGatewayReadOperation({
+    source: options,
+    hydrate,
+    readView: () => view,
+    readScope: () => projectedScope,
+    signedOut: () => {
+      projectedScope = null;
+      clearIdentityProjection();
+    },
+    clearProjection: clearIdentityProjection,
+    publish,
+    createScope,
+    admission,
+  });
 
   return {
+    [gatewayCatalogAuthority]: catalog.authority,
     onDidChange: changed.event,
     async getView() {
       await hydrate();
@@ -395,10 +394,12 @@ export function createUcasGatewayService(
     dispose() {
       if (disposed) return;
       disposed = true;
+      catalog.dispose();
       changed.dispose();
     },
     disposeAll() {
       disposed = true;
+      catalog.dispose();
       changed.dispose();
     },
   };

@@ -1,5 +1,12 @@
-import type { GatewayIdentityScope } from "./gatewayIdentityScope.js";
-import { isGatewayProjectionCurrent } from "./gatewayIdentityScope.js";
+import type {
+  GatewayIdentityScope,
+  GatewayIdentitySource,
+  createGatewayIdentityScopeFactory,
+} from "./gatewayIdentityScope.js";
+import { isGatewayProjectionCurrent, createScopedGatewayClient } from "./gatewayIdentityScope.js";
+import type { UcasGatewayClient, UcasGatewayClientOptions } from "./ucasGatewayClient.js";
+import type { UcasGatewayView } from "@zcode/shared";
+import { recoveredGatewayProjection } from "./gatewayViewProjection.js";
 import {
   clearRejectedGatewayCatalog,
   isGatewayAuthorizationRejection,
@@ -10,6 +17,61 @@ import type { UcasGatewayProvisioningTarget } from "./contract.js";
 export interface GatewayProjectionScope extends GatewayIdentityScope {
   readonly identityScope: GatewayIdentityScope;
   isAdmitted(): boolean;
+}
+
+/** 读取仍由原Gateway owner提供当前视图/scope；这里只复用一次操作的准入顺序。 */
+export function createGatewayReadOperation(options: {
+  source: GatewayIdentitySource & Pick<UcasGatewayClientOptions, "fetchImpl" | "timeoutMs">;
+  hydrate(): Promise<void>;
+  readView(): UcasGatewayView;
+  readScope(): GatewayIdentityScope | null;
+  signedOut(): void;
+  clearProjection(scope?: GatewayIdentityScope): void;
+  publish(view: Omit<UcasGatewayView, "revision">): void;
+  createScope: ReturnType<typeof createGatewayIdentityScopeFactory>;
+  admission: ReturnType<typeof createGatewayProjectionAdmission>;
+}) {
+  return async (
+    operation: (client: UcasGatewayClient, scope: GatewayProjectionScope) => Promise<void>,
+    isCurrent: () => boolean = () => true,
+  ): Promise<UcasGatewayView> => {
+    await options.hydrate();
+    const session = await options.source.readIdentitySession();
+    const apiBaseUrl = session ? await options.source.resolveApiBaseUrl() : undefined;
+    if (!session || !apiBaseUrl) {
+      if (!session) options.signedOut();
+      return structuredClone(options.readView());
+    }
+    const backend = (await options.source.resolveBackend?.()) ?? "ucas";
+    let scope: GatewayProjectionScope | undefined;
+    try {
+      scope = options.admission.bind(options.createScope(session, apiBaseUrl, backend));
+      await scope.assertCurrent();
+      if (
+        scope.managed &&
+        !(await isGatewayProjectionCurrent(
+          options.readScope(),
+          options.readView().endpoint?.baseUrl,
+          apiBaseUrl,
+        ))
+      ) {
+        if (!scope.isCurrent()) throw new Error("Gateway projection admission changed");
+        options.clearProjection(scope.identityScope);
+      }
+      const client = createScopedGatewayClient(options.source, session, apiBaseUrl, backend, scope);
+      await operation(client, scope);
+      await scope.assertCurrent();
+      if (!isCurrent()) return structuredClone(options.readView());
+      const view = options.readView();
+      if (view.error !== null)
+        options.publish(recoveredGatewayProjection(view, backend === "uwork"));
+    } catch (error) {
+      if (scope && !scope.isAdmitted()) return structuredClone(options.readView());
+      if (backend === "uwork" && (!scope || !scope.isCurrent())) options.clearProjection(scope);
+      else if (isCurrent()) await options.admission.fail(error, scope, apiBaseUrl, backend, true);
+    }
+    return structuredClone(options.readView());
+  };
 }
 /** Gateway内部投影顺序器；只有数字代次，身份仍全部由原identity lease提供。 */
 export function createGatewayProjectionAdmission(options: {

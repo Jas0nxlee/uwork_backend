@@ -11,12 +11,14 @@ export interface GatewayIdentitySource {
   readIdentitySession(): Promise<EnterpriseIdentitySession | null>;
   /** Host私有端口，只读现有身份owner，不作为Renderer/RPC入口。 */
   readIdentityAuthority?: () => EnterpriseIdentityAuthority | undefined;
+  subscribeIdentityChanges?: (listener: () => void) => { dispose(): void };
   resolveApiBaseUrl(): Promise<string | undefined>;
   resolveBackend?: () => Promise<"ucas" | "uwork">;
 }
 
 export interface GatewayIdentityScope {
   readonly signal?: AbortSignal;
+  readonly issuerOrigin?: string;
   readonly managed: boolean;
   isCurrent(): boolean;
   assertCurrent(): Promise<void>;
@@ -69,6 +71,7 @@ export function createGatewayIdentityScope(
   };
   return {
     managed: true,
+    issuerOrigin: origin,
     signal: initial.signal,
     isCurrent,
     async assertCurrent() {

@@ -27,6 +27,40 @@ flowchart LR
 
 验收：真实磁盘/privateSymbol→Registry→默认选择 7vs1 RED；全新 HOME 私有 Gateway→真实 Registry→默认首次发送，无手选；同 ID 描述刷新、目录收缩/清空/重启/401拒绝后不复活、disabled、legacy/API-key 与个人 Provider 哨兵保持；旧 scope 晚写不能清新目录。测试不调用真实企微、MCP、网盘或付费供应商。
 
+## 退出与换身份时撤销当前托管候选
+
+2026-10-19 原生 RED：A 的原会话退出已由后台返回 204，身份已变为 signed-out，但原模型菜单仍有一个完整、可选且未锁定的 A 模型。没有 B 登录或新增模型/账本调用。这是当前候选失效缺口，不能仅因 Composer 草稿允许保留历史模型而把可选项当作草稿显示。
+
+- Identity 仍唯一拥有会话、generation/revision 与 AbortSignal。Gateway 复用原 projectedScope 和 admission 代次拥有当前目录的有效性；不增加持久授权字段、第二份目录或定时清理。
+- Gateway 原 scope 撤销时先同步撤掉托管目录准入并通知模型读侧，再异步清盘。B 已认证但 B 的完整目录尚未提交时，旧 A 目录仍不可读。普通同步网络故障不等同于身份撤销。
+- 读侧在原 `ProviderRegistryFacadeSource` 上派生同一 snapshot 的 registry，仅当 `providerId=ucas` 且 `config.access.type=enterprise-session` 时检查当前 Gateway 目录 lease。失效时只排除这个 Provider；普通 UCAS/API-key 和其他 Provider 保持原对象引用。默认与 effective selection 继续由原 ModelSelectionFacade 算法计算，不复制选型算法，不修改原 Registry。
+- 明确撤销事件不能被 Hook 的 retained-ready 或已在途的成功回包覆盖。Hook 立即移除旧 View 中已被当前事件撤销的托管 UCAS 候选及其有效选择引用，再通过原服务重读当前输入。普通 IO 刷新失败仍保留原 ready View；草稿、正文、mode、plan、历史选择与默认偏好不因此改写。
+- 清盘仅走原 Host 私有 Gateway→Provider Facade→Repository 锁。只清锁内当前仍为 enterprise-session 的 UCAS `enterpriseModelIds` 与 `enterpriseModelNames`；不改 endpoint、membership、模型规则、顺序、默认偏好或其它 Provider。普通 API-key UCAS 必须原样，无论旧 Gateway 内存曾是什么模式。
+- 清理绑定本次失效的原身份代次、issuer 与 Gateway admission。进入异步工作前及原 Repository 锁内均再查；B 开始新目录操作或提交新目录后，旧 A 成功/失败、旧 clear 均不得盖掉 B。失效 clear 不伪造可执行的登录 scope，清理标记不进入公共 RPC 或配置文件。
+- 清盘失败继续撤销当前托管候选，不允许从 Registry 或 retained-ready 恢复 A。受管 Writer 已准入的事务仍遵守既有无分布式回滚边界；随后的读取和操作必须重新检查当前代次。
+
+```mermaid
+sequenceDiagram
+ participant I as 原 Identity owner
+ participant G as 原 Gateway scope/admission
+ participant V as 原 ModelSelectionFacade/Hook
+ participant W as 原 Provider Writer/Repository 锁
+ I->>G: 原 scope abort / 身份事件
+ G->>G: 撤 projectedScope 并 advance admission
+ G-->>V: 同步撤销托管 UCAS 候选
+ Note over V: 保留其他 Provider 和草稿；旧回包不能恢复 A
+ G->>W: 私有 only-managed clear + isCurrent
+ W->>W: 锁内检查代次和当前 access 类型
+ W-->>G: 仅清 IDs/names 或保守拒绝
+ I->>G: B 认证（尚无 B 目录）
+ Note over G,V: 托管 UCAS 继续不可用
+ G->>W: 原 B 完整同步与 scope guard
+ W-->>G: B IDs/names 原子提交
+ G-->>V: 当前 B lease 与原 Registry 事件
+```
+
+Source 验收先覆盖真实 Identity logout→Gateway→私有 Writer→Registry/Facade，包含持锁 clear、旧 A 迟到结果、B 重认证未提交/已提交、清盘失败、普通 UCAS/API-key 与其他 Provider 哨兵。真实 Hook 覆盖已 ready 后回读被挂起/失败、旧成功晚回与 B 新 View；原普通 IO 失败保留 ready 回归必须继续通过。桌面与手机仍使用各自原 Host 投影/交付，不能用本 Source 测试宣称跨平台或原生已修复；正常同版构建和原模型菜单复测由后续验收独立完成。
+
 ## 全新草稿等待首个目录
 
 空身份启动时，真实 ModelSelectionView 可以先完成读取但候选为空；同一个未提交的 Root draft 此时仍可初始化 mode、正文和界面。登录后 Gateway 的目录发布与认证投影异步到达，不能用“mode 已有合法值”推定它已经拥有明确的模型意图。

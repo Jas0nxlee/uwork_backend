@@ -366,6 +366,7 @@ import {
   type UcasGatewayProvisioningTarget,
 } from "./ucas-gateway/contract.js";
 import { createUcasGatewayService } from "./ucas-gateway/ucasGatewayService.js";
+import { gatewayCatalogAuthority } from "./ucas-gateway/gatewayCatalogLifecycle.js";
 import { createUcasGatewayStore } from "./ucas-gateway/ucasGatewayStore.js";
 import { withFileLock as withEnterpriseIdentityFileLock } from "@zcode/shared/node";
 import { IUsageStatsService } from "./usage-stats/usageStats.js";
@@ -2798,6 +2799,10 @@ export function createLocalServices(options: {
   managedEnterpriseIdentities.set(services, services.get(IEnterpriseIdentityService));
   readEnterpriseAuthority = () =>
     readEnterpriseIdentityAuthority(services.get(IEnterpriseIdentityService));
+  ucasGatewayService[gatewayCatalogAuthority].bindIdentityChanges((listener) =>
+    services.get(IEnterpriseIdentityService).onDidChange(listener),
+  );
+  providerRuntime.bindGatewayCatalogAuthority(ucasGatewayService[gatewayCatalogAuthority]);
   managedEnterpriseModelRelays.set(services, enterpriseModelRelay);
   managedEnterpriseAssets.set(
     services,

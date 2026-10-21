@@ -71,6 +71,8 @@ export interface UcasEndpointSource {
 /** 企业网关写入 UCAS 的入参；`apiKey` 缺省表示只同步 Base URL。 */
 export interface UcasGatewayConfigInput {
   readonly baseUrl: string;
+  /** 私有撤销命令：仅清锁内仍为企业会话的派生候选，不重建连接或覆盖偏好。 */
+  readonly clearManagedCatalog?: true;
   readonly authMode?: "enterprise-session";
   /** 私有Gateway当前目录的派生候选；不是授权，缺省在企业模式中fail closed。 */
   readonly enterpriseModelIds?: readonly string[];
@@ -329,6 +331,8 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
 
   /** 企业网关写入边界：Base URL 采用网关解析值；Key 只在缺失或显式替换时写入，保留其它字段。 */
   applyUcasGatewayConfig(input: UcasGatewayConfigInput): Promise<UcasGatewayConfigApplication> {
+    if (input.clearManagedCatalog && !input.isCurrent)
+      throw new Error("enterprise_identity_changed");
     const baseUrl = normalizeUcasGatewayBaseUrl(input.baseUrl);
     const apiKey = input.apiKey?.trim();
     const enterpriseSession = input.authMode === "enterprise-session";
@@ -352,6 +356,20 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
       // 锁内才是实际写入准入点，旧拒绝结果不能迟到清空新身份的目录。
       if (input.isCurrent && !input.isCurrent()) throw new Error("enterprise_identity_changed");
       const rule = current.providers.getRule(UCAS_PROVIDER_ID);
+      if (input.clearManagedCatalog) {
+        // 退出期间用户可能已切到普通 API-key；撤销旧目录不能把当前连接改回企业模式。
+        if (rule?.config.access?.type !== "enterprise-session") return current;
+        return {
+          providers: current.providers.setRule({
+            ...rule,
+            config: rule.config.overlay(
+              new ProviderConfigValue({ enterpriseModelIds: [], enterpriseModelNames: {} }),
+            ),
+          }),
+          models: current.models,
+          providerOrder: current.providerOrder,
+        };
+      }
       if (rule?.templateId !== UCAS_PROVIDER_TEMPLATE_ID) {
         throw new Error("UCAS 默认供应商不可用");
       }
