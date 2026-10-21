@@ -1,6 +1,6 @@
 # 编译发布前联动测试进展
 
-> 最新[原终端凭据签发及消费](prepublish-admin-device-test-2026-10-21.md)v35通过；[原管理端console门禁](prepublish-admin-console-test-2026-10-21.md)由v36已通过1440/768阶段和v39独立320阶段证明，25页面/11标签每宽度0异常，未重复旧写流程。后续转查未打包客户端退出退订晚于协议销毁告警。
+> 最新[原终端凭据签发及消费](prepublish-admin-device-test-2026-10-21.md)v35通过；[原管理端console门禁](prepublish-admin-console-test-2026-10-21.md)由v36已通过1440/768阶段和v39独立320阶段证明，25页面/11标签每宽度0异常，未重复旧写流程。旧退出退订/Main类型问题经当前源码与历史原始结果核实已修复，不再复跑；下项为原消息编辑重跑后的分支继承和实际后继调用。
 
 > 最新新增见[角色动态权限与320/768视口](prepublish-admin-role-viewport-test-2026-10-21.md)：v32同一原会话角色降级/只读/允许写入/成员无管理消费者通过；v33窄屏原操作通过，v34只补稳定截图。未将HTTP成功替代未采集的console门禁；下一步补原终端凭据UI与console事件。
 
@@ -43,17 +43,21 @@ v2 的失败来自测试选择器将「取消 + esc」整体当按钮文字；v5
 
 这些命令存在重复覆盖，不相加称为独立功能数。前后端默认类型检查通过，Lint 为后端无错误、客户端114条既有警告/0错误；架构0违例，改动文件格式检查通过。正常未打包 Desktop bundle 构建通过；未生成或发布安装包。
 
-## 真实企微
+## 真实企微早期记录（后续正向已通过）
+
+以下60020是早期失败记录。用户更新可信IP后，真实目录API/两次副本同步/原管理端和Vite页面均已通过，当前状态见[企微与批量删除报告](prepublish-sidebar-batch-and-wecom-2026-10-21.md)、[原管理页面报告](prepublish-real-wecom-admin-test-2026-10-21.md)。不得再把旧60020当当前IP未配置。
 
 本轮 gettoken 成功，但 department/list 和 agent/get 返回60020（可信 IP 拒绝），与旧日期的成功证据不能混为当前通过。在主库备份副本执行真实同步，确认502及可信IP指引、失败无身份数据变动，主库保持原样、副本已清除。正常后台的配置匹配、原授权 URL/state、pending claim、取消、取消后拒领、logout及旧会话401均通过。
 
 当前浏览器已有企微管理会话的可见应用列表不包含配置中的应用（AgentId 1000077）；未修改其中其他应用。此前 OAuth 浏览器 URL 曾被自动操作策略拒绝，本轮未换工具绕过；真实授权回调、成员会话及前端企微登录尚未通过。证据：`client-real-wecom-readonly-v5-20261020`、`client-real-wecom-live-config-v4-20261020`、`client-real-wecom-sync-clone-v3-20261020`（目录沿用原脚本日期约束，实际执行日期2026-10-21）。
 
-## 保持开放的工作
+## 当前未完成与已关闭旧项
 
-- Desktop Main 独立 `tsc -p packages/desktop/tsconfig.main.json --noEmit` 实际发现83条错误，涉及24个文件；默认根 typecheck 未包含 Main。原日志保留；保留当前工作树，仅在编译器内存中替换本轮 relay 修改前源码的同配置对照为83→83、新增0。下一步按同一基线逐类修复，不能把默认门禁通过当整个源码检查通过。
-- 真实关闭仍有 tasks-index 退订晚于协议销毁的警告。源码已定位：syncer 的 `disposeAll()` 发起异步退订但不等待，adapter 随后销毁 Agent。需要补充退订完成/迟到 ACK/幂等关闭回归，再修复所有者顺序；不能仅降日志等级。
-- 真实企微可信IP、受策略限制的OAuth成功链路仍开放；旧受拒远程Provider路径不绕过。不存在产品消费者的云/移动能力不伪造为通过。
-- 旧打包平台未完成项已移出本轮验收，历史记录保留。整个自动测试目标仍 active，未宣称全覆盖。
+- Main独立83条诊断已由`44371033`修复，默认typecheck已纳入Main；当时完整门禁通过，参见[续测报告](prepublish-integration-continuation-2026-10-21.md)。不把此旧失败重新标为当前阻塞，也不为核对旧报告重跑已通过套件。
+- tasks-index退订时序已由`5cab2ccb`修复；当前源码有disposeAllAndWait等待active/迟到ACK退订后再退休协议。原v11结果和feedback-and-cleanup-verification均passed，原告警0。不能沿用此前“仍有退订告警”的过期清单。
+- 侧栏重命名/置顶/未读/检索及批量归档删除已在v15/v20通过，置顶重复行由`b52afcc8`修复；基础原assistant Fork已在v20作为合法准备验证，不重复此基础动作的独立验收。
+- 下一项补原消息编辑取消/确认重跑，再从编辑后assistant分支并实际后继调用：已有旧packaged准备spec，不代表未打包UI/CLI/后端实际组合已通过；按用户范围只跑发布前源运行时，不重开多系统安装包验收。
+- 真实企微OAuth成功→成员身份领取仍未验证，受拒页面/原远端综合探针不换工具绕过；这些路径不阻挡其他本地源码联动。外部MCP、网盘和发布后多系统客户端继续排除。
+- 页面加载console门禁现已补25页面/11标签/3宽度；它不自动证明每个写操作的console或所有客户端能力。整个目标仍active。
 
 复跑本轮原 UI：从后端仓库根用全新 `client-native-prepublish-v数字-20261021` profile，运行 `PREPUBLISH_KEYBOARD_CANCEL=1 python3 scripts/tests/prepublish-ui-probe.py <profile>`。当前固定 Node24 与原测试 Electron 沿用已有本机夹具；原页面、生产状态所有者和数据库未替换。

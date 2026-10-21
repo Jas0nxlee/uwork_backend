@@ -22,4 +22,4 @@ v39修正设施：只激活自有headless标签；原菜单关闭后等待right<
 - [v38关闭动画点击诊断](../evidence/admin-run-ui-v38-20261021/browser-console-width-320.log)
 - [最终类型](../evidence/prepublish-continuation-20261021/admin-device-console-final-typecheck.log) / [最终Lint](../evidence/prepublish-continuation-20261021/admin-device-console-final-lint.log)
 
-新profile用`UWORK_ADMIN_UI_CASE=console node --import tsx scripts/tests/admin-run-ui.ts admin-run-ui-v数字-20261021`运行三宽度；仅补某个宽度时设UWORK_CONSOLE_WIDTH=320/768/1440。该证据覆盖上述页面加载与配置标签，不能替代每个写操作的异常验证或客户端Main退出验收。后续继续处理未打包客户端的退出退订告警，整体目标active。
+新profile用`UWORK_ADMIN_UI_CASE=console node --import tsx scripts/tests/admin-run-ui.ts admin-run-ui-v数字-20261021`运行三宽度；仅补某个宽度时设UWORK_CONSOLE_WIDTH=320/768/1440。该证据覆盖上述页面加载与配置标签，不能替代每个写操作的异常验证或客户端Main退出验收。后续核对发现退出退订告警早已由5cab2ccb修复并通过v11，未重复运行该旧场景；下一项转向未打包原消息编辑与分支继承组合。整体目标active。
