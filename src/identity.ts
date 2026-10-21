@@ -242,7 +242,12 @@ export function identityRoutes(
     const actor = authenticate(db, req);
     if (actor.kind !== "session")
       fail(403, "DEVICE_SCOPE", "终端凭据不能切换组织");
-    const { tenantId } = z.object({ tenantId: text }).strict().parse(req.body);
+    const { tenantId, delivery } = z
+      .object({ tenantId: text, delivery: sessionDeliverySchema })
+      .strict()
+      .parse(req.body);
+    // 管理端切组织也只需要 Cookie；先验证同源，拒绝时不能退休已有会话。
+    requireCookieDeliveryOrigin(req, publicUrl, delivery);
     if (
       !db.get(
         "SELECT user_id FROM members WHERE tenant_id=? AND user_id=? AND status='active'",
@@ -258,7 +263,7 @@ export function identityRoutes(
       return issued;
     });
     reply.header("set-cookie", cookie(result.token, 43200));
-    return result;
+    return delivery === "cookie" ? { expiresAt: result.expiresAt } : result;
   });
   app.post("/api/auth/device-tokens", async (req, reply) => {
     const actor = authenticate(db, req);

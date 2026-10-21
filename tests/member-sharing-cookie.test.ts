@@ -85,6 +85,82 @@ function sessionCookie(headers: Record<string, unknown>) {
   return (value as string).split(";")[0]!;
 }
 
+async function switchTarget(f: Awaited<ReturnType<typeof cookieFixture>>) {
+  const other = await bootstrap(f.app.services.db, {
+    name: "Owned switch target",
+    email: "owned-switch@example.test",
+    password: PASSWORD,
+  });
+  f.app.services.db.run(
+    "INSERT INTO members(tenant_id,user_id,role,seat) VALUES(?,?,'member',0)",
+    other.tenantId,
+    f.userId,
+  );
+  return other.tenantId;
+}
+
+test("cookie-only organization switch rotates the session without a JSON bearer", async (t) => {
+  const f = await cookieFixture(t);
+  const tenantId = await switchTarget(f);
+  const old = issueSession(f.app.services.db, f.userId, f.tenantId).token;
+  const response = await f.app.inject({
+    method: "POST",
+    url: "/api/auth/switch",
+    headers: { origin: ORIGIN, cookie: `uwork_session=${old}` },
+    payload: { tenantId, delivery: "cookie" },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  assert.equal("token" in response.json(), false);
+  const cookie = sessionCookie(response.headers);
+  const current = await f.app.inject({
+    url: "/api/auth/me",
+    headers: { cookie },
+  });
+  assert.equal(current.json().tenant.id, tenantId);
+  assert.equal(
+    (
+      await f.app.inject({
+        url: "/api/auth/me",
+        headers: { cookie: `uwork_session=${old}` },
+      })
+    ).statusCode,
+    401,
+  );
+});
+
+test("cookie-only switch without Origin rejects before retiring the old bearer session", async (t) => {
+  const f = await cookieFixture(t);
+  const tenantId = await switchTarget(f);
+  const token = issueSession(f.app.services.db, f.userId, f.tenantId).token;
+  const headers = { authorization: `Bearer ${token}` };
+  const response = await f.app.inject({
+    method: "POST",
+    url: "/api/auth/switch",
+    headers,
+    payload: { tenantId, delivery: "cookie" },
+  });
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.json().error.code, "ORIGIN_REQUIRED");
+  const current = await f.app.inject({ url: "/api/auth/me", headers });
+  assert.equal(current.statusCode, 200);
+  assert.equal(current.json().tenant.id, f.tenantId);
+});
+
+test("Native organization switch retains default token delivery", async (t) => {
+  const f = await cookieFixture(t);
+  const tenantId = await switchTarget(f);
+  const old = issueSession(f.app.services.db, f.userId, f.tenantId).token;
+  const response = await f.app.inject({
+    method: "POST",
+    url: "/api/auth/switch",
+    headers: { authorization: `Bearer ${old}` },
+    payload: { tenantId },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(typeof response.json().token, "string");
+  assert.notEqual(response.json().token, old);
+});
+
 test("cookie-only password login never sends a bearer token in the JSON body", async (t) => {
   const f = await cookieFixture(t);
   const response = await f.app.inject({

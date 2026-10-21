@@ -73,6 +73,8 @@ function App() {
               await api("/api/auth/login", "POST", {
                 email: d.get("email"),
                 password: d.get("password"),
+                // 浏览器只消费 HttpOnly Cookie；缺省 token 模式会多交付一份可读会话令牌。
+                delivery: "cookie",
               });
               setMe(await api<Me>("/api/auth/me"));
             } catch (e) {
@@ -196,6 +198,7 @@ function App() {
                 try {
                   await api("/api/auth/switch", "POST", {
                     tenantId: e.target.value,
+                    delivery: "cookie",
                   });
                   setMe(await api<Me>("/api/auth/me"));
                 } catch (e) {
