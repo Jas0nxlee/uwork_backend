@@ -1,5 +1,7 @@
 # 编译发布前联动测试进展
 
+> 最新[计划忽略停轮与后续恢复](prepublish-plan-decline-test-2026-10-21.md)：v55原忽略后保持计划状态/无自行改写/无文件；原新用户输入才重启审批，批准B写入，旧拒绝与其他成员保持，最终5笔110Credit。v54夹具识别system-reminder失败保留，未改产品；两轮资源独立闭合。
+
 > 本批最终环境核对：常用3000端口无进程，按原.env启动源码后端后health 200/status ok；没有修改配置/主库或把此现象认定为产品根因。隔离测试进程仍全部关闭，常用后端保留运行。见[恢复收据](../evidence/prepublish-continuation-20261021/local-backend-restored.json)。
 
 > 最新[计划审批与详情](prepublish-plan-approval-test-2026-10-21.md)：v52反馈成为真实steer、修订B原默认批准、实际文件与5笔110Credit具名通过；整体在折叠工作组定位处failed保留。v53仅以最小前置补原工作组/计划卡/侧栏/完成刷新，4笔88Credit通过，未重跑反馈阶段。四轮资源独立闭合，无产品新缺陷；纯计划忽略停turn仍另验。

@@ -23,6 +23,7 @@ class Fixture(BASE['Fixture']):
                 UWORK_NATIVE_REWIND_FILES='1' if os.environ.get('PREPUBLISH_REWIND_FILES')=='1' else '0',
                 UWORK_NATIVE_PERMISSION_DENY='1' if os.environ.get('PREPUBLISH_PERMISSION_DENY')=='1' else '0',
                 UWORK_NATIVE_PERMISSION_PROJECT='1' if os.environ.get('PREPUBLISH_PERMISSION_PROJECT')=='1' else '0',
+                UWORK_NATIVE_PLAN_DECLINE='1' if os.environ.get('PREPUBLISH_PLAN_DECLINE')=='1' else '0',
                 UWORK_NATIVE_PLAN_DETAIL='1' if os.environ.get('PREPUBLISH_PLAN_DETAIL_ONLY')=='1' else '0',
                 UWORK_NATIVE_PLAN_APPROVAL='1' if os.environ.get('PREPUBLISH_PLAN_APPROVAL')=='1' else '0',
                 UWORK_NATIVE_QUESTIONS='1' if os.environ.get('PREPUBLISH_QUESTIONS')=='1' else '0',
@@ -121,7 +122,8 @@ try:
         return b
     if os.environ.get('PREPUBLISH_PLAN_APPROVAL')=='1':
         assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_QUESTIONS','PREPUBLISH_PERMISSION_PROJECT','PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
-        runpy.run_path(str(ROOT/'scripts/tests/prepublish-plan-approval-case.py'))['run_plan_case'](
+        assert os.environ.get('PREPUBLISH_PLAN_DECLINE')!='1' or os.environ.get('PREPUBLISH_PLAN_DETAIL_ONLY')!='1'
+        runpy.run_path(str(ROOT/('scripts/tests/prepublish-plan-decline-case.py' if os.environ.get('PREPUBLISH_PLAN_DECLINE')=='1' else 'scripts/tests/prepublish-plan-approval-case.py')))['run_plan_case'](
             bridge=b,click=click,until=until,proof=proof,send=send,baseline=baseline,meta=meta,workspace=workspace,evidence=evidence,result=result,budget=budget)
     elif os.environ.get('PREPUBLISH_QUESTIONS')=='1':
         if os.environ.get('PREPUBLISH_QUESTION_DISMISS')=='1':assert os.environ.get('PREPUBLISH_QUESTION_SKIP')!='1' and os.environ.get('PREPUBLISH_QUESTION_HISTORY')!='1'

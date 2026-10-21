@@ -150,11 +150,11 @@ if (questionEnabled) {
 }
 if (planEnabled) {
   source =
-    'import { createPlanApprovalSupplier } from "./prepublish-plan-approval-supplier.mjs";\n' +
+    'import { createPlanApprovalSupplier } from "./prepublish-plan-approval-supplier.mjs";\nimport { createPlanDeclineSupplier } from "./prepublish-plan-decline-supplier.mjs";\n' +
     source;
   once(
     "const modelRequests = [];",
-    `const modelRequests = [];\nconst planSupplier = createPlanApprovalSupplier({detailOnly: process.env.UWORK_NATIVE_PLAN_DETAIL === "1"});`,
+    `const modelRequests = [];\nconst planSupplier = process.env.UWORK_NATIVE_PLAN_DECLINE === "1" ? createPlanDeclineSupplier() : createPlanApprovalSupplier({detailOnly: process.env.UWORK_NATIVE_PLAN_DETAIL === "1"});`,
   );
   once(
     "  const currentHasTool = body.messages",
