@@ -1,6 +1,6 @@
 # 编译发布前联动测试进展
 
-> 最新状态见[后台自动化/模型管理与确认竞态修复](prepublish-admin-resource-lifecycles-test-2026-10-21.md)：v6/v8新增原页面生命周期通过；v9真实发现确认在途重复DELETE及Esc提前关闭，原Collection/Modal修复后v10同链路通过，18项相关测试和类型/Lint/build通过。未重跑其他已验功能集，整体全覆盖仍未宣称完成。
+> 最新状态见[Runtime/访问策略/资产发布新增联动](prepublish-runtime-policy-assets-test-2026-10-21.md)：v13原页面真实Docker执行/停止/删除，v14策略实际准入，v15审核发布/版本下载均通过；专用Docker环境和自有进程/端口/根已恢复清理。未重跑旧功能集，未把这些新消费者通过概括为全部覆盖。上一轮管理端删除竞态修复及报告保留。
 
 本轮按用户最新范围运行仓库内共享 UI、未打包 Electron/Main/Host/CLI 和真实后台 HTTP/SQLite，不测试发布后的多系统客户端。外部 MCP、网盘不测；受控供应商只证明传输、调度与计量链路，不等于真实外部模型质量或供应商账单。
 

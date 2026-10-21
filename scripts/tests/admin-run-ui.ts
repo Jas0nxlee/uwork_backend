@@ -7,6 +7,12 @@ import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { createApp } from "../../src/app.js";
 import { bootstrap } from "../../src/identity.js";
+import { DockerSandboxDriver } from "../../src/sandbox/docker.js";
+import type {
+  SandboxOwner,
+  SandboxRuntimeRow,
+} from "../../src/sandbox/contract.js";
+import { cleanupSandboxes } from "../sandbox-cleanup.js";
 import {
   OwnedAdminBrowser,
   boundedWait,
@@ -15,14 +21,23 @@ import {
 
 type Row = Record<string, unknown>;
 const scenario = process.env.UWORK_ADMIN_UI_CASE ?? "run";
+const uiDrivers: Record<string, string> = {
+  run: "admin-run-ui.py",
+  evaluation: "admin-run-ui.py",
+  "evaluation-cancel": "admin-run-ui.py",
+  automation: "admin-automation-ui.py",
+  model: "admin-model-ui.py",
+  "delete-pending": "admin-delete-pending-ui.py",
+  runtime: "admin-runtime-ui.py",
+  policy: "admin-policy-ui.py",
+  assets: "admin-assets-ui.py",
+};
 assert.ok(
-  scenario === "run" ||
-    scenario === "evaluation" ||
-    scenario === "evaluation-cancel" ||
-    scenario === "automation" ||
-    scenario === "model" ||
-    scenario === "delete-pending",
+  Object.hasOwn(uiDrivers, scenario),
+  "unsupported original admin UI scenario",
 );
+const uiDriver = uiDrivers[scenario];
+assert.ok(uiDriver, "unsupported original admin UI scenario");
 const profile = process.argv[2];
 assert.ok(profile);
 assert.match(profile, /^admin-run-ui-v\d+-20261021$/);
@@ -97,6 +112,7 @@ const upstream = createServer(async (req, res) => {
 });
 let app: Awaited<ReturnType<typeof createApp>> | undefined;
 let browser: OwnedAdminBrowser | undefined;
+let sandboxDriver: DockerSandboxDriver | undefined;
 let backendPort = 0,
   providerPort = 0;
 let token = "";
@@ -109,6 +125,7 @@ const facts: Row = {
   worker: true,
   syntheticOnly: true,
   scenario,
+  uiDriver,
   stages: [],
 };
 try {
@@ -122,7 +139,23 @@ try {
   );
   const origin = `http://127.0.0.1:${backendPort}`;
   assert.notEqual(backendPort, 3000);
+  if (scenario === "runtime") {
+    assert.equal(
+      process.env.UWORK_OWNED_SANDBOX_SOCKET,
+      "/Users/ljp/.colima/uwork-backend/docker.sock",
+    );
+    assert.match(
+      process.env.UWORK_OWNED_SANDBOX_IMAGE ?? "",
+      /^sha256:[a-f0-9]{64}$/,
+    );
+    sandboxDriver = new DockerSandboxDriver(
+      process.env.UWORK_OWNED_SANDBOX_SOCKET!,
+      process.env.UWORK_OWNED_SANDBOX_IMAGE!,
+    );
+    assert.equal((await sandboxDriver.health()).available, true);
+  }
   app = await createApp({
+    ...(sandboxDriver ? { sandboxDriver } : {}),
     database: join(root, "fixture.sqlite"),
     masterKey: randomBytes(32),
     publicUrl: origin,
@@ -257,15 +290,7 @@ try {
   const stages = facts.stages as Row[];
   const run = async (stage: string) => {
     const receipt = await browser!.run(
-      resolve(
-        scenario === "automation"
-          ? "scripts/tests/admin-automation-ui.py"
-          : scenario === "model"
-            ? "scripts/tests/admin-model-ui.py"
-            : scenario === "delete-pending"
-              ? "scripts/tests/admin-delete-pending-ui.py"
-              : "scripts/tests/admin-run-ui.py",
-      ),
+      resolve("scripts/tests", uiDriver),
       stage,
       {
         UWORK_ADMIN_RUN_CONTROL: controlPath,
@@ -274,7 +299,46 @@ try {
     stages.push(receipt);
     return receipt;
   };
-  if (scenario === "delete-pending") {
+  if (scenario === "policy") {
+    const { runAdminPolicyCase } = await import("./admin-policy-case.js");
+    await runAdminPolicyCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "assets") {
+    const { runAdminAssetsCase } = await import("./admin-assets-case.js");
+    await runAdminAssetsCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "runtime") {
+    const { runAdminRuntimeCase } = await import("./admin-runtime-case.js");
+    await runAdminRuntimeCase({
+      app,
+      prefix,
+      api,
+      run,
+      control,
+      saveControl,
+      supplier,
+      traffic,
+      facts,
+    });
+  } else if (scenario === "delete-pending") {
     const { runAdminDeletePendingCase } = await import(
       "./admin-delete-pending-case.js"
     );
@@ -637,7 +701,31 @@ try {
   facts.browserCleanup = await browser?.close();
   if (browser && !(facts.browserCleanup as Row)?.fullyClosed)
     facts.status = "failed";
+  const sandboxOwners: SandboxOwner[] =
+    sandboxDriver && app
+      ? app.services.db
+          .all<SandboxRuntimeRow>("SELECT * FROM sandbox_runtimes")
+          .map((row) => ({
+            id: row.id,
+            tenantId: row.tenant_id,
+            ownerToken: row.owner_token,
+            expiresAt: row.expires_at,
+          }))
+      : [];
   await app?.close();
+  if (sandboxDriver) {
+    try {
+      await cleanupSandboxes(
+        sandboxDriver,
+        sandboxOwners,
+        join(evidence, "private-recovery"),
+      );
+      facts.sandboxCleanupVerified = true;
+    } catch {
+      facts.sandboxCleanupFailed = true;
+      facts.status = "failed";
+    }
+  }
   upstream.closeAllConnections();
   await new Promise<void>((done) => upstream.close(() => done()));
   facts.backendPortClosed = backendPort ? await portClosed(backendPort) : true;
@@ -646,7 +734,10 @@ try {
     : true;
   if (!facts.backendPortClosed || !facts.providerPortClosed)
     facts.status = "failed";
-  if (!browser || (facts.browserCleanup as Row)?.fullyClosed) {
+  if (
+    (!browser || (facts.browserCleanup as Row)?.fullyClosed) &&
+    !facts.sandboxCleanupFailed
+  ) {
     await rm(root, { recursive: true, force: true });
     facts.privateRootRemoved = true;
   }
