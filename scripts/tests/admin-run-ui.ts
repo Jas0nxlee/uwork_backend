@@ -41,6 +41,8 @@ const uiDrivers: Record<string, string> = {
   export: "admin-export-ui.py",
   roles: "admin-role-ui.py",
   viewport: "admin-viewport-ui.py",
+  device: "admin-device-ui.py",
+  console: "admin-console-ui.py",
 };
 assert.ok(
   Object.hasOwn(uiDrivers, scenario),
@@ -355,6 +357,13 @@ try {
     modelId: model.id,
     credentialId: credential.id,
     modelBaseUrl: `http://127.0.0.1:${providerPort}/v1`,
+    ...(scenario === "console" ? { consoleEvidence: evidence } : {}),
+    ...(scenario === "device"
+      ? {
+          deviceReceiptPath: join(root, "issued-device.json"),
+          deviceEvidence: evidence,
+        }
+      : {}),
     ...(scenario === "viewport" ? { viewportEvidence: evidence } : {}),
     ...(scenario === "credentials"
       ? {
@@ -372,10 +381,12 @@ try {
     evidence,
     name: profile,
     redact: (value) =>
-      [password, ...providerSecrets, token].reduce(
-        (text, secret) => text.replaceAll(secret, "[redacted]"),
-        value,
-      ),
+      [password, ...providerSecrets, token, control.deviceRedactionSecret]
+        .filter(
+          (value): value is string =>
+            typeof value === "string" && value.length > 0,
+        )
+        .reduce((text, secret) => text.replaceAll(secret, "[redacted]"), value),
   });
   await browser.start();
   const stages = facts.stages as Row[];
@@ -390,103 +401,50 @@ try {
     stages.push(receipt);
     return receipt;
   };
-  if (scenario === "viewport") {
+  const casePorts = {
+    app,
+    prefix,
+    api,
+    run,
+    control,
+    saveControl,
+    supplier,
+    traffic,
+    facts,
+  };
+  if (scenario === "console") {
+    const { runAdminConsoleCase } = await import("./admin-console-case.js");
+    await runAdminConsoleCase(casePorts);
+  } else if (scenario === "device") {
+    const { runAdminDeviceCase } = await import("./admin-device-case.js");
+    await runAdminDeviceCase(casePorts);
+  } else if (scenario === "viewport") {
     const { runAdminViewportCase } = await import("./admin-viewport-case.js");
-    await runAdminViewportCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminViewportCase(casePorts);
   } else if (scenario === "roles") {
     const { runAdminRoleCase } = await import("./admin-role-case.js");
-    await runAdminRoleCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminRoleCase(casePorts);
   } else if (scenario === "export") {
     const { runAdminExportCase } = await import("./admin-export-case.js");
-    await runAdminExportCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminExportCase(casePorts);
   } else if (scenario === "telemetry") {
     const { runAdminTelemetryCase } = await import("./admin-telemetry-case.js");
-    await runAdminTelemetryCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminTelemetryCase(casePorts);
   } else if (scenario === "enterprise") {
     const { runAdminEnterpriseCase } = await import(
       "./admin-enterprise-case.js"
     );
-    await runAdminEnterpriseCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminEnterpriseCase(casePorts);
   } else if (scenario === "categories") {
     const { runAdminCategoriesCase } = await import(
       "./admin-categories-case.js"
     );
-    await runAdminCategoriesCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminCategoriesCase(casePorts);
   } else if (scenario === "credentials") {
     const { runAdminCredentialsCase } = await import(
       "./admin-credentials-case.js"
     );
-    await runAdminCredentialsCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminCredentialsCase(casePorts);
   } else if (scenario === "settings-race") {
     const { runAdminSettingsRaceCase } = await import(
       "./admin-settings-race-case.js"
@@ -505,69 +463,19 @@ try {
     });
   } else if (scenario === "limits") {
     const { runAdminLimitsCase } = await import("./admin-limits-case.js");
-    await runAdminLimitsCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminLimitsCase(casePorts);
   } else if (scenario === "directory") {
     const { runAdminDirectoryCase } = await import("./admin-directory-case.js");
-    await runAdminDirectoryCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminDirectoryCase(casePorts);
   } else if (scenario === "policy") {
     const { runAdminPolicyCase } = await import("./admin-policy-case.js");
-    await runAdminPolicyCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminPolicyCase(casePorts);
   } else if (scenario === "assets") {
     const { runAdminAssetsCase } = await import("./admin-assets-case.js");
-    await runAdminAssetsCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminAssetsCase(casePorts);
   } else if (scenario === "runtime") {
     const { runAdminRuntimeCase } = await import("./admin-runtime-case.js");
-    await runAdminRuntimeCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminRuntimeCase(casePorts);
   } else if (scenario === "delete-pending") {
     const { runAdminDeletePendingCase } = await import(
       "./admin-delete-pending-case.js"
@@ -586,32 +494,12 @@ try {
     });
   } else if (scenario === "model") {
     const { runAdminModelCase } = await import("./admin-model-case.js");
-    await runAdminModelCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminModelCase(casePorts);
   } else if (scenario === "automation") {
     const { runAdminAutomationCase } = await import(
       "./admin-automation-case.js"
     );
-    await runAdminAutomationCase({
-      app,
-      prefix,
-      api,
-      run,
-      control,
-      saveControl,
-      supplier,
-      traffic,
-      facts,
-    });
+    await runAdminAutomationCase(casePorts);
   } else if (scenario === "evaluation" || scenario === "evaluation-cancel") {
     await run("create-dataset");
     const datasets = await api(prefix + "/datasets");
