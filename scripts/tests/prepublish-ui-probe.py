@@ -24,6 +24,7 @@ class Fixture(BASE['Fixture']):
                 UWORK_NATIVE_PERMISSION_DENY='1' if os.environ.get('PREPUBLISH_PERMISSION_DENY')=='1' else '0',
                 UWORK_NATIVE_PERMISSION_PROJECT='1' if os.environ.get('PREPUBLISH_PERMISSION_PROJECT')=='1' else '0',
                 UWORK_NATIVE_QUESTIONS='1' if os.environ.get('PREPUBLISH_QUESTIONS')=='1' else '0',
+                UWORK_NATIVE_QUESTION_DISMISS='1' if os.environ.get('PREPUBLISH_QUESTION_DISMISS')=='1' else '0',
                 **(dict(UWORK_NATIVE_OUT_MANIFEST=os.environ['UWORK_NATIVE_OUT_MANIFEST'],UWORK_NATIVE_OUT_CACHE_BASE=str(Path.home()/'.cache/uwork-prepublish-desktop')) if os.environ.get('UWORK_NATIVE_OUT_MANIFEST') else {})),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         threading.Thread(target=self._read, daemon=True).start()
@@ -117,8 +118,9 @@ try:
         b=HarnessBridge(launch['cdpPort'],evidence=cold);f.command('openWorkspace',30,workspacePath=str(workspace))
         return b
     if os.environ.get('PREPUBLISH_QUESTIONS')=='1':
+        if os.environ.get('PREPUBLISH_QUESTION_DISMISS')=='1':assert os.environ.get('PREPUBLISH_QUESTION_SKIP')!='1' and os.environ.get('PREPUBLISH_QUESTION_HISTORY')!='1'
         assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_PERMISSION_PROJECT','PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
-        runpy.run_path(str(ROOT/'scripts/tests/prepublish-question-case.py'))['run_question_case'](
+        runpy.run_path(str(ROOT/('scripts/tests/prepublish-question-dismiss-case.py' if os.environ.get('PREPUBLISH_QUESTION_DISMISS')=='1' else 'scripts/tests/prepublish-question-case.py')))['run_question_case'](
             bridge=b,click=click,until=until,proof=proof,send=send,baseline=baseline,meta=meta,evidence=evidence,result=result,budget=budget,node=NODE,root=ROOT,restart=restart_owned_ui)
     elif os.environ.get('PREPUBLISH_PERMISSION_PROJECT')=='1':
         assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_PERMISSION_DENY','PREPUBLISH_REWIND_FILES','PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])

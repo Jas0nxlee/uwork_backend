@@ -127,11 +127,11 @@ if (permissionEnabled) {
 }
 if (questionEnabled) {
   source =
-    'import { createQuestionSupplier } from "./prepublish-question-supplier.mjs";\n' +
+    'import { createQuestionSupplier } from "./prepublish-question-supplier.mjs";\nimport { createQuestionDismissSupplier } from "./prepublish-question-dismiss-supplier.mjs";\n' +
     source;
   once(
     "const modelRequests = [];",
-    "const modelRequests = [];\nconst questionSupplier = createQuestionSupplier();",
+    `const modelRequests = [];\nconst questionSupplier = process.env.UWORK_NATIVE_QUESTION_DISMISS === "1" ? createQuestionDismissSupplier() : createQuestionSupplier();`,
   );
   once(
     "  const currentHasTool = body.messages",
