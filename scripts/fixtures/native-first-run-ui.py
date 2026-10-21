@@ -10,6 +10,15 @@ CONTROLS = ('skip_login', 'developer', 'next_role', 'coding', 'next_mode', 'fini
 FLAGS = ('startupLoadingVisible', 'onboardingVisible', 'workspaceHeaderVisible', 'loginVisible',
          'waiting', 'entryVisible', 'nameVisible', 'developerSelected', 'codingSelected',
          'memoryUnchecked', 'migrationUnchecked', 'preferencesSafe', 'errorVisible')
+DIAGNOSTIC_CAUSES = frozenset((
+    'ACTION_ALREADY_USED', 'CODING_REQUIRED', 'CONTROL_KEYS', 'CONTROL_NOT_READY',
+    'DEFAULT_FALSE_PREFERENCES_REQUIRED', 'DEVELOPER_REQUIRED', 'EARLIER_FAILURE',
+    'HEADER_AND_ENTRY_REQUIRED', 'MODE_NOT_ALLOWED', 'ONBOARDING_REQUIRED',
+    'OWNED_ROOT_REQUIRED', 'PHASE_NOT_ALLOWED', 'POINT_FLAGS', 'POINT_KEYS', 'POINT_NUMBER',
+    'PRIMARY_PREAUTH_ONLY', 'PRIVACY_LOCK_REQUIRED', 'PUBLIC_BOUND', 'PUBLIC_KEYS',
+    'PUBLIC_STEP', 'PUBLIC_VERSION', 'ROOT_CHANGED_BEFORE_INPUT', 'ROOT_CHANGED_DURING_INPUT',
+    'ROOT_CHANGED_DURING_OBSERVATION', 'UNSTARTED_LOGIN_REQUIRED', 'WRONG_ONBOARDING_STEP',
+))
 
 PUBLIC_DOM = r'''(()=>{
   let invalid=false;
@@ -110,12 +119,15 @@ class FirstRunUi:
             self.__cdp('Input.dispatchMouseEvent', type=kind, x=point['x'], y=point['y'], **extra)
 
     def phase(self, step):
+        stage = 'validate'
         try:
             allowed = PRIMARY_STEPS if self.__mode == 'primary-prelogin' else ONBOARDING_STEPS
             require(step in (*allowed, 'observe'), 'PHASE_NOT_ALLOWED')
+            stage = 'observe'
             value = self._observe()
             if step == 'observe':
                 return {'phase': step, **value}
+            stage = 'validate'
             if step == 'skip_login':
                 require(value['loginVisible'] and not value['waiting'] and not value['nameVisible'], 'UNSTARTED_LOGIN_REQUIRED')
                 target = 'skip_login'
@@ -133,8 +145,19 @@ class FirstRunUi:
                 if step == 'finish':
                     require(value['preferencesSafe'] and value['memoryUnchecked'] and value['migrationUnchecked'], 'DEFAULT_FALSE_PREFERENCES_REQUIRED')
                 target = {'select_developer': 'developer', 'select_coding': 'coding'}.get(step, step)
+            stage = 'input'
             self._take(step, value['epoch'], value['controls'][target])
+            stage = 'result'
             return {'phase': step, 'inputDispatched': True, **self._observe()}
-        except Exception:
+        except Exception as cause:
             self.__stopped = True
-            raise FirstRunUiError('FIRST_RUN_PHASE_FAILED_RAW_DETAILS_WITHHELD') from None
+            # 原实现连本模块固定准入码也吞掉，导致真实设施失败被笼统归类；仅保留枚举，不交付异常原文。
+            code = str(cause).removeprefix('FIRST_RUN_') if type(cause) is FirstRunUiError else ''
+            failure = FirstRunUiError('FIRST_RUN_PHASE_FAILED_RAW_DETAILS_WITHHELD')
+            failure.diagnostic = dict(
+                phase=step if step in (*PRIMARY_STEPS, 'observe') else 'unknown',
+                mode=self.__mode, stage=stage,
+                causeCode=code if code in DIAGNOSTIC_CAUSES else 'UNCLASSIFIED',
+                causeType=type(cause).__name__ if type(cause) in (FirstRunUiError, TimeoutError, ConnectionError, OSError, RuntimeError, ValueError, AssertionError) else 'Exception',
+            )
+            raise failure from None
