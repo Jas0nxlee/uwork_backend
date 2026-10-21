@@ -7,10 +7,12 @@ export function Settings({
   view,
   base,
   notify,
+  onEnterpriseLoaded,
 }: {
   view: string;
   base: string;
   notify: (s: string) => void;
+  onEnterpriseLoaded?: (enterprise: { id: string; name: string }) => void;
 }) {
   const [data, setData] = useState<Row | null>(null),
     [error, setError] = useState(""),
@@ -37,6 +39,11 @@ export function Settings({
         if (!current()) return;
         setData({ ...enterprise, contact: settings.contact ?? "" });
         setRetention(nextRetention);
+        if (
+          typeof enterprise.id === "string" &&
+          typeof enterprise.name === "string"
+        )
+          onEnterpriseLoaded?.({ id: enterprise.id, name: enterprise.name });
       } else if (view === "integrations") {
         const next = await api<Row>(`${base}/integrations`);
         if (!current()) return;

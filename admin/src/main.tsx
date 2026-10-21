@@ -18,13 +18,11 @@ import { views } from "./catalog";
 import { Collection } from "./Collection";
 import { Configuration } from "./forms";
 import { Settings, Overview } from "./Settings";
+import {
+  applyEnterpriseMetadata,
+  type AdminIdentityView as Me,
+} from "./adminIdentityView";
 import "./style.css";
-interface Me {
-  user: { id: string; name: string };
-  tenant: { id: string; name: string };
-  role: string;
-  organizations: { id: string; name: string }[];
-}
 function App() {
   const [me, setMe] = useState<Me | null>(null),
     [checking, setChecking] = useState(true),
@@ -244,6 +242,9 @@ function App() {
               view={view.id}
               base={base}
               notify={setToast}
+              onEnterpriseLoaded={(enterprise) =>
+                setMe((current) => applyEnterpriseMetadata(current, enterprise))
+              }
             />
           ) : (
             <Collection
