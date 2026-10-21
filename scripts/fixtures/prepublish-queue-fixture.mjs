@@ -45,6 +45,17 @@ once(
     } else if (c.op === "launch") await launch();`,
 );
 once("  closing = true;", "  closing = true; queueRelease();");
+// 仅给本轮历史组合的受控普通回复加分支marker，保留原usage和title路径。
+once(
+  "  const output =\n    fileReply?.text ??",
+  `  const historyMarker = body.stream && ['A','E','B'].find(phase => messageText(currentUser).includes('PREPUBLISH_HISTORY_QUERY_'+phase));
+  const output =\n    (historyMarker ? '原生企业资产联动完成。 PREPUBLISH_HISTORY_ANSWER_'+historyMarker : undefined) ??
+    fileReply?.text ??`,
+);
+once(
+  "for (const content of fileReply || workflowActor",
+  "for (const content of historyMarker || fileReply || workflowActor",
+);
 registerHooks({
   load(target, context, next) {
     const result = next(target, context);
