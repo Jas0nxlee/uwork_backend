@@ -131,6 +131,10 @@ try:
         runpy.run_path(str(ROOT/'scripts/tests/prepublish-sidebar-case.py'))['run_sidebar_case'](
             bridge=b,click=click,until=until,proof=proof,baseline=done,sid=sid,index=index,cli=cli,
             workspace=workspace,evidence=evidence,result=result,budget=budget)
+    if os.environ.get('PREPUBLISH_BATCH_DELETE')=='1':
+        runpy.run_path(str(ROOT/'scripts/tests/prepublish-archive-batch-case.py'))['run_archive_batch_case'](
+            bridge=b,click=click,until=until,proof=proof,baseline=done,sid=sid,index=index,cli=cli,
+            workspace=workspace,evidence=evidence,result=result,budget=budget)
     def task_state(stage,archived,deleted):
         with sqlite3.connect(index.as_uri()+'?mode=ro',uri=True) as db:
             db.row_factory=sqlite3.Row
