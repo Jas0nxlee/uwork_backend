@@ -1,6 +1,6 @@
 # 编译发布前联动测试进展
 
-> 最新状态见[策略原始记录调查](prepublish-policy-investigation-2026-10-21.md)与[队列编辑/排序续测](prepublish-queue-edit-test-2026-10-21.md)：已定位CUA选择Chrome时的URL拒绝及远端综合探针回合级cyber_policy，修正“单个Provider同步RPC被拒绝”的无依据概括；修复FirstRun诊断原因丢失，v24新增真实队列编辑/排序/刷新与实际执行顺序通过，[v26停止暂停/刷新/恢复](prepublish-queue-pause-test-2026-10-21.md)也已通过。真实企微管理页面/Vite源码目录链路及309项后端结果见[上一轮报告](prepublish-real-wecom-admin-test-2026-10-21.md)。全覆盖未完成。
+> 最新状态见[新增四类原页面联动](prepublish-new-consumers-test-2026-10-21.md)：队列立即发送抢占、管理端执行/取消/操作日志、原页面数据集与评测评分、评测聚合取消均通过实际请求/持久化/计量和资源闭合复核。未重跑旧全量功能回归。此前策略溯源及队列编辑/排序/暂停报告保留，整体全覆盖仍未宣称完成。
 
 本轮按用户最新范围运行仓库内共享 UI、未打包 Electron/Main/Host/CLI 和真实后台 HTTP/SQLite，不测试发布后的多系统客户端。外部 MCP、网盘不测；受控供应商只证明传输、调度与计量链路，不等于真实外部模型质量或供应商账单。
 

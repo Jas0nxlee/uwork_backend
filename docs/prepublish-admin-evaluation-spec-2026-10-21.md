@@ -1,0 +1,9 @@
+# 原管理页面评测数据集与评分联动
+
+使用独立管理端fixture的evaluation模式，只共享原登录和已发布合成智能体作为前置，不运行普通任务执行/取消用例。从原评测数据集新建表单填写名称与两个exact样本，再从原评测报告表单填写实际agentId/datasetId发起评测。原worker独立推进两条运行，controller不得调用drain/tick。
+
+原页面刷新后应显示succeeded、通过率1、样本2；原详情应包含2/2通过和两个succeeded runId，reload保持。真实供应商必须各收到两个样本标识恰一次，原GET /runs对应解密输出相同，后台仅两笔settled/28Credit，评测/样本内容在SQLite保持加密。必须有浏览器POST /datasets201与POST /evaluations202，原创建审计匹配当前用户和目标。
+
+只使用browser-harness原生Input和DOM只读检查，不注入JSON响应、fetch/store或业务RPC，不访问主实例、企微/远程、MCP、网盘或付费模型。独立case由 `UWORK_ADMIN_UI_CASE=evaluation` 选择，原run模式保持独立。
+
+取消增量以 `UWORK_ADMIN_UI_CASE=evaluation-cancel` 单独选择：仍由原表单创建2样本评测，但本机供应商暂挂两个实际请求。原评测行取消按钮必须使报告cancelled、两条子run均cancelled/CANCELLED并终止两条供应商连接，两个原reserved等额uncertain、无queued/running；刷新报告仍cancelled，不能伪造passRate或把未知费用清零。原审计应有一次evaluation.cancel和两次runtime.cancel。不重跑成功评测。
