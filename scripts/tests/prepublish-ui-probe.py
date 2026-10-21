@@ -103,6 +103,30 @@ try:
     sid=active['sid']; assert sid.startswith('sess_')
     index=Path(meta['home'])/'.uwork/v2/tasks-index.sqlite'
     cli=next(Path(meta['home']).glob('.*/cli/db/db.sqlite'))
+    if os.environ.get('PREPUBLISH_FEEDBACK')=='1':
+        feedback_target=until('(()=>{const es=[...document.querySelectorAll("[data-testid^=v4-feedback-like-]")].filter(e=>e.getClientRects().length),e=es.at(-1);return {ok:es.length===2,like:e?.getAttribute("data-testid")}})()','two original assistant reactions')
+        like_id=feedback_target['like'];dislike_id=like_id.replace('v4-feedback-like-','v4-feedback-dislike-')
+        def feedback_state(stage,expected):
+            expected_json=json.dumps(expected)
+            dom=until('(()=>{const like=document.querySelector('+json.dumps('[data-testid="'+like_id+'"]')+'),dislike=document.querySelector('+json.dumps('[data-testid="'+dislike_id+'"]')+');return{ok:!!like&&!!dislike&&like.getAttribute("aria-pressed")===String('+expected_json+'==="like")&&dislike.getAttribute("aria-pressed")===String('+expected_json+'==="dislike"),like:like?.getAttribute("aria-pressed"),dislike:dislike?.getAttribute("aria-pressed")}})()','feedback '+stage)
+            deadline=time.monotonic()+10
+            while True:
+                with sqlite3.connect(cli.as_uri()+'?mode=ro',uri=True) as db:
+                    rows=db.execute('SELECT id,data FROM message WHERE session_id=? ORDER BY id',(sid,)).fetchall()
+                assistant=[(i,json.loads(d)) for i,d in rows if json.loads(d).get('role')=='assistant']
+                values=[d.get('metadata',{}).get('assistantFeedback') for _,d in assistant]
+                if len(assistant)==2 and values==[None,expected]: break
+                assert time.monotonic()<deadline, ('transcript feedback',values,expected)
+                time.sleep(.1)
+            (evidence/('feedback-'+stage+'.json')).write_text(json.dumps(dict(stage=stage,ui=dom,values=values,messageIds=[i for i,_ in assistant]),indent=2))
+            assert proof('feedback-'+stage)==done
+        feedback_state('baseline',None)
+        for stage,button,value in [('liked',like_id,'like'),('disliked',dislike_id,'dislike'),('cleared',dislike_id,None)]:
+            click('[data-testid="'+button+'"]','assistant feedback '+stage)
+            feedback_state(stage,value)
+            b.raw_cdp('Page.reload')
+            feedback_state(stage+'-reloaded',value)
+        result['checks'].append('original-assistant-like-dislike-clear-persist-across-reload-with-zero-inference')
     def task_state(stage,archived,deleted):
         with sqlite3.connect(index.as_uri()+'?mode=ro',uri=True) as db:
             db.row_factory=sqlite3.Row
