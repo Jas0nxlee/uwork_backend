@@ -17,6 +17,7 @@ let source = readFileSync(new URL(url), "utf8");
 const rewindEnabled = process.env.UWORK_NATIVE_REWIND_FILES === "1";
 const permissionProject = process.env.UWORK_NATIVE_PERMISSION_PROJECT === "1";
 const questionEnabled = process.env.UWORK_NATIVE_QUESTIONS === "1";
+const planEnabled = process.env.UWORK_NATIVE_PLAN_APPROVAL === "1";
 const permissionEnabled =
   process.env.UWORK_NATIVE_PERMISSION_DENY === "1" || permissionProject;
 assert.ok(
@@ -27,6 +28,9 @@ assert.ok(
   "independent file scenarios cannot share a supplier",
 );
 assert.ok(!(questionEnabled && (rewindEnabled || permissionEnabled)));
+assert.ok(
+  !(planEnabled && (rewindEnabled || permissionEnabled || questionEnabled)),
+);
 function once(from, to) {
   assert.equal(source.split(from).length, 2);
   source = source.replace(from, to);
@@ -142,6 +146,25 @@ if (questionEnabled) {
   once(
     "const facts = {held:queueHeld,modelCalls,modelRequests,",
     "const facts = {held:queueHeld,modelCalls,modelRequests,question:questionSupplier.status(),",
+  );
+}
+if (planEnabled) {
+  source =
+    'import { createPlanApprovalSupplier } from "./prepublish-plan-approval-supplier.mjs";\n' +
+    source;
+  once(
+    "const modelRequests = [];",
+    `const modelRequests = [];\nconst planSupplier = createPlanApprovalSupplier({detailOnly: process.env.UWORK_NATIVE_PLAN_DETAIL === "1"});`,
+  );
+  once(
+    "  const currentHasTool = body.messages",
+    `  try { fileReply = planSupplier.reply(body) ?? fileReply; }
+  catch { res.writeHead(400,{'content-type':'application/json'}).end(JSON.stringify({error:'OWNED_PLAN_PROTOCOL'}));return; }
+  const currentHasTool = body.messages`,
+  );
+  once(
+    "const facts = {held:queueHeld,modelCalls,modelRequests,",
+    "const facts = {held:queueHeld,modelCalls,modelRequests,planApproval:planSupplier.status(),",
   );
 }
 if (process.env.UWORK_NATIVE_OUT_MANIFEST) {
