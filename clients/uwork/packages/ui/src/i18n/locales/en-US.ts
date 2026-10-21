@@ -5688,6 +5688,8 @@ const enUS: Record<string, string> = {
   "chat.askQuestion.asked": "Asked",
   "chat.askQuestion.questionsCount": "{count} questions",
   "chat.askQuestion.noAnswerProvided": "No answer provided",
+  "chat.askQuestion.answerUnavailable": "Historical answer unavailable",
+  "chat.askQuestion.retainedSummary": "Original answer summary",
   "chat.askQuestion.autoContinued": "No answer; continued automatically",
   "chat.permission.allowOnce.description": "Allow only this time",
   "chat.permission.allowAlways.description.command": "Do not ask again for the same command",

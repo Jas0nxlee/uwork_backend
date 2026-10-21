@@ -5453,6 +5453,8 @@ const zhCN: Record<string, string> = {
   "chat.askQuestion.asked": "已询问",
   "chat.askQuestion.questionsCount": "{count} 个问题",
   "chat.askQuestion.noAnswerProvided": "未提供回答",
+  "chat.askQuestion.answerUnavailable": "历史回答不可用",
+  "chat.askQuestion.retainedSummary": "原始回答摘要",
   "chat.askQuestion.autoContinued": "未回答，已自动继续",
   "chat.permission.allowOnce.description": "仅允许这一次",
   "chat.permission.allowAlways.description.command": "后续相同命令不再询问",
