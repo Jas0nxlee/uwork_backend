@@ -14,6 +14,7 @@ const url = pathToFileURL(
   resolve("scripts/fixtures/client-native-enterprise.mjs"),
 ).href;
 let source = readFileSync(new URL(url), "utf8");
+const rewindEnabled = process.env.UWORK_NATIVE_REWIND_FILES === "1";
 function once(from, to) {
   assert.equal(source.split(from).length, 2);
   source = source.replace(from, to);
@@ -56,6 +57,47 @@ once(
   "for (const content of fileReply || workflowActor",
   "for (const content of historyMarker || fileReply || workflowActor",
 );
+if (rewindEnabled) {
+  source =
+    'import { createRewindSupplier } from "./prepublish-rewind-supplier.mjs";\n' +
+    source;
+  once(
+    "const modelRequests = [];",
+    "const modelRequests = [];\nconst rewindSupplier = createRewindSupplier(root);",
+  );
+  once(
+    "  const currentHasTool = body.messages",
+    `  try { fileReply = await rewindSupplier.reply(body) ?? fileReply; }
+  catch { res.writeHead(400, {'content-type':'application/json'}).end(JSON.stringify({error:'OWNED_REWIND_PROTOCOL'}));return; }
+  const currentHasTool = body.messages`,
+  );
+  once(
+    "const facts = {held:queueHeld,modelCalls,modelRequests,",
+    "const facts = {held:queueHeld,modelCalls,modelRequests,rewind:rewindSupplier.status(),",
+  );
+  once(
+    '    } else if (c.op === "queueRelease")',
+    `    } else if (c.op === "rewindSetup") {
+      const old=await api(p+'/configurations/security');
+      const saved=await api(p+'/configurations/security','PUT',{revision:old.revision,data:{...old.draft,allowFilesystem:true}});
+      await api(p+'/configurations/security/publish','POST',{revision:saved.revision});
+    } else if (c.op === "queueRelease")`,
+  );
+}
+if (process.env.UWORK_NATIVE_OUT_MANIFEST) {
+  source =
+    'import { loadOwnedDesktopInput } from "./owned-desktop-input.mjs";\n' +
+    source;
+  once(
+    'const outSnapshot = await copyNativeOutSnapshot({\n  source: join(client, "packages/desktop/out"),',
+    `const frozenOut = await loadOwnedDesktopInput({repository:process.cwd(),manifestPath:process.env.UWORK_NATIVE_OUT_MANIFEST,cacheBase:process.env.UWORK_NATIVE_OUT_CACHE_BASE});
+const outSnapshot = await copyNativeOutSnapshot({\n  source: frozenOut.source,`,
+  );
+  once(
+    'await writeFile(\n  join(evidence, "native-out-snapshot.json"),',
+    'await frozenOut.verify(outSnapshot);\nawait writeFile(\n  join(evidence, "native-out-snapshot.json"),',
+  );
+}
 registerHooks({
   load(target, context, next) {
     const result = next(target, context);

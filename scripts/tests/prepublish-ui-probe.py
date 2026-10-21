@@ -19,7 +19,9 @@ class Fixture(BASE['Fixture']):
         self.child = subprocess.Popen([NODE, '--import', 'tsx', 'scripts/fixtures/prepublish-queue-fixture.mjs'],
             cwd=ROOT, env=dict(PATH=str(Path(NODE).parent)+':/usr/bin:/bin:/usr/sbin:/sbin',
                 HOME=str(evidence/'home'), TMPDIR=str(evidence/'tmp'), UWORK_NATIVE_FIXTURE_NAME=profile,
-                UWORK_NATIVE_CLIENT_EXPERIENCE='enabled'),
+                UWORK_NATIVE_CLIENT_EXPERIENCE='enabled',
+                UWORK_NATIVE_REWIND_FILES='1' if os.environ.get('PREPUBLISH_REWIND_FILES')=='1' else '0',
+                **(dict(UWORK_NATIVE_OUT_MANIFEST=os.environ['UWORK_NATIVE_OUT_MANIFEST'],UWORK_NATIVE_OUT_CACHE_BASE=str(Path.home()/'.cache/uwork-prepublish-desktop')) if os.environ.get('UWORK_NATIVE_OUT_MANIFEST') else {})),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         threading.Thread(target=self._read, daemon=True).start()
         threading.Thread(target=self._drain_stderr, daemon=True).start()
@@ -66,12 +68,18 @@ def proof(name):
 try:
     f=Fixture()
     f.wait_event(lambda e:e.get('event')=='ready',60,'fixture ready')
+    if os.environ.get('PREPUBLISH_REWIND_FILES')=='1':f.command('rewindSetup')
     f.command('launch',30)
     launch=f.wait_event(lambda e:e.get('event')=='launched',5,'launched')
     b=HarnessBridge(launch['cdpPort'],evidence=evidence)
     meta=json.loads((evidence/'desktop-state.json').read_text())
     workspace=Path(meta['root'])/'prepublish-workspace'; workspace.mkdir()
     subprocess.run(['/usr/bin/git','init','--quiet',str(workspace)],check=True)
+    if os.environ.get('PREPUBLISH_REWIND_FILES')=='1':
+        (workspace/'owned-rewind.txt').write_text('OWNED_REWIND_INITIAL\n第二行保持\n')
+        git_env={**os.environ,'GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
+        subprocess.run(['/usr/bin/git','-C',str(workspace),'add','owned-rewind.txt'],env=git_env,check=True)
+        subprocess.run(['/usr/bin/git','-C',str(workspace),'-c','user.name=Owned rewind','-c','user.email=owned-rewind@example.test','-c','commit.gpgsign=false','commit','--quiet','-m','Owned rewind baseline'],env=git_env,check=True)
     f.command('openWorkspace',30,workspacePath=str(workspace))
     guards=BASE['Guards'](evidence)
     first=FIRST['FirstRunUi']('file-restored',b.evaluate,b.raw_cdp,guards.guard,budget,guards.claim,guards.auth_started)
@@ -82,7 +90,12 @@ try:
     until('(()=>({ok:!!document.querySelector("[data-testid=enterprise-identity-name]")}))()','restored identity')
     result['checks'].append('fresh-shared-ui-original-onboarding-and-restored-test-identity')
     baseline=proof('baseline')
-    if os.environ.get('PREPUBLISH_HISTORY')=='1':
+    if os.environ.get('PREPUBLISH_REWIND_FILES')=='1':
+        assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_HISTORY','PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
+        runpy.run_path(str(ROOT/'scripts/tests/prepublish-rewind-case.py'))['run_rewind_case'](
+            bridge=b,click=click,until=until,proof=proof,send=send,baseline=baseline,meta=meta,
+            workspace=workspace,evidence=evidence,result=result,budget=budget,node=NODE,root=ROOT)
+    elif os.environ.get('PREPUBLISH_HISTORY')=='1':
         assert not any(os.environ.get(key)=='1' for key in ['PREPUBLISH_QUEUE_EDIT','PREPUBLISH_QUEUE_REORDER','PREPUBLISH_QUEUE_PAUSE','PREPUBLISH_FEEDBACK','PREPUBLISH_SIDEBAR','PREPUBLISH_BATCH_DELETE'])
         runpy.run_path(str(ROOT/'scripts/tests/prepublish-history-case.py'))['run_history_case'](
             bridge=b,click=click,until=until,proof=proof,send=send,baseline=baseline,meta=meta,
