@@ -39,6 +39,10 @@ export interface WecomProvider {
     }[];
   }>;
 }
+type WecomTransport = (
+  path: string,
+  params: Record<string, string>,
+) => Promise<Record<string, unknown>>;
 async function providerGet(
   path: string,
   params: Record<string, string>,
@@ -46,80 +50,109 @@ async function providerGet(
   const url = new URL(`https://qyapi.weixin.qq.com/cgi-bin/${path}`);
   for (const [key, value] of Object.entries(params))
     url.searchParams.set(key, value);
-  const result = await readJson(
-    await safeRequest(url.toString(), { method: "GET", timeout: 15000 }),
-  );
-  const value = z
-    .object({ errcode: z.number().optional(), errmsg: z.string().optional() })
-    .passthrough()
-    .parse(result);
-  if (value.errcode && value.errcode !== 0)
-    fail(502, "WECOM_REJECTED", "企业微信拒绝请求，请核对应用权限");
-  return value;
+  return z
+    .record(z.string(), z.unknown())
+    .parse(
+      await readJson(
+        await safeRequest(url.toString(), { method: "GET", timeout: 15000 }),
+      ),
+    );
 }
-async function accessToken(config: EnterpriseAuth, credential: string) {
-  const response = await providerGet("gettoken", {
-    corpid: config.corp_id,
-    corpsecret: credential,
-  });
-  return z.string().min(1).parse(response.access_token);
+const departmentSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  parentid: z.number().int(),
+});
+const memberSchema = z.object({
+  userid: z.string(),
+  name: z.string(),
+  department: z.array(z.number().int()),
+  status: z.number().int(),
+});
+export function createWecomProvider(
+  transport: WecomTransport = providerGet,
+): WecomProvider {
+  const get = async (path: string, params: Record<string, string>) => {
+    const value = await transport(path, params);
+    const response = z
+      .object({ errcode: z.number().optional(), errmsg: z.string().optional() })
+      .passthrough()
+      .parse(value);
+    if (response.errcode && response.errcode !== 0) {
+      const detail = response.errmsg?.trim().slice(0, 160);
+      // 真实 60020 是来源 IP 限制，仅提示可见范围会误导排障；不改变原拒绝状态或校验。
+      const guidance =
+        response.errcode === 60020
+          ? "请核对应用可信 IP 与当前服务出口 IP"
+          : "请核对应用可见范围与接口权限";
+      // 上游错误码是排障的唯一线索：可见范围不足（60011）与凭据、可信 IP 问题的处置完全不同。
+      fail(
+        502,
+        "WECOM_REJECTED",
+        `企业微信拒绝请求（errcode ${response.errcode}）${detail ? `：${detail}` : ""}，${guidance}`,
+      );
+    }
+    return response;
+  };
+  const accessToken = async (config: EnterpriseAuth, credential: string) => {
+    const response = await get("gettoken", {
+      corpid: config.corp_id,
+      corpsecret: credential,
+    });
+    return z.string().min(1).parse(response.access_token);
+  };
+  return {
+    async identity(config, credential, code) {
+      const token = await accessToken(config, credential);
+      const response = await get("auth/getuserinfo", {
+        access_token: token,
+        code,
+      });
+      return z
+        .string()
+        .min(1)
+        .parse(response.userid ?? response.UserId);
+    },
+    async directory(config, credential) {
+      const token = await accessToken(config, credential);
+      const departments = await get("department/list", {
+        access_token: token,
+      });
+      const depts = z.array(departmentSchema).parse(departments.department);
+      // 自建应用只能读取「可见范围」内的通讯录，按根部门查询会因超出范围被判无权限（errcode 60011），
+      // 因此逐个可见部门取成员，再按 userid 去重。
+      if (!depts.length)
+        fail(
+          502,
+          "WECOM_SCOPE_EMPTY",
+          "应用可见范围内没有部门，请先在企微后台调整可见范围",
+        );
+      const members = new Map<string, z.infer<typeof memberSchema>>();
+      for (const d of depts) {
+        const users = await get("user/list", {
+          access_token: token,
+          department_id: String(d.id),
+        });
+        for (const u of z.array(memberSchema).parse(users.userlist))
+          if (!members.has(u.userid)) members.set(u.userid, u);
+      }
+      return {
+        departments: depts.map((d) => ({
+          id: String(d.id),
+          name: d.name,
+          parentId: d.parentid ? String(d.parentid) : null,
+        })),
+        members: [...members.values()].map((u) => ({
+          id: u.userid,
+          name: u.name,
+          departmentId: u.department[0] ? String(u.department[0]) : null,
+          active: u.status === 1,
+        })),
+      };
+    },
+  };
 }
-export const wecomProvider: WecomProvider = {
-  async identity(config, credential, code) {
-    const token = await accessToken(config, credential);
-    const response = await providerGet("auth/getuserinfo", {
-      access_token: token,
-      code,
-    });
-    return z
-      .string()
-      .min(1)
-      .parse(response.userid ?? response.UserId);
-  },
-  async directory(config, credential) {
-    const token = await accessToken(config, credential);
-    const departments = await providerGet("department/list", {
-      access_token: token,
-    });
-    const users = await providerGet("user/list", {
-      access_token: token,
-      department_id: "1",
-      fetch_child: "1",
-    });
-    const depts = z
-      .array(
-        z.object({
-          id: z.number().int(),
-          name: z.string(),
-          parentid: z.number().int(),
-        }),
-      )
-      .parse(departments.department);
-    const members = z
-      .array(
-        z.object({
-          userid: z.string(),
-          name: z.string(),
-          department: z.array(z.number().int()),
-          status: z.number().int(),
-        }),
-      )
-      .parse(users.userlist);
-    return {
-      departments: depts.map((d) => ({
-        id: String(d.id),
-        name: d.name,
-        parentId: d.parentid ? String(d.parentid) : null,
-      })),
-      members: members.map((u) => ({
-        id: u.userid,
-        name: u.name,
-        departmentId: u.department[0] ? String(u.department[0]) : null,
-        active: u.status === 1,
-      })),
-    };
-  },
-};
+export const wecomProvider: WecomProvider = createWecomProvider();
 export function wecomRoutes(
   app: FastifyInstance,
   db: Db,
