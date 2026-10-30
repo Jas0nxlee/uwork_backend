@@ -169,20 +169,32 @@ export class DockerSandboxDriver implements SandboxDriver {
     signal: AbortSignal,
   ): Promise<SandboxOutput> {
     signal.throwIfAborted();
+    if (owner.expiresAt <= Date.now())
+      fail(408, "TIMEOUT", "沙箱时间预算已耗尽");
     const info = await this.owned(owner);
     checkWatchdog(info);
     if (!info?.State.Running) fail(409, "SANDBOX_STOPPED", "沙箱未运行");
+    if (owner.expiresAt <= Date.now())
+      fail(408, "TIMEOUT", "沙箱时间预算已耗尽");
     const stdout = new PassThrough(),
       stderr = new PassThrough();
     const out: Buffer[] = [],
       err: Buffer[] = [];
     let bytes = 0,
-      limited = false;
+      limited = false,
+      deadlineExpired = false;
     let stopWork: Promise<void> | undefined;
     const stop = () => {
       stopWork ??= this.stop(owner);
       return stopWork;
     };
+    const deadlineTimer = setTimeout(
+      () => {
+        deadlineExpired = true;
+        void stop().catch(() => {});
+      },
+      Math.max(1, owner.expiresAt - Date.now()),
+    );
     const collect = (target: Buffer[]) => (chunk: Buffer) => {
       bytes += chunk.length;
       if (bytes > OUTPUT_LIMIT) {
@@ -230,11 +242,15 @@ export class DockerSandboxDriver implements SandboxDriver {
         stream!.once("error", reject);
       });
       if (stopWork) await stopWork;
+      if (deadlineExpired || owner.expiresAt <= Date.now())
+        fail(408, "TIMEOUT", "沙箱时间预算已耗尽");
       if (limited)
         fail(413, "SANDBOX_OUTPUT_LIMIT", "沙箱输出超出 128 KiB 限制");
       signal.throwIfAborted();
       const result = await exec.inspect();
       checkWatchdog(await this.owned(owner));
+      if (deadlineExpired || owner.expiresAt <= Date.now())
+        fail(408, "TIMEOUT", "沙箱时间预算已耗尽");
       if (result.Running) fail(503, "SANDBOX_INCOMPLETE", "沙箱未返回终态");
       return {
         stdout: Buffer.concat(out).toString("utf8"),
@@ -247,11 +263,14 @@ export class DockerSandboxDriver implements SandboxDriver {
         throw error;
       }
       await stop();
+      if (deadlineExpired || owner.expiresAt <= Date.now())
+        fail(408, "TIMEOUT", "沙箱时间预算已耗尽");
       if (!(error instanceof ApiError) || error.code === "SANDBOX_INCOMPLETE")
         checkWatchdog(await this.owned(owner));
       if (error instanceof ApiError) throw error;
       throw new ApiError(503, "SANDBOX_EXECUTION_FAILED", "沙箱执行失败");
     } finally {
+      if (deadlineTimer) clearTimeout(deadlineTimer);
       signal.removeEventListener("abort", abort);
       if (stream && "destroy" in stream) (stream as PassThrough).destroy();
       stdout.destroy();
