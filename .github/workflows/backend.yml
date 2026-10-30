@@ -86,6 +86,9 @@ jobs:
           workspace="$(mktemp -d)"
           app="$workspace/app"
           mkdir -p "$app/data"
+          # GitHub runner 的 bind mount 由 runner 用户拥有，容器内 root 不能可靠 chown 它；
+          # 这是一次性合成目录，不承载生产数据，直接在宿主侧授予临时写权限。
+          chmod 0777 "$app/data"
           tar -C . --exclude node_modules --exclude dist --exclude admin/dist \
             --exclude data --exclude .git -cf - src admin package.json package-lock.json \
             .npmrc tsconfig.json Dockerfile compose.yaml .dockerignore | tar -C "$app" -xf -
@@ -104,7 +107,6 @@ jobs:
             return 1
           }
           docker compose -p "$project" build
-          docker compose -p "$project" run --rm --user root backend sh -c 'chown 1000:1000 /app/data && chmod 700 /app/data'
           docker compose -p "$project" run --rm backend node dist/cli.js init
           docker compose -p "$project" up -d
           wait_healthy
