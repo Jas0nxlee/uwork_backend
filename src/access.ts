@@ -1,6 +1,11 @@
 import type { FastifyRequest } from "fastify";
 import type { Db } from "./db.js";
 import { fail, hash, now, type Actor, type Role, type Scope } from "./core.js";
+import {
+  ROLE_PERMISSIONS,
+  SEAT_REQUIRED,
+  type Permission,
+} from "./permissions.js";
 export function currentActor(db: Db, tenantId: string, userId: string): Actor {
   const m = db.get<{
     role: Role;
@@ -58,23 +63,13 @@ export function authenticate(db: Db, request: FastifyRequest): Actor {
     scopes: JSON.parse(row.scopes) as string[],
   };
 }
-export function requirePermission(
-  actor: Actor,
-  permission: "read" | "write" | "identity" | "execute" | "vault",
-) {
+export function requirePermission(actor: Actor, permission: Permission) {
   if (actor.kind === "device" && permission !== "execute")
     fail(403, "DEVICE_SCOPE", "终端凭据不能访问管理接口");
-  const roles: Record<typeof permission, Role[]> = {
-    read: ["owner", "admin", "operator", "auditor"],
-    write: ["owner", "admin", "operator"],
-    identity: ["owner", "admin"],
-    vault: ["owner", "admin"],
-    execute: ["owner", "admin", "operator", "auditor", "member"],
-  };
-  if (!roles[permission].includes(actor.role))
+  if (!(ROLE_PERMISSIONS[actor.role] ?? []).includes(permission))
     fail(403, "FORBIDDEN", "没有此操作权限");
   if (
-    permission === "execute" &&
+    SEAT_REQUIRED.includes(permission) &&
     (!actor.seat ||
       (actor.kind === "device" && !actor.scopes.includes("execute")))
   )

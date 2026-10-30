@@ -14,8 +14,6 @@ Natural completion evidence is the original no-tool final sidecar response, its 
 
 Fresh v2 uses the same reviewed packaged-only ASAR Main reader as the filesystem-negative test; it never reads/copies live development out. Snapshot phases are canonical `warm`, `after-a`, `after-b`, independent of the preserved command stage names `warm`, `after-A`, `after-B`. An actual proof-branch contract invokes the original snapshot function for all three phases. Only the new v15 project-memory strict loader and actual completed normal manifest are admissible; no v13 fallback or placeholder artifact hash is accepted.
 
-
 本轮仅复用此前实际通过的 Auto extraction v2，用全新 profile 和正常 v16 包复测同一原功能链路。原业务步骤、原回包、原写入与请求观察器不变；仅替换 artifact/commit pins，并在同一 180/160/20 预算内复用已审安全清理。它不验证初始已存在 topic description 的读取，不把空 manifest 的正例冒充该独立边界。
-
 
 启动日志的 model 是 create/draft 阶段可选值，并非完成后模型的权威字段。本版本仅换用新的只读观察器，原 same-session startup 的 Memory/cwd/use/extraction 断言保留；启动 model 若存在仍须精确相等，缺席明确记 deferred，不补造值。模型必须由唯一固定 ID/type/session 的 runtime/model_selection 原 codec、真实 user.modelSelection、已完成 assistant 的 providerId/modelId 三者一致证明，并与原任务索引、UI 及实际主请求对齐。缺失、重复、错误或未完成均失败，不增加等待/重试、不改变业务步骤。旧 v1 失败/未执行计划及所有源已封存；新观察器不把旧失败改成通过。

@@ -8,14 +8,14 @@
 
 [comparison.json](../evidence/client-macos-x64-cache-identity-readonly-20261021/comparison.json) 的逐段解析、实际 CodeDirectory 页面摘要重算及原 `codesign -d --verbose=4` 回读：
 
-| 项目 | v9 → v11 |
-|---|---|
-| Main executable | 均 14352 bytes，所有 sections、代码页、load commands、LC_UUID 和签名区外 whole SHA 完全相同 |
-| Main CDhash | `d1b64dd550b59dfb55ff4d358247bd4aef51aa6a` → `ee736865336797468d12f07d9fcf78f3bc852902` |
-| Main CodeDirectory 变化 | 仅 special slot 1（Info.plist）、3（CodeResources）；不是代码页变化 |
-| Electron Framework | 均 199656832 bytes，整个文件 SHA 同为 `22c7d44e08fee6fa5600afe1ab087a18e81d55c4d5f763d323aa6bdb089db255` |
-| Framework CDhash | 均 `ba4b558c87ef095f8a504a235d2570e0ef3de9cb`，UUID、代码页及签名也一致 |
-| App Info.plist | 唯一内容差异为 `ElectronAsarIntegrity.Resources/app.asar.hash` |
+| 项目                    | v9 → v11                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| Main executable         | 均 14352 bytes，所有 sections、代码页、load commands、LC_UUID 和签名区外 whole SHA 完全相同              |
+| Main CDhash             | `d1b64dd550b59dfb55ff4d358247bd4aef51aa6a` → `ee736865336797468d12f07d9fcf78f3bc852902`                  |
+| Main CodeDirectory 变化 | 仅 special slot 1（Info.plist）、3（CodeResources）；不是代码页变化                                      |
+| Electron Framework      | 均 199656832 bytes，整个文件 SHA 同为 `22c7d44e08fee6fa5600afe1ab087a18e81d55c4d5f763d323aa6bdb089db255` |
+| Framework CDhash        | 均 `ba4b558c87ef095f8a504a235d2570e0ef3de9cb`，UUID、代码页及签名也一致                                  |
+| App Info.plist          | 唯一内容差异为 `ElectronAsarIntegrity.Resources/app.asar.hash`                                           |
 
 因此，“大 Framework 因本次重签得到新 CDhash 而重新翻译”不受这些实际字节支持。新 Main 的 CDhash 不同，为不同代码身份条件提供了事实，但并不证明系统是否已有可用翻译，也不排除路径、缓存保留策略、JS/模块评估或其它启动条件。静态 native-macos REA Main 摘要及局限见 [rea-main-summary.json](../evidence/client-macos-x64-cache-identity-readonly-20261021/rea-main-summary.json)，两个分析会话均关闭；没有启动 Hopper 或目标程序。
 
@@ -33,12 +33,12 @@ installed builder 的 `platformPackager.js` 先 `computeData` → `beforeCopyExt
 
 [historical-timeline.json](../evidence/client-macos-x64-cache-identity-readonly-20261021/historical-timeline.json) 只保留已知 Main PID 的四阶段与固定标记，并从本 case `electron.log` 提取四个有限数值 launchMarks；不复制或访问 URL、身份或正文。
 
-| 产物/已完成 case | creation→mainStart | creation→appReady | creation→loadUrl | file target 观测 |
-|---|---:|---:|---:|---|
-| v9 原七项 startup-v2 | 21.126 s | 24.700 s | 29.132 s | 30.042 s 时仍未选中，原验收 0/7 failed |
-| 同 v9 secondary 诊断 v6 | 6.033 s | 10.025 s | 13.251 s | 16.047 s 选中；旧副实例随后十秒失败 |
-| v11 原七项 secondary-exit-v1 | 22.184 s | 25.781 s | 29.755 s | 30.068 s 时仍未选中，原验收 0/7 failed |
-| 同 v11 secondary 诊断 v7 | 5.011 s | 8.699 s | 12.983 s | 14.197 s 选中；新副实例原十秒自然 0 |
+| 产物/已完成 case             | creation→mainStart | creation→appReady | creation→loadUrl | file target 观测                       |
+| ---------------------------- | -----------------: | ----------------: | ---------------: | -------------------------------------- |
+| v9 原七项 startup-v2         |           21.126 s |          24.700 s |         29.132 s | 30.042 s 时仍未选中，原验收 0/7 failed |
+| 同 v9 secondary 诊断 v6      |            6.033 s |          10.025 s |         13.251 s | 16.047 s 选中；旧副实例随后十秒失败    |
+| v11 原七项 secondary-exit-v1 |           22.184 s |          25.781 s |         29.755 s | 30.068 s 时仍未选中，原验收 0/7 failed |
+| 同 v11 secondary 诊断 v7     |            5.011 s |           8.699 s |         12.983 s | 14.197 s 选中；新副实例原十秒自然 0    |
 
 `createdAt` 来自 Electron `process.getCreationTime()`，`mainStart` 实为 `desktopLaunchMarks.ts` 模块评估时的 `Date.now()`；它不是能够排除所有前置 JS/模块加载的 Native-only 边界。两版较慢与较快的差额主要出现在该标记之前。四次条件不同且没有观察缓存状态，所以不能把第一行自动称为 cache miss、后一次自动称为 cache hit，也不能用诊断的成功时间回填原三十秒失败。
 

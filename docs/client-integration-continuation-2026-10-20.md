@@ -121,7 +121,6 @@ Arch后续已完成原安装消费与same-image独立原pacman卸载，四系统
 
 Mac x64首fresh已实际启动并映射原x64 Main，然而BH自动attach初始化返回-32000，零业务项，原失败与精确私有root清理均留存。源码证明fixture spawn后即报告launched，没有原renderer就绪屏障；原BH在用户首call前自动attach，空target重放会触发Electron不支持的新tab动作，但历史未捕wire trace，不写成已证实际method。现只给独立probe准备有限本机唯一原filetarget屏障与fresh审查，不升级工具/触个人浏览器/改变产品或共享fixture。Rosetta核心联动和缺失Swift helper仍未通过。
 
-
 ### 当前 PTY 兼容性修复与 Mac x64 进度（本轮最新校准）
 
 Linux 新原 AppImage 的真实终端 resize 抛 Usage5，已从原包 JS1.1.0 的三参调用与 Beta10 native 五参 ABI 不一致复现实际 RED；匹配官方1.1 native 后，同一真实 shell 的两次 stty 为37×91、44×113。Desktop修复已原子提交 `1a8f24cb`，24项永久回归及必要门禁通过；[修复报告](client-linux-pty-resize-fix-test-2026-10-20.md)。正常新包 ASAR `eced6754…`、AppImage `6db2908c…`、native `c192e560…` 已准备，原完整GUI、窗口fit与协议复测尚未执行，不借旧3658或中断的338a结果关闭本项。新driver预检自然退出与GUI分为两个独立审查门；Root还实测发现Docker缺容器信息为小写，正补精确识别回归，不把daemon故障当absence。
@@ -132,9 +131,7 @@ Mac ARM64原主联动7项、已注册服务更新8项及运行中长确认4项�
 
 以上仍用Root加三个子Agent并行，Linux重任务排他、Mac输入唯一owner。整体目标active；外部MCP和网盘排除，既有OAuth/远程Provider安全拒绝不换工具绕过。
 
-
 本轮再校准：Server源/锁修复已由fresh独立peer和Root五轴审查通过，原子提交`a1a924fc`（12文件），正常双target新归档继续。Linux matching1a8原GUI v3已实际执行并FAILED：原File三项后reload期间BH35s/directCDP3s超时，原Main56在失败ps仍Sl，另有真实Error模态框但尚无正文。未执行PTYfit/模型/协议，supplier与ledger均0；原shutdown自然0、容器/network/volume与两allocated host端口均闭，Root十项独核见`evidence/client-linux-desktop-pty-wire-appimage-v3-20261020/root-failure-closure-verdict.json`。不把设施修复/匹配native模块正例写成新原包完整通过；从原封存log定位Error，必要时只加被动原生窗口诊断。Mac x64 log-open race已窄修为原最终guard紧邻spawn，旧两个RED→新9项GREEN，fresh v7待独审后一次诊断，仍无全链验收。
-
 
 ### matching1a8 与 Server a1a924fc 真实复测已闭环
 
@@ -144,11 +141,9 @@ Mac ARM64原主联动7项、已注册服务更新8项及运行中长确认4项�
 
 Mac x64 v8仍原1/7/10秒超时，新增外部采样自身1500ms期限内无堆栈，未定位锁/退出原因；10PID/4ports已独核关闭。Apple sample会短暂挂起线程，不能称零扰动；无采样的v5/v7原超时另有证据。自有Rosetta sleep校准成功不外推Electron；当前没有未经审查的新GUI。Root全量测试设施Lint10项正迁移ESM/模板中，源修复的client门禁及已验真实业务不被写成完整Root Lint通过。整体goal仍active。
 
-
 Root测试设施Lint十项已实际修复：三CJS真实迁移ESM/静态导入，预加载改原Node22/24均支持的--import，observer保持-e argv1/1s，片段明确.tpl；原native loader复用不另造。Node22.16/24实跑九项与Root再跑九项通过、完整Root typecheck/lint0；预加载/observer normalized body相同，usage片段字节不变，生产12SHA稳定，旧source/input快照不改。见`evidence/client-test-fixture-esm-quality-20261020/root-independent-verdict.json`。测试脚本含历史untracked baseline依赖，Root另核原子commit边界，不执行宽泛git add。
 
 Mac x64下一步固定阶段日志spec及计划已由Root和fresh peer通过，授权原五文件scope的actualMain代码块RED/GREEN最小实现；尚未实现验收/构建/GUI。仅记录lock请求/返回与原false分支quit请求/返回，不改原API/boolean/顺序/ready/confirmation门/10秒，也不记录argv/URI/path/env/identity。缺日志和返回不当ACK或退出证明。整体目标active。
-
 
 ### 用户最新优先级：Mac 客户端与后端协同一致性
 
@@ -158,17 +153,12 @@ Mac x64下一步固定阶段日志spec及计划已由Root和fresh peer通过，�
 
 新增固定日志d0a源已五文件原子提交，22新测试/74相关回归及必要门禁通过；正常x64 v9包静态/签名已核。但新startup-v1计划在调用原macos-clock.run的profile前缀守卫处即被拒，未创建runtime/evidence根、未启动App/GUI/后台/BH/OSguard，无新的产品阶段事实。原失败收据保留，不能把它写成v9产品失败或新Mac日志已实测。该pure/prepared遗漏已告知独立peer，不放宽原guard或自动修名抢跑；转向当前最高优先的本机ARM64协同。
 
-
 2026-10-21 Mac优先第一项已闭环：最新正常ARM64 v10原包fresh consistency-v1完成原8项真实检查，Root21项独核；仍登录的已完成任务经原group TERM自然exit0（无KILL）后由同controller/profile的新Main原UI打开，同task/session/title、消息/part IDs、正文、完成态、model/reasoning/workspace及固定SELECT语义保持。原inference入口POST计数4→4、供应商4条逐摘要不变，当前operator两settled/44 Credit/24input20output及另一member所有账本/Trace/gateway业务列原样；Trace无request-key外键不伪造绑定。原撤席位与logout冷启动检查仍保留并通过，25已知PID/4port及三代BH/原OS协议关闭恢复，正常后台PID92288不动。证据`evidence/client-native-packaged-macos-clock-arm64-consistency-v1-20261021/root-independent-verdict.json`。仅关闭这个Mac缺口；模型能力更新、Native重新认证、同挂载迟到响应及其他平台仍未全部覆盖，goal保持active。
-
 
 2026-10-21第二个Mac一致性缺口已实测闭环：正常ARM64 v10 fresh capability-v1原8项、Root33与独立peer48证据检查通过。原Admin完整PUT仅同ID supportsTools true→false→true，revision1→2→3；原UI manual sync以真实catalog、私有Provider bool/lastSyncedAt和原完成日志三证确认，再两次原企业“聊天”新建不同task，同选模/none。独立实际主请求工具32→tools及tool_choice两个属性均省略→32，标题sidecar单独固定system/hash分类，不能拿其天然无工具求绿。actual POST/supplier4→6→8，当前operator账本2→4→6/44→88→132 Credit及24→48→72 input、20→40→60 output；旧行与另一member所有业务账务列保持。18knownPID+2BH、4port均闭，原7撤席位/logout检查保留并通过。报告[Mac模型能力往返](client-macos-model-capability-consistency-test-2026-10-21.md)。不称旧任务热迁移/全部Mac或Windows完成，下一B仅准备同挂载401后旧200真实交付；Native同成员重新认证仍open，原包没有现成本地受控IdP入口，安全边界不绕过。
 
-
 2026-10-21第三个Mac一致性缺口已真实闭环：[同挂载Gateway晚200](client-macos-mounted-gateway-consistency-test-2026-10-21.md)，正常v10 mounted-v1原5项、Root24/peer28独核通过。原month真实200 held→原后台logout实际204→原7d entitlement401退休投影→旧200真实downstreamFinished，request到正常close973ms/完成观察1003ms；不是abort/drop。相同node1578/Main/bridge下六次即时观察不回灌旧账号/端点/用量/额度，身份badge合法仍甲operator。原current0/other2×44、全部ledger/Trace/gateway行及rawPOST/供应商2摘要全保持。9known+1BH/4TCP和私有UNIX关闭，35源未漂。仅新增独立透明transport测试模式，旧loader/guard、Main/preload/store与生产预算都未改。后续自然TTL mounted-v2使用原内部issueSession60000受控新会话→GET/me真expiresAt/原store、原timer自然取消；无公开TTL设置或UI重新认证主张，当前尚在单次真实运行，不提前记通过。
 
-
 2026-10-21第四/第五Mac真实边界已闭：[原自然到期](client-macos-natural-expiry-consistency-test-2026-10-21.md)原6/Root27/peer29，原内部issuer60s新测试会话经真实me/store，原Identity timer使revision1→2/null、expiry+4ms真实abort，release不投递，原模型菜单UCAS0；只seed Bob logout204一次，无当前显式revoke/logout或假时钟。该setup不等同公开TTL配置/原UI认证。[已安装插件正文](client-macos-plugin-skill-body-consistency-test-2026-10-21.md)原4/Root29/peer37，原UI User source/install/enabled/详情rootPath→原Composer→实际Skill同call_id完整两行正文进入后继request，原440B toolresult和真实117Bmanifest/140BSKILL SHA吻合。主/后继/title分开，raw/supplier2→5、current3settled66/36input30output、other2/44全行保持；oracle单独cache-membership=false由原UIroot严格同路径复合补齐，不篡改safe字段。两case各10PID/14PID、四端口/私有socket关闭，44/37源不漂；本轮无新增产品缺陷，测试设施原始RED和修正分列。五ARM64边界总结见[进展](client-macos-backend-consistency-progress-2026-10-21.md)。整体goal active；继续Mac x64旧失败，Windows目前无授权runtime目标，一次性索取入口，不把静态/交叉产物当原生通过。
-
 
 2026-10-21本轮最新：副实例退出与预热归属修复已本地原子提交`0aeff9ad`（5文件），Root相关75项/4个fallback场景、必要门禁及fresh五轴源码审查通过。正常x64 v11与ARM64 v12包均静态签名/资源合格，ARM helper UUID/派生签名元数据差异先失败、独审后仅接受精确新SHA，原失败保留。ARM v12原7/7与独立29/29真实通过：原副实例自然0并由后续UI workspace/CLI cwd实际证明转发消费，文件/reload/PTY/本人2settled44与other2/44、seat零增及logoutcold均过，19known+2BH/4port/UNIX/OS闭。x64 v11原7首次仍0/7 FAILED30renderer、未到AX/BH/secondary，6PID4port闭，不能混为已过；随后同未修改v11的独立v7诊断（原1c10、primary<=60仅前置）实际false/自然exit0/noSIGKILL/Main同代/双actor全行与raw/supplier2零增，7PID4port/42源闭。该诊断不当ACK/UI消费，也不回填原30/7或物理Intel。详见[统一验收边界](client-macos-secondary-exit-fix-acceptance-2026-10-21.md)。Mac五个ARM64具名新边界仍单列，不将重复基线相加；Windows入口及Native重新认证/Mac OS-read await环境缺口保持，Linux不新增，整体goal active、未称全覆盖。

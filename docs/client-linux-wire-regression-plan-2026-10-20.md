@@ -6,14 +6,14 @@
 
 2026-10-20只读收据：`evidence/client-linux-wire-readonly-inputs-20261020.json`。测得HEAD `1bd1ec7b9949353ae11390e020a58b0fe7719c3e`，包含wire `1bd1ec7b`、reload `263146f4`、RPM配置 `220ba514`。本次准备只读取这些源/资产并记SHA，未改共享out、bundled-agents或target prebuild。
 
-| 输入 | 当前字节/SHA或边界 |
-| --- | --- |
+| 输入                                   | 当前字节/SHA或边界                                                                      |
+| -------------------------------------- | --------------------------------------------------------------------------------------- |
 | 源CLI dist及原linux-arm64 staged Agent | 两者16579914字节，均 `cdf781ecf004b9639157fae25e6e96e558b95faefaee7aab09488d5dc650ecac` |
-| linux-arm64 pty.node | 69112字节，`d8314caa682827c0bcab6a7a2ef121a17065605e830d5eac55de3245333b3ad8` |
-| wire工厂/提取器源 | `619377c7458d678d1f1c585981cc8daf34996618dcd7a75970b51025dfab3100` |
-| reload Hook源 | `93db5b44f1ebd99eb5d373375541e478ebe865eec18b268227afc63f90836866` |
-| 正常electron-builder配置 | `0c3e82291f696773025f4d6e36589cc205143b1051b783a598436c5e7819ec09` |
-| 原Electron / builder | package脚本锁定Electron41.10.7；原native packager安装builder26.8.1，不改fuse/runtime |
+| linux-arm64 pty.node                   | 69112字节，`d8314caa682827c0bcab6a7a2ef121a17065605e830d5eac55de3245333b3ad8`           |
+| wire工厂/提取器源                      | `619377c7458d678d1f1c585981cc8daf34996618dcd7a75970b51025dfab3100`                      |
+| reload Hook源                          | `93db5b44f1ebd99eb5d373375541e478ebe865eec18b268227afc63f90836866`                      |
+| 正常electron-builder配置               | `0c3e82291f696773025f4d6e36589cc205143b1051b783a598436c5e7819ec09`                      |
+| 原Electron / builder                   | package脚本锁定Electron41.10.7；原native packager安装builder26.8.1，不改fuse/runtime    |
 
 原Clock包来自 `evidence/client-sqlite-clock-desktop-package-manifest-20261020.json`，旧asar3658、AppImage629f；仅供已通过历史的来源对照，不复用其desktop archive冒称新源。原Mac v7签名包与旧Linux缓存不覆盖。
 

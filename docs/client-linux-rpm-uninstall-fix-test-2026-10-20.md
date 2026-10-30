@@ -68,8 +68,6 @@ python3 scripts/tests/linux-distro/run-fixed-rpm.py \
 
 未关闭：Fedora xdg-utils1.2.1 generic 对合法带空格 Exec 的兼容失败；v3 一次重载 CDP 超时；RPM 实际跨发行版本/完整升级事务、非 Fedora/RHEL-style alternatives CLI 的其他 RPM 发行版；物理 Fedora/RHEL/Wayland/GPU。Arch 独立进行，不与本修复 GREEN 混算。
 
-
 通用Linux测试preparer的源码白名单原未包含`.tpl`，会漏掉新已tracked钩子。按Root明确授权仅追加该后缀，离线AST读取原allowed set并对原git ls-files结果验证模板入选、`.env`后缀未加入；没有运行preparer或重压包。证据：[filter proof](../evidence/client-linux-native-preparer-template-filter-20261020.json)。本轮独立producer显式COPY新钩子，所以既有真实GREEN不受此基础设施修复影响。
-
 
 Root独立对原新RPM/installed POSTUN与Requires、原5core、真实DNF0→remove0→query1、四系统残留/manifest及PMclone闭合重核，13项通过：[独立verdict](../evidence/client-linux-rpm-fixed-transaction-v1-20261020/root-independent-verdict.json)。该独核与上述自身15项分开，未将旧Fedora GUI改名为新RPM全链通过。

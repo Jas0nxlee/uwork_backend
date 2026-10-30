@@ -13,9 +13,11 @@ import {
 } from "./mac-session-model-witness-v16-readonly.mjs";
 export const AUTO_BODY = "UWORK_NATIVE_AUTO_MEMORY_BODY_20261021";
 export const AUTO_PROMPT =
-  "UWORK_NATIVE_AUTO_MEMORY_CREATE_20261021 remember owned preference " + AUTO_BODY;
+  "UWORK_NATIVE_AUTO_MEMORY_CREATE_20261021 remember owned preference " +
+  AUTO_BODY;
 export const AUTO_LABEL = "UWORK_NATIVE_AUTO_MEMORY_RECALL_20261021";
-export const AUTO_INDEX = "- [Owned preference](owned-preference.md) — " + AUTO_BODY + "\n";
+export const AUTO_INDEX =
+  "- [Owned preference](owned-preference.md) — " + AUTO_BODY + "\n";
 export const AUTO_TOPIC =
   "---\nname: owned-preference\ndescription: Controlled local acceptance preference\nmetadata:\n  type: project\n---\nPreferred acceptance code: " +
   AUTO_BODY +
@@ -25,7 +27,8 @@ export const AUTO_IDS = Object.freeze([
   "native-auto-memory-topic-20261021",
   "native-auto-memory-denied-20261021",
 ]);
-const TITLE_SHA = "d3d0746e09609cd62773e0df8957adbbb35199c7b214f27329513090cc431383";
+const TITLE_SHA =
+  "d3d0746e09609cd62773e0df8957adbbb35199c7b214f27329513090cc431383";
 const digest = (value) =>
   createHash("sha256")
     .update(typeof value === "string" ? value : JSON.stringify(value))
@@ -49,12 +52,17 @@ export function autoMemoryPaths(caseRoot, workspacePath) {
 async function regularFile(caseRoot, path, readBytes = true) {
   assert.equal(await realpath(caseRoot), caseRoot);
   const tail = relative(caseRoot, path);
-  assert.ok(tail && !isAbsolute(tail) && tail !== ".." && !tail.startsWith(".." + sep));
+  assert.ok(
+    tail && !isAbsolute(tail) && tail !== ".." && !tail.startsWith(".." + sep),
+  );
   let cursor = caseRoot;
   for (const part of tail.split(sep)) {
     cursor = join(cursor, part);
     const st = await lstat(cursor);
-    assert.ok(!st.isSymbolicLink() && (cursor === path ? st.isFile() : st.isDirectory()));
+    assert.ok(
+      !st.isSymbolicLink() &&
+        (cursor === path ? st.isFile() : st.isDirectory()),
+    );
     assert.equal(await realpath(cursor), cursor);
   }
   if (readBytes) assert.ok((await lstat(path)).size <= 16 * 1024 * 1024);
@@ -72,7 +80,11 @@ export async function assertAutoFilesAbsent(caseRoot, workspacePath) {
   }
   return { indexAbsent: true, topicAbsent: true, outsideAbsent: true, paths };
 }
-export async function attestAutoMemoryFiles(caseRoot, workspacePath, sessionId) {
+export async function attestAutoMemoryFiles(
+  caseRoot,
+  workspacePath,
+  sessionId,
+) {
   assert.match(sessionId, /^sess_[A-Za-z0-9_-]+$/);
   const paths = autoMemoryPaths(caseRoot, workspacePath);
   const index = await regularFile(caseRoot, paths.index),
@@ -123,7 +135,9 @@ export function createMemoryExtractionOracle({ caseRoot, workspacePath }) {
       phase,
       stream: body.stream === true,
       requestSha256: digest(body),
-      systemSha256: digest(text(body.messages.find((m) => m.role === "system"))),
+      systemSha256: digest(
+        text(body.messages.find((m) => m.role === "system")),
+      ),
       roles: body.messages.map((m) => m.role),
       tools: body.tools?.length ?? 0,
     };
@@ -162,7 +176,10 @@ export function createMemoryExtractionOracle({ caseRoot, workspacePath }) {
         last = text(users.at(-1));
       const systemSha = digest(system);
       const isTitle = systemSha === TITLE_SHA;
-      if (isTitle && (last.includes(AUTO_PROMPT) || last.includes(AUTO_LABEL))) {
+      if (
+        isTitle &&
+        (last.includes(AUTO_PROMPT) || last.includes(AUTO_LABEL))
+      ) {
         assert.equal(body.stream, false);
         assert.equal(Buffer.byteLength(system), 997);
         assert.ok(!Object.hasOwn(body, "tools"));
@@ -179,7 +196,9 @@ export function createMemoryExtractionOracle({ caseRoot, workspacePath }) {
         assert.equal(body.stream, true);
         assert.equal(body.model, "controlled");
         assert.deepEqual(
-          [...system.matchAll(/^- Primary working directory: ([^\r\n]+)$/gm)].map((m) => m[1]),
+          [
+            ...system.matchAll(/^- Primary working directory: ([^\r\n]+)$/gm),
+          ].map((m) => m[1]),
           [workspacePath],
         );
         assert.equal(body.tools?.length, 32);
@@ -195,9 +214,13 @@ export function createMemoryExtractionOracle({ caseRoot, workspacePath }) {
           assert.equal(sidecar, 2);
           assert.equal(mainB++, 0);
           const heading =
-            "Contents of " + paths.index + " (user's auto-memory, persists across conversations):";
+            "Contents of " +
+            paths.index +
+            " (user's auto-memory, persists across conversations):";
           assert.ok(
-            body.messages.some((m) => text(m).includes(heading + "\n\n" + AUTO_INDEX.trim())),
+            body.messages.some((m) =>
+              text(m).includes(heading + "\n\n" + AUTO_INDEX.trim()),
+            ),
             "New B must consume actual index fragment",
           );
           summary(body, "main-B");
@@ -210,7 +233,9 @@ export function createMemoryExtractionOracle({ caseRoot, workspacePath }) {
         assert.equal(body.model, "controlled");
         assert.notEqual(systemSha, TITLE_SHA);
         assert.deepEqual(
-          [...system.matchAll(/^- Primary working directory: ([^\r\n]+)$/gm)].map((m) => m[1]),
+          [
+            ...system.matchAll(/^- Primary working directory: ([^\r\n]+)$/gm),
+          ].map((m) => m[1]),
           [workspacePath],
         );
         assert.ok(users.some((m) => text(m) === AUTO_PROMPT));
@@ -222,12 +247,20 @@ export function createMemoryExtractionOracle({ caseRoot, workspacePath }) {
         );
         const writes = body.tools?.filter((t) => t.function?.name === "Write");
         assert.equal(writes?.length, 1);
-        assert.equal(writes[0].function.parameters.properties.file_path.type, "string");
-        assert.equal(writes[0].function.parameters.properties.content.type, "string");
+        assert.equal(
+          writes[0].function.parameters.properties.file_path.type,
+          "string",
+        );
+        assert.equal(
+          writes[0].function.parameters.properties.content.type,
+          "string",
+        );
         assert.equal(sidecar < 2, true);
         if (sidecar++ === 0) {
           assert.ok(
-            !body.messages.some((m) => m.role === "tool" && AUTO_IDS.includes(m.tool_call_id)),
+            !body.messages.some(
+              (m) => m.role === "tool" && AUTO_IDS.includes(m.tool_call_id),
+            ),
           );
           summary(body, "extract-plan");
           return {
@@ -246,16 +279,25 @@ export function createMemoryExtractionOracle({ caseRoot, workspacePath }) {
           };
         }
         const priorCalls = body.messages.filter(
-          (m) => m.role === "assistant" && m.tool_calls?.some((c) => AUTO_IDS.includes(c.id)),
+          (m) =>
+            m.role === "assistant" &&
+            m.tool_calls?.some((c) => AUTO_IDS.includes(c.id)),
         );
         assert.equal(priorCalls.length, 1);
-        assert.deepEqual(priorCalls[0].tool_calls.map((c) => c.id).sort(), [...AUTO_IDS].sort());
+        assert.deepEqual(
+          priorCalls[0].tool_calls.map((c) => c.id).sort(),
+          [...AUTO_IDS].sort(),
+        );
         priorCalls[0].tool_calls.forEach((c) => {
           const i = AUTO_IDS.indexOf(c.id);
           assert.equal(c.function.name, "Write");
           assert.deepEqual(JSON.parse(c.function.arguments), {
             file_path: [paths.index, paths.topic, paths.outside][i],
-            content: [AUTO_INDEX, AUTO_TOPIC, "Forbidden owned-case memory-root write\n"][i],
+            content: [
+              AUTO_INDEX,
+              AUTO_TOPIC,
+              "Forbidden owned-case memory-root write\n",
+            ][i],
           });
         });
         const tools = body.messages.filter((m) => m.role === "tool");
@@ -271,18 +313,28 @@ export function createMemoryExtractionOracle({ caseRoot, workspacePath }) {
           "only Read, Grep, Glob, read-only Bash, and Edit/Write within " +
           paths.root +
           " are allowed";
-        assert.ok(text(tools.find((m) => m.tool_call_id === AUTO_IDS[2])).includes(denial));
+        assert.ok(
+          text(tools.find((m) => m.tool_call_id === AUTO_IDS[2])).includes(
+            denial,
+          ),
+        );
         summary(body, "extract-followup");
         return { text: "Owned Memory extraction complete." };
       }
       assert.ok(
-        !last.startsWith("You are now acting as the memory extraction subagent."),
+        !last.startsWith(
+          "You are now acting as the memory extraction subagent.",
+        ),
         "Extraction prompt must match the original source exactly",
       );
       return null;
     },
     safeStatus() {
-      assert.equal(observerFailed, false, "Passive supplier receipt unavailable");
+      assert.equal(
+        observerFailed,
+        false,
+        "Passive supplier receipt unavailable",
+      );
       return {
         mainA,
         mainB,
@@ -295,7 +347,8 @@ export function createMemoryExtractionOracle({ caseRoot, workspacePath }) {
         calls: [...AUTO_IDS],
         expectedSidecarTurns: 2,
         originalMaxTurns: 5,
-        source: "Original natural extraction and tool executor; no fixture FS writes",
+        source:
+          "Original natural extraction and tool executor; no fixture FS writes",
       };
     },
   };
@@ -323,8 +376,12 @@ export async function readAutoMemorySession({
   const indexPath = join(caseRoot, "data/.uwork/v2/tasks-index.sqlite");
   await regularFile(caseRoot, indexPath, false);
   const { DatabaseSync } = await import("node:sqlite");
-  const { MAC_TASK_SELECTS } = await import("./mac-completed-task-readonly.mjs");
-  const { projectMemoryDurableRows } = await import("./mac-memory-stage-v16-readonly.mjs");
+  const { MAC_TASK_SELECTS } = await import(
+    "./mac-completed-task-readonly.mjs"
+  );
+  const { projectMemoryDurableRows } = await import(
+    "./mac-memory-stage-v16-readonly.mjs"
+  );
   let index, db, messages, modelWitness;
   try {
     index = new DatabaseSync(indexPath, { readOnly: true });
@@ -344,20 +401,31 @@ export async function readAutoMemorySession({
       db.prepare(MAC_TASK_SELECTS.messages).all(sessionId),
       db.prepare(MAC_TASK_SELECTS.parts).all(sessionId),
     );
-    modelWitness = readSessionModelWitness({ db, sessionId, modelId, messages });
+    modelWitness = readSessionModelWitness({
+      db,
+      sessionId,
+      modelId,
+      messages,
+    });
   } finally {
     db?.close();
     index?.close();
   }
   const user = messages.filter(
-    (m) => m.info.role === "user" && !m.info.synthetic && m.info.visibility !== "model-only",
+    (m) =>
+      m.info.role === "user" &&
+      !m.info.synthetic &&
+      m.info.visibility !== "model-only",
   );
   assert.equal(user.length, 1);
-  const eligible = user[0].parts.filter((p) => p.type === "text" && !p.ignored && !p.synthetic);
+  const eligible = user[0].parts.filter(
+    (p) => p.type === "text" && !p.ignored && !p.synthetic,
+  );
   assert.equal(eligible.length, 1);
   assert.equal(eligible[0].text, marker);
-  const { createMemoryExtractionScheduler } =
-    await import("../../clients/uwork/apps/zcode-cli/packages/core/src/memory/extraction.ts");
+  const { createMemoryExtractionScheduler } = await import(
+    "../../clients/uwork/apps/zcode-cli/packages/core/src/memory/extraction.ts"
+  );
   let wouldRun = 0;
   const scheduler = createMemoryExtractionScheduler(async () => {
     wouldRun++;
@@ -381,14 +449,18 @@ export async function readAutoMemorySession({
   const { readdir } = await import("node:fs/promises");
   const logDir = join(caseRoot, "data/.uwork/cli/log");
   assert.equal(await realpath(logDir), logDir);
-  const names = (await readdir(logDir)).filter((n) => /^zcode-[0-9-]+\.jsonl$/.test(n));
+  const names = (await readdir(logDir)).filter((n) =>
+    /^zcode-[0-9-]+\.jsonl$/.test(n),
+  );
   assert.ok(names.length <= 8);
   let found;
   for (const n of names) {
     const path = join(logDir, n),
       st = await lstat(path);
     assert.ok(st.size < 16 * 1024 * 1024);
-    for (const line of (await regularFile(caseRoot, path)).toString().split("\n")) {
+    for (const line of (await regularFile(caseRoot, path))
+      .toString()
+      .split("\n")) {
       let value;
       try {
         value = JSON.parse(line);

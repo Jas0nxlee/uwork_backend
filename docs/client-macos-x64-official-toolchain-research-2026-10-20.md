@@ -14,9 +14,7 @@
 
 Apple完整旧/匹配CLT的替代来源为[官方More Downloads](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools)，官方要求Apple ID登录；本轮不登录或假设已有Xcode。若Swift.org候选不能匹配，保留helper unavailable，不改校验求绿。所有前置机器证据与原官方网页/API/元数据冻结于 `evidence/client-macos-x64-official-toolchain-research-20261020/`。
 
-
 Root后续已明确授权仅这一个官方pkg的完整下载、全包签名/信任链/fullSHA、私有expand-full及原helper真实编译。专用cache为 `/Users/ljp/Library/Caches/uwork-backend/client-macos-x64-official-toolchain-20261020`（0700），pkg为0600；未系统安装/注册toolchain、未改global HOME/xcode-select/共享helper/现有v8候选。顺序probe `scripts/tests/macos-official-toolchain-helper-probe.py` 的执行门槛为下载大小/SHA匹配且原pkgutil可信签名+精确Swift team/Apple Root全满足；然后才展开，再检查三库真实x64、实际compiler签名/版本，最后在私有输出运行原source SHA d0eb与原-O/-target x86_64-apple-macos11参数。只在该compiler子进程绑定原已选SDK27和自有模块cache，不改变source/target/autolink，也不运行输出helper。
-
 
 ## 完整原pkg与实际私有编译
 

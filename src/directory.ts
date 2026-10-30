@@ -9,6 +9,11 @@ import {
 } from "./access.js";
 import { passwordHash } from "./identity.js";
 import { audit } from "./events.js";
+import {
+  ADMIN_RESTRICTIONS,
+  ROLE_PERMISSIONS,
+  SEAT_REQUIRED,
+} from "./permissions.js";
 import { fail, id, now, pageSchema, role, text } from "./core.js";
 
 export function directoryRoutes(app: FastifyInstance, db: Db) {
@@ -45,13 +50,9 @@ export function directoryRoutes(app: FastifyInstance, db: Db) {
     requirePermission(a, "read");
     return {
       roles: role.options,
-      permissions: {
-        owner: ["read", "write", "identity", "vault", "execute"],
-        admin: ["read", "write", "identity", "vault", "execute"],
-        operator: ["read", "write", "execute"],
-        auditor: ["read", "execute"],
-        member: ["execute"],
-      },
+      permissions: ROLE_PERMISSIONS,
+      seatRequired: SEAT_REQUIRED,
+      restrictions: ADMIN_RESTRICTIONS,
     };
   });
   app.get(`${prefix}/members`, async (req) => {

@@ -6,14 +6,14 @@
 
 原 warm 五项后，唯一目标为 `sess_d3665bb8-fa67-4f36-8fce-76f8fc541d6d`。沿原 `task-archive-ID` 首击确认态、再击归档；归档视图只以唯一标题及完整 workspace 定位原行，原打开后实际 pane sessionId 再绑定同一 ID，随后点击原取消归档按钮，关闭归档视图、reload 并原行重开。没有新增产品 test-id、注入 DOM 属性或直接调用归档 service。
 
-| 原实际阶段 | tasks-index archived | UI 与身份事实 |
-| --- | ---: | --- |
-| baseline | 0 | 正常行 1，原 task/session 已完成 |
-| confirming | 0 | 原行确认标志为同 ID；尚未归档 |
-| archived | 1 | 正常行消失，活动区转 draft |
-| opened | 1 | 归档行 1；原打开后仍为同 session、原用户/助手正文 |
-| restored | 0 | 归档行消失，仍显示同一会话 |
-| reloaded | 0 | reload 后原正常行恢复并重开同 ID |
+| 原实际阶段 | tasks-index archived | UI 与身份事实                                     |
+| ---------- | -------------------: | ------------------------------------------------- |
+| baseline   |                    0 | 正常行 1，原 task/session 已完成                  |
+| confirming |                    0 | 原行确认标志为同 ID；尚未归档                     |
+| archived   |                    1 | 正常行消失，活动区转 draft                        |
+| opened     |                    1 | 归档行 1；原打开后仍为同 session、原用户/助手正文 |
+| restored   |                    0 | 归档行消失，仍显示同一会话                        |
+| reloaded   |                    0 | reload 后原正常行恢复并重开同 ID                  |
 
 六份原固定 SELECT 收据的完整稳定语义相等，SHA256 为 `fc70ff0e47da7129f817b6d3357a02197aa7da2a7003490e5f9ddcbb25d4e94b`，包含 task-index 身份/model/mode、CLI session、全部原 message/part 和两项 runtime entries。原 CLI PID 94415、birth 与工作目录的前后 DB FD 绑定一致；私有 CLI DB 为本 case 的 `data/.zcode/cli/db/db.sqlite`，workspace 为本 case 的 `packaged-workspace`。持久 provider=`glm`、mode=`build`、model=`ucas/36e6fcaf4cd831d08e588a7bbeb7db01`、thought=`none` 保持原值；未将旧 provider 字段重解释为模型切换。
 

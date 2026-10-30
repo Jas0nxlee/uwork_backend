@@ -6,11 +6,11 @@
 
 三个原tar先完整SHA验证，再只把原runtime/node和node-pty原文件复制到自有隔离输入，没有重写JS/native/归档。三包JS package.json均1.1.0；原UnixTerminal.prototype.resize仅调用native`pty.resize(fd, cols, rows)`。探针用真实公开方法和无效FD -1，合法80×24，预期应进入ioctl并返回EBADF；不实例化PTY、不启动shell/command child。Node探针本身是明确的本地进程，不冒称客户端终端或SDK E2E。
 
-| 原包 | 完整SHA256 | 原Node/结果 |
-| --- | --- | --- |
-| Darwin旧 | d365b09a5a1cc523248ac3cb67fb3b67c647d57bacd43150206d18b729adc635 | 原Node22.16.0/arm64，公开3参EBADF，native5参Usage3，exit0 |
-| Darwin新 | 1d3fe925c269c9e75cce860095b240a963742807aad93a4d58451bf6ac7972d1 | 原Node22.16.0/arm64，同上，exit0 |
-| Linux新 | 3b50dc19d24183435fa02fcb379f264642920172fe5276b675eb3c96b2843361 | 原Node22.16.0/arm64，公开3参Usage5，native5参才EBADF，期望断言exit1真实RED |
+| 原包     | 完整SHA256                                                       | 原Node/结果                                                                |
+| -------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Darwin旧 | d365b09a5a1cc523248ac3cb67fb3b67c647d57bacd43150206d18b729adc635 | 原Node22.16.0/arm64，公开3参EBADF，native5参Usage3，exit0                  |
+| Darwin新 | 1d3fe925c269c9e75cce860095b240a963742807aad93a4d58451bf6ac7972d1 | 原Node22.16.0/arm64，同上，exit0                                           |
+| Linux新  | 3b50dc19d24183435fa02fcb379f264642920172fe5276b675eb3c96b2843361 | 原Node22.16.0/arm64，公开3参Usage5，native5参才EBADF，期望断言exit1真实RED |
 
 [原归档metadata/文件SHA/模式](../evidence/client-server-node-pty-audit-20261020/archive-inspection.json)、[Darwin原模块结果](../evidence/client-server-node-pty-audit-20261020/darwin-original-contract.json)、[Linux原RED](../evidence/client-server-node-pty-audit-20261020/linux-original-contract-red.json)。Linux原native为69112B、SHA `d8314caa682827c0bcab6a7a2ef121a17065605e830d5eac55de3245333b3ad8`，与独立取回且SSRI通过的registry Beta10 native逐SHA全等；匹配1.1候选为c192e560...b75b，flat package/pty.node。详[官方Linux原发布比对](../evidence/client-server-node-pty-audit-20261020/official-linux-native-provenance.json)。
 
@@ -35,7 +35,6 @@ Server CLI staging实际在 `packages/zcode-server-cli/src/packaging/stage.ts:61
 新独立探针（当前ESM入口）`scripts/tests/server-node-pty-invalid-fd.mjs` 保留公开3参必须EBADF的断言；本机原Darwin Node22真实执行0，并有原Linux缓存探针同公开不变量的真实exit1证据。新增repo探针只做静态Node check及Darwin调用，不冒称它已在Linux再跑；原Linux实际执行源码为保留input/public-resize.cjs。
 
 后续需单独完成：匹配依赖/flat-layout保护的生产RED→GREEN、正常新Server归档、原本地SDK Terminal创建/resize/stty/退出和资源闭合。当前不写包、不改source/pin/lock、不跑实际PTY/remote/provider/model、不重复旧广测试。仅新增独立probe与本报告，明确为自身证据核对的[self verdict](../evidence/client-server-node-pty-audit-20261020/self-verdict.json)不冒称peer。
-
 
 ## 测试入口 ESM 收尾（不改历史验收）
 

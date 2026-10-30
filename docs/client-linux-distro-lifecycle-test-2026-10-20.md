@@ -16,9 +16,9 @@
 
 新目录 `data/sandbox-verification/linux-native-packaging-v10-20261020/output-distro-v1`：
 
-| 原包 | 字节 | SHA256 |
-| --- | ---: | --- |
-| RPM | 109361453 | `1045042df11d28b080436ce7b538e5f617447d0c01e345e76e08332701df0a31` |
+| 原包        |      字节 | SHA256                                                             |
+| ----------- | --------: | ------------------------------------------------------------------ |
+| RPM         | 109361453 | `1045042df11d28b080436ce7b538e5f617447d0c01e345e76e08332701df0a31` |
 | pkg.tar.zst | 168199531 | `30d89acee7f47a3db597c5a42a3c1b5da95872dc44da666245846b5e86893ac3` |
 
 最后原单 target 生成的 YML 只有其自己的 pacman 项，未补造完整更新 feed，未签名发布。原旧产物及历史 OOM、禁网工具下载失败全部保留。
@@ -47,13 +47,11 @@ host 下载驱动前两次失败是脚本处理 `gpgv` 的 `.part` 输出及 CHE
 
 本切片不覆盖物理 Fedora/Arch 桌面、systemd 开机、Wayland/GPU、所有 CPU 架构、签名发布或完整 update feed；不操作受拒的真实企微浏览器页面、外部 MCP 或网盘。当前不得据此关闭尚未实跑的安装/运行/卸载项目。
 
-
 ## 转交后的实际推进（backend_linkage）
 
 macOS Server 已完成后承接此独立目录，Mac Desktop producer/GUI 仍由其他 owner 负责。本轮先执行原 `prepare-consumer.py fedora`；已认证 OCI layer 导入成功，首轮尚未进入包安装即被 BuildKit 拒绝 `--network=bridge`。失败日志与 controller JSON 以 `*-bridge-network-failed.*` 保留，这不是 UWork 产品或依赖失败。独立驱动仅改为 BuildKit 的正常 `--network=default`，仓库签名/TLS 校验和原 RPM 均未改；第二轮正进行真实 dnf 仓库依赖安装。尚不能据下载进度声称安装或 GUI 通过。
 
 新增 `run-lifecycle.py` 顺序调度脚本；当前允许 GUI 整体失败后的独立卸载取证，明确留存 guiAcceptanceStatus，并硬要求原 container/network/tunnel 已闭且 clone imageId 与 GUI 完全相同，再调用原 lifecycle.py；使用具名、禁网、768MiB 的自有 clone，保留原 GUI 自有 profile 以观察 URI 注册，最后核容器不存在。不将包管理器 root 事务的权限合同混成普通 UID GUI sandbox 证据。
-
 
 ## Fedora 实际运行与边界
 
@@ -81,16 +79,13 @@ v4 复用既有已验证的原 BH browser-target `SystemInfo.getProcessInfo` 绑
 
 经 Root 明确授权又仅清一次本 context unused builder cache，2.308GB cache 报告清理，43个原有镜像 tag/ID全部保持，见 `second-prune-preservation.json`；未 system/image/volume prune 或更改 VM 生命周期。实际磁盘余量持续观测，Arch依赖、RPM压缩和唯一LinuxGUI按顺序执行。
 
-
 ## 新原 RPM 事务收口
 
 Root/peer复审后补了已缺alternatives注册的幂等和真实工具错误、两个symlink边界、fallback ownership，最终11/11 GREEN，并在RPM原额外fpm依赖加findutils。原normalproducer新包 `65844f4036b4fb44e01b6c5dd15f99ef6b81b56ec01b29074553fbdef88b3d47` / 109362213 bytes 自然exit0；原cdf/3658五Core不变。空间受限按Root接受方案独立clone真实DNF同NEVRA reinstall→installedDB POSTUN逐字等新file header/Requires findutils→原默认dnf remove，全部清单、两级链接、安装空树均消失，clone自然exit0/removed。不是freshinstall/新包GUI整组PASS；详[独立修复报告](client-linux-rpm-uninstall-fix-test-2026-10-20.md)。
 
 Arch NNP解决Landlock后第一轮完整下载因两个firmware.sig的原低速超时自然失败、无包升级；原失败独立保留。下一轮只对同一RUN里的原Syu作至多两次有限重试以复用正常缓存，不关闭原下载timeout、Landlock、TLS或签名校验，不改原pacman包。尚未将其写为安装/运行通过。
 
-
 RPM修复最终由Root统一typecheck/lint/architecture与独立11项再核通过，本地四文件原子提交 `220ba514`；原payload1db与packaging220分别记录。Arch在相同VM单次Mesa签名文件TLS获取200/566bytes/0.872秒后，仅自有consumer把已认证原conf的ParallelDownloads5改1，保所有原validation/timeout，当前新normalbuild执行中。此前python的extra路径诊断404不是已核pacman精确repo URL，不据此宣称上游缺签名。
-
 
 ## Arch 串行真实事务与导出空间失败
 
@@ -99,7 +94,6 @@ ParallelDownloads=1 的新normalbuild已完成约422.1秒的RUN：原Syu完成ke
 随后正常image export又95秒后ENOSPC（dockerdata20G卷仅112MiB余），不是UWork、签名或包事务错误；没有Archconsumer tag、未启动GUI、五core消费验证尚未完成，因此整体仍FAILED。该成功RUN缓存必须保留，不用global builder prune抹掉重新下载；正常上下文/input已冻结，重导出需直接重跑同context build，不重import base改变cache identity。
 
 已仅做只读、可恢复的Fedora9c4 image host备份，未据此自行删除任何image：`/Users/ljp/Library/Caches/uwork-backend/client-linux-distro-image-backups-20261020/fedora-9c4bd298cc9234b2.tar`，727346688 bytes，SHA256 `d2b9ae44dce9d030969f7df37c54ec4e7f928a09bc2165bbfaabfa8fc4fa7775`。原OCI index精确引用9c4、digest blob存在，mode0600；见`fedora-image-host-backup.json`。精确消费image的迁出须经Root资源调度，其他image/VM/主服务保留，不做system/image/volume prune。
-
 
 ## Arch 扩盘后原缓存消费
 
@@ -111,13 +105,11 @@ Root 独占将专用 `uwork-backend` 盘20→40GiB，CPU2/内存4GiB、其他 pr
 
 Arch v1 GUI在初始sandbox gate实际拒绝：新增stdin fixture扩展使原后置`entryPoints`检测失配，未移除夹具原有no-sandbox；原argv与kernel证据均保留，1项renderer检查、0供应商/账本、自然exit0且资源全闭，整体FAILED。驱动将同一构建标记贯穿pre/post，保留恰好一次flag移除与原sandbox严格断言；新v2使用全新profile，未把v1改名为通过。
 
-
 Arch v2 [原GUI结果](../evidence/client-linux-desktop-arch-clock-v2-20261020/result.json) 真实完成3项：renderer、onboarding恢复身份工作区、Host文件预览；[初始sandbox](../evidence/client-linux-desktop-arch-clock-v2-20261020/kernel-initial-ready.json) 精确角色/UID1000/cap0/NNP/Seccomp2/nested namespace成立。原reload约94ms返回，之后BH35秒超时，容器内原9222 `/json/list` 也curl28，模型/账本0；stop ack后wait-exit超时，精确container/network/volume/tunnel/BH均清理。与Fedora v3症状相似，未把两者合并根因或以另轮成功宣修复。
 
 不受此GUI失败阻断的 [Arch原卸载](../evidence/client-linux-distro-arch-uninstall-v1-20261020/lifecycle-result.json) 已执行：与v2同c42 installed image的独立writable clone，先原pacman数据库/5SHA守卫，再原`pacman -R --noconfirm zcode-preview` exit0、`pacman -Q` exit1，原manifest全部非目录及四系统路径均无，afterDetails={}，clone闭。原GUI自有用户zcode.desktop/MIME default仍保留，如实单列，不冒称其已清除，也不将clone写作同一个可写container内安装运行卸载。
 
 为覆盖被失败reload阻断的其他现有业务，`run.py --business-without-reload --usage-isolation` 新开独立profile，原facts/controller明确记scopeOmissions、不记录reloadPASS；保留原File/PTY/Chat/revoke/系统URI严格断言，预算、sandbox及原载荷不变。原公开HTTP创建/login第二普通成员后，观测本人两条settled与另一成员隔离，并核真实撤席位NO_SEAT；不会以该独立业务slice关闭上面的reload失败。
-
 
 ## Arch 独立后续业务结果
 
@@ -126,7 +118,6 @@ Arch v2 [原GUI结果](../evidence/client-linux-desktop-arch-clock-v2-20261020/r
 新增公开HTTP观测不是私有ledger归属替身：原owner API创建同企业第二普通成员并密码login；原`/api/client/usage`本人2请求/44Credit/44tokens，另一成员200但0请求/0cost/0tokens/空trend/models；另一成员传foreign userId仍200且全0，符合self API不支持跨人selector的合同；两普通成员直接管理usage均403 FORBIDDEN。原撤席位后本人原self API403 NO_SEAT，另一成员200且仍空；[完整原响应](../evidence/client-linux-desktop-arch-business-v1-20261020/result.json) 不含token/password。fixture仅一处源码锚点注入HTTP setup/observer，原shared backend/probe及产品handlers不改。
 
 最后原xdg-open exit3，未进入native确认，URI取消/接受/25秒pending都没达成；不得将11checks说成整组PASS或补计未执行的reload。原Desktop自然exit0，容器/network/volume/tunnel/专用BH已闭。唯一后续fresh reload诊断沿同immutable image、原File/reload/原预算加入只读proc/cgroup与本地CDP HTTP观测，未改资源/sandbox/Main，不再盲开多轮。
-
 
 ## 唯一 Arch reload 诊断与最终边界
 
@@ -149,6 +140,5 @@ python3 scripts/tests/linux-distro/run-lifecycle.py arch --name client-linux-dis
 ```
 
 第一条为完整原reload路径，第二条仅独立业务子范围，两者不能互代关闭reload失败。卸载发生于same-image独立clone、原用户profile另挂载，资源闭合和实际imageId为硬守卫。
-
 
 卸载示例明确读取所指future case的真实结果与work目录，GUI状态不作为PASS推定。当前实际Arch卸载入口为 `run-lifecycle.py arch --name client-linux-distro-arch-uninstall-v1-20261020 --gui-case client-linux-desktop-arch-clock-v2-20261020 --image uwork-linux-desktop-arch:20261020-clock-v1`，原controller留存 `guiAcceptanceStatus="failed"`，原资源闭合与same-image守卫全满足；因此仅证明独立包事务，不关闭GUI失败。

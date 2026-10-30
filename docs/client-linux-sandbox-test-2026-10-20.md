@@ -16,17 +16,17 @@
 
 Chromium fork 后 `/proc/<pid>/cmdline` 仍可显示 `--type=zygote`，因此不能据此误判“没有 renderer”。本次使用 browser-harness 的 `Target.attachToBrowserTarget` 与 `SystemInfo.getProcessInfo` 得到 renderer PID，再与 `/proc` 对齐。
 
-| 观测 | 结果 |
-| --- | --- |
-| Chromium browser PID | 22；外层 `Seccomp=0` |
-| 实际 renderer PID | 99（由 SystemInfo 标为 renderer） |
-| renderer UID/GID | real/effective/saved/fs 均 1000 |
-| renderer NoNewPrivs | 1 |
-| renderer Seccomp / filters | 2 / 1 |
-| renderer CapEff | 全零 |
-| renderer NSpid | `99 4 1`，存在嵌套 PID namespace |
-| renderer user 映射 | `1000 1000 1` |
-| renderer pid/user/net namespace | 均与 browser 不同 |
+| 观测                            | 结果                              |
+| ------------------------------- | --------------------------------- |
+| Chromium browser PID            | 22；外层 `Seccomp=0`              |
+| 实际 renderer PID               | 99（由 SystemInfo 标为 renderer） |
+| renderer UID/GID                | real/effective/saved/fs 均 1000   |
+| renderer NoNewPrivs             | 1                                 |
+| renderer Seccomp / filters      | 2 / 1                             |
+| renderer CapEff                 | 全零                              |
+| renderer NSpid                  | `99 4 1`，存在嵌套 PID namespace  |
+| renderer user 映射              | `1000 1000 1`                     |
+| renderer pid/user/net namespace | 均与 browser 不同                 |
 
 由于外层 browser 未被 seccomp 过滤，而 renderer 为 `Seccomp=2`，这不是把 Docker 自带的过滤误当 Chromium sandbox。部分 Chromium utility/Node 主进程仍是 `Seccomp=0`；本次不声称全部应用进程都进入 renderer sandbox。
 

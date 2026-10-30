@@ -18,8 +18,6 @@ The allow-side same topic/3-word input, expected ordinary main/title plus one na
 
 For a corrected deny outcome, after the normal main/title settle the controller polls only readonly status/accounting for a minimum three-second natural-extraction opportunity window under the unchanged work160 deadline; it sends no further prompt. Any observed marker fails immediately without waiting for that window. This is bounded observation, not private Runtime drain. The pure scheduler/formatter contract separately uses a newly constructed detached eligibility scheduler and actual original scan/format functions; that pure control is explicitly not Native execution or acceptance.
 
-
 本次仅复用已实际运行的 v15 v2 单一 false 用例，窄重定向至正常 v16 artifact 和全新 profile。原业务步骤、单行 topic、权限前置、模型回包、请求观察器、时钟和清理均不变。旧输入已封存；仅精确 v16 manifest 的 product pins 可解释旧 source closure 变化，其它 source 仍须一致。不是未完成的新双模式测试设施。
-
 
 启动日志的 model 是 create/draft 阶段可选值，并非完成后模型的权威字段。本版本仅换用新的只读观察器，原 same-session startup 的 Memory/cwd/use/extraction 断言保留；启动 model 若存在仍须精确相等，缺席明确记 deferred，不补造值。模型必须由唯一固定 ID/type/session 的 runtime/model_selection 原 codec、真实 user.modelSelection、已完成 assistant 的 providerId/modelId 三者一致证明，并与原任务索引、UI 及实际主请求对齐。缺失、重复、错误或未完成均失败，不增加等待/重试、不改变业务步骤。旧 v1 失败/未执行计划及所有源已封存；新观察器不把旧失败改成通过。

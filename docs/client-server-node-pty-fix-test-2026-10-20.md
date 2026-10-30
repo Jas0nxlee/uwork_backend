@@ -28,22 +28,20 @@ node --test clients/uwork/scripts/test/server-node-pty-assets.test.mjs clients/u
 
 生产源修复/门禁阶段未触真实主backend/生产主库，未启动新Server/GUI或发送供应商调用。下述实际SDK阶段仅使用自有Core/私有根、本地归档catalog；不把模块探针替代真实终端。
 
-
 ## Root 独立门禁与原正常producer
 
 [Root质量汇总](../evidence/client-server-node-pty-fix-20261020/quality-result.json)、[锁隔离](../evidence/client-server-node-pty-fix-20261020/root-lock-isolation-verdict.json)、[实际依赖](../evidence/client-server-node-pty-fix-20261020/effective-dependencies.json)、[独立peer](../evidence/client-server-node-pty-linux-sandbox-static-peer-20261020.json)、[Root五轴审核](../evidence/client-server-node-pty-fix-20261020/root-review.json)。没有因隔离实际install而执行第三方生命周期脚本；原cdf仍不变。
 
 在Root授权host窗口，仅正常`pnpm --filter @zcode/server-cli build`一次，然后顺序原`pnpm exec tsx packages/zcode-server-cli/src/packaging/stageCli.ts --target <target> --skip-agent-build`，均0。各target完成立即冻结到独立Library/Caches子目录后才生产下一个，避免共享.components writer冲突，未读取/改写Desktop out或sealed1a8候选。
 
-| 原新包 | 字节 | SHA256 |
-| --- | ---: | --- |
+| 原新包       |     字节 | SHA256                                                           |
+| ------------ | -------: | ---------------------------------------------------------------- |
 | Darwin ARM64 | 68020819 | 4665dc6b284f5eaf12aadb1d05f260025a330357b26baa9139e0fdb0c2dc8d57 |
-| Linux ARM64 | 78212232 | f55dbc60c412a735a05fb3be4c10beb5d8f858a16eef0127a51e2371744eae89 |
+| Linux ARM64  | 78212232 | f55dbc60c412a735a05fb3be4c10beb5d8f858a16eef0127a51e2371744eae89 |
 
 原tar实际成员逐hash与冻结树相同，manifest仍各自正确target/3.16.0，原JS1.1/公开三参，Darwin native128593...0811及Linux nativec192e5...b75b分别与原registry1.1精确相同；Darwin同目录helper0755。实际Agent均cdf，旧1d3/3b50归档和12个source/lock前后全等。[正常命令/产物](../evidence/client-server-node-pty-release-a1a924fc-20261020/producer-result.json)、[成员读回](../evidence/client-server-node-pty-release-a1a924fc-20261020/archive-readback.json)、[Root独立原tar读回](../evidence/client-server-node-pty-release-a1a924fc-20261020/root-archive-readback.json)。不把正常包SHA差异写成真实跨版本升级。
 
 正常producer阶段没有启动SDK/Core/PTY、GUI或容器。随后Root已授权下述原本地SDK实际链路；不发送任何Provider/model命令。
-
 
 ## 原本地 SDK / update 实际链路
 
@@ -66,7 +64,6 @@ python3 scripts/tests/run-server-local-pty-update.py --target linux-arm64 --name
 
 不带 `--run` 只准备；可用相同name加 `--execute-prepared` 核原controller/slice/driver/归档SHA后执行一次。Linux输入复制到workspace自有data目录后readonly bind；不是把Library/Caches路径假定为VM共享。全部仅local authority，未执行Provider/model/AgentTask/remote。
 
-
 ### Linux 原生 volume 完整对照与收尾
 
 Root另行批准一次明确设施差异：自有 local volume 带 owner/case labels、volume-nocopy，root cap0/NNP/netnone/read-only 辅助容器只chmod空volume根0777；随后UID1000原Node fs mkdir/utime自测exit0，才开始原完整case。实际业务全程UID1000、cap0、NNP、netnone、1GiB/CPU1，原归档/Node/API/tar flags不变，readonly source/bootstrap bind。不是提升业务权限或剥归档xattrs求绿。
@@ -79,7 +76,6 @@ Linux v3完整6项通过：NEW f55d/c192首次public resize→实际stty37×91�
 
 Linux原生volume入口须另加 `--linux-native-volume`；旧默认bind模式仍保留可复现失败，不暗改历史输入。所有生产12源/lock与Root门禁后SHA保持相同；本轮仅新增两个测试文件与本报告，未再改产品源。
 
-
 ### Root 独立验收及驱动质量收尾
 
 Root 已对实际结果再独核：[Darwin 13项](../evidence/client-server-local-pty-darwin-v5-20261020/root-independent-verdict.json)、[Linux 17项](../evidence/client-server-local-pty-linux-v3-20261020/root-independent-verdict.json)，包括当前精确PID/port关闭、Linux exact container/volume absence，均通过。当前实际验收为本地两平台6+6，Linux历史旧ABI拒绝属于明确对照，并非原旧包无错误。
@@ -87,7 +83,6 @@ Root 已对实际结果再独核：[Darwin 13项](../evidence/client-server-loca
 为避免将构建片段冒作可执行ESM，当前片段改名为 `server-local-pty-update-slice.mjs.tpl`，preparer只从一个SLICE路径常量读取；历史case input、sourceSHA与evidence里的旧源快照不改。Python经Black25.1.0格式化，AST与旧源仅明确模板路径常量变化后严格等价；模板经Prettier格式化，追加临时语法闭合后的esbuild normalized代码前后相等。该临时闭合仅用于模板语法/格式验证，实际生成仍复用原controller cleanup，不重写事务。新fresh prepare-only v6正常bundle及Node --check通过，没有重跑Core/PTY/业务或VM。
 
 真实Root `npm run typecheck` exit0。首次完整 `npm run lint` exit1，10项错误如实保留：旧clock preload CJS require2、distro observer CJS require1、distro拼接片段未使用声明2、原invalid-FD CJS require5。没有忽略或放宽规则来隐藏错误，待协调历史文件owner的合规收尾。新增两driver的Python语法/Black check、模板补闭合Node syntax/Prettier check、实际生成driver Node --check均0；生产12源/lock SHA仍相同。[质量收据](../evidence/client-server-local-pty-driver-quality-20261020/quality-result.json)、[Root类型日志](../evidence/client-server-local-pty-driver-quality-20261020/root-typecheck.log)、[Root原Lint红色日志](../evidence/client-server-local-pty-driver-quality-20261020/root-lint.log)。
-
 
 ### 历史10项 Lint 根因收尾：真实 ESM 迁移
 

@@ -111,7 +111,9 @@ export async function runAdminDeviceCase(p: AdminUiCasePorts) {
   const actions = db
     .all<{
       action: string;
-    }>("SELECT action FROM audit WHERE action LIKE 'identity.device-token.%' ORDER BY created_at,id")
+    }>(
+      "SELECT action FROM audit WHERE action LIKE 'identity.device-token.%' ORDER BY created_at,id",
+    )
     .map((row) => row.action);
   assert.deepEqual(actions, [
     "identity.device-token.create",

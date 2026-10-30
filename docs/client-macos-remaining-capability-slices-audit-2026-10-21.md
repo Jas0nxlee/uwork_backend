@@ -2,7 +2,6 @@
 
 > 当前校正（2026-10-21）：本页后续保留历史审计叙述，出现“下一步／未运行”时应结合具名版本。最新以[有限消费者覆盖复核](client-macos-finite-consumer-coverage-audit-2026-10-21.md)及[进展顶部](client-macos-backend-consistency-progress-2026-10-21.md)为准：ARM v16 已有 topic 的 FSfalse6/6、FStrue6/6、原自动写回8/8均已真实通过并独审；v15 edit/fork、archive/unarchive 各8/8，不再待测。新增的原归档单条删除、忙碌 Composer 队列正在准备。Quit 当前 v11 原菜单已发，AXRole -25204 后仍未确认／Cancel／Allow；v12 私有消息子预算反事实变体已通过独立准备审查。x64 v17 缺必需 helper 为严格 NoGo。Windows 已取消、Linux不新增，整体未完成。
 
-
 2026-10-21最新收口：**ARM64 v13原7项与独立31项通过；v12完成任务强杀恢复后新执行9/Root30/peer32、单件PDF分享7/Root27/独核15均已通过。** 它们不再列为next/pending。v10五个深入一致性边界保留各自具名来源，不能冒称全部在最新包重新执行。完整状态见[ARM64矩阵](client-macos-arm64-backend-consistency-matrix-2026-10-20.md)。
 
 最新x64 v14本次在原30秒期限内于**29.894秒**选中原file renderer，随后`Owned AX attribute failed`，结果仍**FAILED0/7**，未到BH、原副实例或业务。旧v9/v11的30秒失败保留；新一次前置成功不证明所有冷启性能已修复。[v9/v10只读诊断](client-macos-x64-architecture-ax-diagnostic-test-2026-10-21.md)随后确认AXWindows唯一元素与应用根CFEqual=true，未获可验证真实窗口；无AX动作、双方全行账务零增，原七项继续开放。原 ActiveQuit 尚未验收。此前 `screenLocked=true` 与无法置前是旧观察；新三键读回锁屏键缺失仍不证明已解锁。最新 v15 v7 已真实 readback foreground=true 并发送原菜单动作，失败准确定位到 AX candidates 的 depth/seen 上限，尚未调用确认选择器或 Cancel AXPress；不是已证产品退出故障，不把 finally 清理取消当 Allow 结果。
@@ -20,12 +19,12 @@
 
 ## 当前有限剩余差距
 
-| 差距                                | 已有产品入口/证据                                                                                                  | 当前可执行性与必要成功证明                                                                                                                                                           |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 差距                                | 已有产品入口/证据                                                                                                  | 当前可执行性与必要成功证明                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 原应用菜单活动任务Quit Cancel/Allow | 原`role:quit`、`shouldConfirmAppQuit`、`confirmAppQuit`、`before-quit`、`prepareAppQuit`；已准备exact-owned AX设施 | 新 v15 v7 原菜单已成功，后续受候选 collector 的深度/节点数断言挡住。正准备仅有界只读诊断；Cancel 后同 task/stream、Allow 屏障和账务仍未验收，不放宽上限/时钟或用 finally SIGTERM 代替 |
-| x64完整原7与架构提示之后的联动      | v14实际30秒目标已选中；旧v11独立诊断已证原1c/10秒拒锁自然退出                                                      | 本次被owned AX属性失败挡住，缺同次BH/真实副实例工作区消费/CLI/PTY/业务/撤权/退出证据。先准确定位原AX可达性，不凭缺属性推产品原因；不自动重试或延30/10秒。Rosetta结果不代替物理Intel  |
-| 同成员disabled→active后的原UI新认证 | 后端禁用删除session、恢复不重建session；Host/service恢复已验                                                       | 正常signed包缺合法可达local IdP epoch，受拒SSO不能绕过。须旧token仍401、原UI合法新session/newowner同步后新task正常计费、旧数据与另一成员保持；不手写store/重置hold/替认证owner       |
-| Mac regular-file Read-await中撤权   | 原Read工具与动态准入存在；Linux/Host别例不能拼作Mac实测                                                            | 尚无能证明本机真实regular-file OS await的安全可移植barrier，不以模拟Promise/其它OS lease声称关闭。明确该前置后才可验证撤权后正文扣留及零新增副作用                                   |
+| x64完整原7与架构提示之后的联动      | v14实际30秒目标已选中；旧v11独立诊断已证原1c/10秒拒锁自然退出                                                      | 本次被owned AX属性失败挡住，缺同次BH/真实副实例工作区消费/CLI/PTY/业务/撤权/退出证据。先准确定位原AX可达性，不凭缺属性推产品原因；不自动重试或延30/10秒。Rosetta结果不代替物理Intel   |
+| 同成员disabled→active后的原UI新认证 | 后端禁用删除session、恢复不重建session；Host/service恢复已验                                                       | 正常signed包缺合法可达local IdP epoch，受拒SSO不能绕过。须旧token仍401、原UI合法新session/newowner同步后新task正常计费、旧数据与另一成员保持；不手写store/重置hold/替认证owner        |
+| Mac regular-file Read-await中撤权   | 原Read工具与动态准入存在；Linux/Host别例不能拼作Mac实测                                                            | 尚无能证明本机真实regular-file OS await的安全可移植barrier，不以模拟Promise/其它OS lease声称关闭。明确该前置后才可验证撤权后正文扣留及零新增副作用                                    |
 
 此前只围绕上述有限边界得出的“未发现另一项可直接执行薄切片”范围不足。扩展到原设置消费者后发现 **Native Memory开关→新任务上下文→真实主模型请求与计费**。正常v13 `memory-v2` 现已实际8项/33.263秒通过：原UI同项目off→on→off三新任务，原始主请求连续记忆片段0/1/0、标题独分，current8/176与other全行2/44、原撤seat/logoutcold保持；34B原xterm文件与目录scope/count1吻合，21PID/4TCP/OS收口，89源稳定。v1设施缺hashlib真实FAIL5保留，实际片段RED/GREEN修复后才运行v2。[Root独核](../evidence/client-native-packaged-macos-clock-arm64-memory-v2-20261021/root-verdict.json) · [独立19项](../evidence/client-native-packaged-macos-clock-arm64-memory-v2-20261021/linux-sandbox-independent-verdict.json)。
 
@@ -48,6 +47,5 @@ v9/v11原30秒失败、修复前二实例10秒超时、CPU/secondary诊断与ASA
 用户已取消 Windows 联测，后续仅 Mac 验收。只读核源码及现有 v13 ASAR/CDF 后，另找到尚无具名真实 Native 动作证据的入口：消息原位编辑重跑、从 assistant 回复 fork 子会话、任务 archive/unarchive。前两项正准备可审规格和请求/账务观察器，后者保留待测；它们不同于新建任务、冷恢复、workflow Resume 或普通 Stop，不回写为已通过。当前仍优先完成 Memory filesystem 显式策略负例、修复和复测。
 
 本轮上述三个新入口现均已有真实正常v15结果：消息edit/fork v3 8/8，task archive/unarchive v1 8/8；原失败与各Scope证据保留。自动提取的filesystem=false manifest描述读取又发现独立source/Runtime RED，正补Native后修复。原应用Quit的fresh v15准备因独审发现测试teardown预算耗尽可跳恢复而暂No-Go，正在仅改设施；未突破原AX前台守卫，也未取得该Quit验收。当前session三选键中screenLocked缺失，不当作已解锁或前台可用证明。
-
 
 最新补充：正常 v15 的 Manifest 描述权限负例已实际 RED（16.694秒、显式 FSfalse、topic154B、noindex、非流式原请求泄露描述），修复与永久 Runtime33/完整企业策略541均通过并保存本地提交 d14eef85。正常 ARM64 v16 正在完整 CLI→stage→Desktop 构建及静态独核，false 拒绝/true 已有 topic 正控仍待该包真实执行。原 v2 462 源、实际原请求和失败已归档，不以源码 GREEN 代替 Native。

@@ -16,8 +16,8 @@
 
 ## 输入与复用边界
 
-| 输入 | 原归档 SHA256 | 原 native SHA256 |
-| --- | --- | --- |
+| 输入            | 原归档 SHA256                                                    | 原 native SHA256                                                 |
+| --------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
 | OLD Linux3.16.0 | 3b50dc19d24183435fa02fcb379f264642920172fe5276b675eb3c96b2843361 | d8314caa682827c0bcab6a7a2ef121a17065605e830d5eac55de3245333b3ad8 |
 | NEW Linux3.16.0 | f55dbc60c412a735a05fb3be4c10beb5d8f858a16eef0127a51e2371744eae89 | c192e560428e778842fdbbe72f14032824b03373ed49ad3efcdbcf9eb249b75b |
 
@@ -49,7 +49,6 @@ python3 scripts/tests/prepare-linux-user-service-update.py --name client-linux-s
 ```
 
 旧准备v1在substring anchor统计把清理分支stop也算入时失败，保存 `failure.json`；改为完整行唯一计数后fresh v2准备通过，无产品/VM行为。上述v2为历史设计准备；随后新派生driver已完成下节静态准备，仍未执行已注册update。
-
 
 ## 新薄派生 driver 已冻结，仍未运行
 

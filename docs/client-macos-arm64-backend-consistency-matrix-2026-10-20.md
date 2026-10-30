@@ -4,7 +4,6 @@
 >
 > 当前尚需原 UI 证明：Quit Cancel/Allow、归档单条删除、busy Composer队列；[有限消费者审计](client-macos-finite-consumer-coverage-audit-2026-10-21.md)列出真实入口。Quit v11原菜单成功后AXRole -25204，不再仅用旧锁屏观察描述；未确认或取消，新v12反事实设施正测。x64 v17严格资源验收缺必需Swift helper，无manifest与Native；Windows联测由用户取消，Linux不新增。合法同成员新认证、本机OS-read-await、物理Intel及旧系统运行前提继续开放。
 
-
 当前正常 ARM64 基线为 **v13（source `f4cac913`）原7项与独立31项通过**：真实副实例退出、原UI项目、文件/reload、CLI/PTY/cwd、本人2/44与另一成员2/44、撤席位零增及logout冷启均成立；最终ASAR header与Info声明也在新包实际一致。[原结果](../evidence/client-native-packaged-macos-clock-arm64-asar-integrity-v1-20261021/result.json)与[31项独核](../evidence/client-native-packaged-macos-clock-arm64-asar-integrity-v1-20261021/agent-independent-verdict.json)具名保留。这个原7用例的他人证据是前后聚合，不能补称历史全行before。
 
 v12 的**完成任务强杀恢复后新执行**已通过9项/Root30/peer32；**单件PDF Native分享**已通过7项/Root27/独核15，不再待补。v10五个深入边界仍归属各自v10证据，不冒称在v13全部重演。原菜单ActiveQuit仍未验收：当前会话`screenLocked=true`，已停止相同受限前台入口的重复测试。[强杀恢复](client-macos-crash-task-consistency-test-2026-10-21.md)、[PDF分享](client-macos-native-share-artifact-test-2026-10-21.md)、[Quit环境限制](client-macos-active-quit-consistency-test-2026-10-21.md)分别记录结果与历史失败。

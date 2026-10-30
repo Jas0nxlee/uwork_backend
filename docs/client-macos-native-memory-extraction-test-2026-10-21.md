@@ -8,22 +8,22 @@
 
 独立读取 [final-experience-proof.json](../evidence/client-native-packaged-macos-clock-arm64-memory-extract-v2-20261021/final-experience-proof.json) 与 [desktop-traffic.json](../evidence/client-native-packaged-macos-clock-arm64-memory-extract-v2-20261021/desktop-traffic.json) 中完整的 `modelRequests`，两份 10 条逐项相等，分类如下。索引为保留数组的零起始下标，不依赖标题推断主请求。
 
-| 实际 raw 索引 | 请求事实 |
-| --- | --- |
-| 0、1 | 另一成员的原 seed 请求，各自正常结算 |
-| 2、3 | 原 warm 主请求与原 997 字节标题请求 |
-| 4、5 | A 原主请求及独立标题；A durable prompt 为 5 词，明确包含自有测试偏好 |
-| 6、7 | 两次非流式 extraction sidecar，末 user 内容等于原提取 prompt，携相同完整 32 工具目录 |
-| 8、9 | 新 session B 原主请求及标题；B durable prompt 仅一个词 |
+| 实际 raw 索引 | 请求事实                                                                             |
+| ------------- | ------------------------------------------------------------------------------------ |
+| 0、1          | 另一成员的原 seed 请求，各自正常结算                                                 |
+| 2、3          | 原 warm 主请求与原 997 字节标题请求                                                  |
+| 4、5          | A 原主请求及独立标题；A durable prompt 为 5 词，明确包含自有测试偏好                 |
+| 6、7          | 两次非流式 extraction sidecar，末 user 内容等于原提取 prompt，携相同完整 32 工具目录 |
+| 8、9          | 新 session B 原主请求及标题；B durable prompt 仅一个词                               |
 
 raw 7 保留了原模型实际收到的前一轮 assistant 三次标准 `Write` 调用及同 ID 的三条 tool results：`native-auto-memory-index-20261021`、`native-auto-memory-topic-20261021`、`native-auto-memory-denied-20261021`。前两项分别创建新 `MEMORY.md` 和 `owned-preference.md`，第三项指向本用例自有 caseRoot 中、Memory root 外的 `owned-outside-memory.md`，收到原 Memory-root policy 的拒绝。参数全文、路径、内容、成功消息与拒绝文字均已核对；并非测试设施直接执行这些 Write。
 
 原始文件字节及目录逐级无 symlink 已复核，禁止目标仍不存在。实际文件位于本用例私有 `data/.uwork/cli/memories/projects/packaged-workspace-aed45b1f029d87a1/memory/`，未写真实用户或 Codex memory。
 
-| 文件 | 字节数 | 完整 SHA256 |
-| --- | ---: | --- |
-| MEMORY.md | 85 | `5616978683291df909298cff62750a39648c00d63b734958653dbb933adf62c8` |
-| owned-preference.md | 374 | `198d6143bcf6b682274661c9de016630f9983104845029ab49f5d9f75bf610de` |
+| 文件                | 字节数 | 完整 SHA256                                                        |
+| ------------------- | -----: | ------------------------------------------------------------------ |
+| MEMORY.md           |     85 | `5616978683291df909298cff62750a39648c00d63b734958653dbb933adf62c8` |
+| owned-preference.md |    374 | `198d6143bcf6b682274661c9de016630f9983104845029ab49f5d9f75bf610de` |
 
 topic 的有效 YAML frontmatter 由原 stamping 增补 `metadata.node_type: memory` 与 `metadata.originSessionId: sess_f91b34eb-cd5d-4649-832c-a313d47b8cdb`，与 UI task A、实际 durable session 一致。B 为另一个 session；raw 8 中单一文本片段包含原 index heading 与完整 index 内容，raw 9 标题不含偏好正文。这里只证明 B 自动消费 index，未宣称 topic 正文自动注入。原 Memory catalog 仅观测到两个精确文件名与正确 scope，不冒称 UI 正文预览。
 

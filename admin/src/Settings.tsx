@@ -2,18 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import { Save, RefreshCw, Plus, KeyRound } from "lucide-react";
 import { api, display, type Row } from "./api";
 import { FormDialog, Modal, type Field } from "./forms";
+import { settingsAccess, type Capabilities } from "./permissions";
 
 export function Settings({
   view,
   base,
   notify,
+  capabilities,
   onEnterpriseLoaded,
 }: {
   view: string;
   base: string;
   notify: (s: string) => void;
+  capabilities: Capabilities;
   onEnterpriseLoaded?: (enterprise: { id: string; name: string }) => void;
 }) {
+  const access = settingsAccess(capabilities);
   const [data, setData] = useState<Row | null>(null),
     [error, setError] = useState(""),
     [form, setForm] = useState<{
@@ -111,41 +115,45 @@ export function Settings({
             <h2>企业信息</h2>
             <p className="settings-value">{display(data?.name)}</p>
             <div className="actions">
-              <button
-                onClick={() =>
-                  open(
-                    "企业信息",
-                    [
-                      {
-                        key: "name",
-                        label: "企业名称",
-                        initial: data?.name,
-                        required: true,
-                      },
-                      {
-                        key: "contact",
-                        label: "联系人",
-                        initial: data?.contact,
-                      },
-                    ],
-                    base,
-                    "PATCH",
-                  )
-                }
-              >
-                <Save size={16} />
-                修改企业信息
-              </button>
-              <button
-                onClick={() =>
-                  void perform(
-                    async () => setDetail(await api(`${base}/roles`)),
-                    "",
-                  )
-                }
-              >
-                角色权限
-              </button>
+              {access.updateEnterprise && (
+                <button
+                  onClick={() =>
+                    open(
+                      "企业信息",
+                      [
+                        {
+                          key: "name",
+                          label: "企业名称",
+                          initial: data?.name,
+                          required: true,
+                        },
+                        {
+                          key: "contact",
+                          label: "联系人",
+                          initial: data?.contact,
+                        },
+                      ],
+                      base,
+                      "PATCH",
+                    )
+                  }
+                >
+                  <Save size={16} />
+                  修改企业信息
+                </button>
+              )}
+              {access.readRoles && (
+                <button
+                  onClick={() =>
+                    void perform(
+                      async () => setDetail(await api(`${base}/roles`)),
+                      "",
+                    )
+                  }
+                >
+                  角色权限
+                </button>
+              )}
             </div>
           </section>
           <section className="settings-section">
@@ -156,150 +164,167 @@ export function Settings({
                 : `未配置：按默认 ${display(retention.days)} 天，仅手动清理`}
             </p>
             <div className="actions">
-              <button
-                onClick={() =>
-                  open(
-                    "留存天数",
-                    [
-                      {
-                        key: "days",
-                        label: "保留天数（7-3650）",
-                        type: "number",
-                        initial: retention.days,
-                        required: true,
-                        min: 7,
-                      },
-                    ],
-                    `${base}/retention`,
-                  )
-                }
-              >
-                <Save size={16} />
-                设置留存
-              </button>
-              <button
-                onClick={() =>
-                  void perform(
-                    async () =>
-                      setDetail(
-                        await api(`${base}/retention/purge`, "POST", {}),
-                      ),
-                    "已按留存窗口清理",
-                  )
-                }
-              >
-                立即清理
-              </button>
+              {access.updateRetention && (
+                <button
+                  onClick={() =>
+                    open(
+                      "留存天数",
+                      [
+                        {
+                          key: "days",
+                          label: "保留天数（7-3650）",
+                          type: "number",
+                          initial: retention.days,
+                          required: true,
+                          min: 7,
+                        },
+                      ],
+                      `${base}/retention`,
+                    )
+                  }
+                >
+                  <Save size={16} />
+                  设置留存
+                </button>
+              )}
+              {access.purgeRetention && (
+                <button
+                  onClick={() =>
+                    void perform(
+                      async () =>
+                        setDetail(
+                          await api(`${base}/retention/purge`, "POST", {}),
+                        ),
+                      "已按留存窗口清理",
+                    )
+                  }
+                >
+                  立即清理
+                </button>
+              )}
             </div>
           </section>
           <section className="settings-section">
             <h2>企业微信</h2>
             <div className="actions">
-              <button
-                onClick={() =>
-                  open(
-                    "企业微信应用",
-                    [
-                      { key: "corpId", label: "CorpId", required: true },
-                      { key: "agentId", label: "AgentId", required: true },
-                      {
-                        key: "credentialId",
-                        label: "Secret 凭据 ID",
-                        required: true,
+              {access.configureWecom && (
+                <button
+                  onClick={() =>
+                    open(
+                      "企业微信应用",
+                      [
+                        { key: "corpId", label: "CorpId", required: true },
+                        { key: "agentId", label: "AgentId", required: true },
+                        {
+                          key: "credentialId",
+                          label: "Secret 凭据 ID",
+                          required: true,
+                        },
+                      ],
+                      `${base}/wecom`,
+                    )
+                  }
+                >
+                  配置应用
+                </button>
+              )}
+              {access.readWecom && (
+                <button
+                  onClick={() =>
+                    void perform(
+                      async () => setDetail(await api(`${base}/wecom`)),
+                      "",
+                    )
+                  }
+                >
+                  应用与回调
+                </button>
+              )}
+              {access.bindWecomIdentity && (
+                <button
+                  onClick={() =>
+                    setForm({
+                      title: "绑定企微身份",
+                      fields: [
+                        { key: "userId", label: "成员 ID", required: true },
+                        {
+                          key: "externalId",
+                          label: "企微 UserId",
+                          required: true,
+                        },
+                      ],
+                      submit: async (d) => {
+                        await api(
+                          `${base}/members/${encodeURIComponent(String(d.userId))}/wecom`,
+                          "PUT",
+                          { externalId: d.externalId },
+                        );
+                        notify("企微身份已绑定");
                       },
-                    ],
-                    `${base}/wecom`,
-                  )
-                }
-              >
-                配置应用
-              </button>
-              <button
-                onClick={() =>
-                  void perform(
-                    async () => setDetail(await api(`${base}/wecom`)),
-                    "",
-                  )
-                }
-              >
-                应用与回调
-              </button>
-              <button
-                onClick={() =>
-                  setForm({
-                    title: "绑定企微身份",
-                    fields: [
-                      { key: "userId", label: "成员 ID", required: true },
-                      {
-                        key: "externalId",
-                        label: "企微 UserId",
-                        required: true,
-                      },
-                    ],
-                    submit: async (d) => {
-                      await api(
-                        `${base}/members/${encodeURIComponent(String(d.userId))}/wecom`,
-                        "PUT",
-                        { externalId: d.externalId },
-                      );
-                      notify("企微身份已绑定");
-                    },
-                  })
-                }
-              >
-                绑定身份
-              </button>
-              <button
-                onClick={() =>
-                  void perform(
-                    () => api(`${base}/wecom/sync`, "POST"),
-                    "通讯录已同步",
-                  )
-                }
-              >
-                <RefreshCw size={16} />
-                同步通讯录
-              </button>
+                    })
+                  }
+                >
+                  绑定身份
+                </button>
+              )}
+              {access.syncWecom && (
+                <button
+                  onClick={() =>
+                    void perform(
+                      () => api(`${base}/wecom/sync`, "POST"),
+                      "通讯录已同步",
+                    )
+                  }
+                >
+                  <RefreshCw size={16} />
+                  同步通讯录
+                </button>
+              )}
             </div>
           </section>
           <section className="settings-section">
             <h2>终端凭据</h2>
             <div className="actions">
-              <button
-                onClick={() =>
-                  void perform(
-                    async () => setDetail(await api("/api/auth/device-tokens")),
-                    "",
-                  )
-                }
-              >
-                查看我的终端凭据
-              </button>
-              <button
-                onClick={() =>
-                  setForm({
-                    title: "签发终端凭据",
-                    fields: [
-                      {
-                        key: "ttlHours",
-                        label: "有效小时",
-                        type: "number",
-                        initial: 24,
-                        min: 1,
-                        max: 168,
-                      },
-                    ],
-                    submit: async (d) => {
-                      setDetail(
-                        await api("/api/auth/device-tokens", "POST", d),
-                      );
-                    },
-                  })
-                }
-              >
-                <KeyRound size={16} />
-                签发凭据
-              </button>
+              {access.manageDeviceTokens && (
+                <>
+                  <button
+                    onClick={() =>
+                      void perform(
+                        async () =>
+                          setDetail(await api("/api/auth/device-tokens")),
+                        "",
+                      )
+                    }
+                  >
+                    查看我的终端凭据
+                  </button>
+                  <button
+                    onClick={() =>
+                      setForm({
+                        title: "签发终端凭据",
+                        fields: [
+                          {
+                            key: "ttlHours",
+                            label: "有效小时",
+                            type: "number",
+                            initial: 24,
+                            min: 1,
+                            max: 168,
+                          },
+                        ],
+                        submit: async (d) => {
+                          setDetail(
+                            await api("/api/auth/device-tokens", "POST", d),
+                          );
+                        },
+                      })
+                    }
+                  >
+                    <KeyRound size={16} />
+                    签发凭据
+                  </button>
+                </>
+              )}
             </div>
           </section>
         </>
@@ -330,91 +355,95 @@ export function Settings({
               有效期：{new Date(Number(data.starts_at)).toLocaleDateString()} 至{" "}
               {new Date(Number(data.ends_at)).toLocaleDateString()}
             </p>
-            <button
-              onClick={() =>
-                open(
-                  "本地订阅",
-                  [
-                    {
-                      key: "seats",
-                      label: "席位",
-                      type: "number",
-                      initial: data.seats,
-                      min: 1,
-                    },
-                    {
-                      key: "credits",
-                      label: "周期 Credit",
-                      type: "number",
-                      initial: data.credits,
-                      min: 0,
-                    },
-                    {
-                      key: "startsAt",
-                      label: "开始时间戳",
-                      type: "number",
-                      initial: data.starts_at,
-                    },
-                    {
-                      key: "endsAt",
-                      label: "结束时间戳",
-                      type: "number",
-                      initial: data.ends_at,
-                    },
-                    {
-                      key: "metering",
-                      label: "计量周期",
-                      type: "select",
-                      initial: data.metering,
-                      options: [
-                        { value: "calendar", label: "自然月" },
-                        { value: "subscription", label: "订阅月" },
-                      ],
-                    },
-                  ],
-                  `${base}/subscription`,
-                )
-              }
-            >
-              调整订阅
-            </button>
+            {access.updateSubscription && (
+              <button
+                onClick={() =>
+                  open(
+                    "本地订阅",
+                    [
+                      {
+                        key: "seats",
+                        label: "席位",
+                        type: "number",
+                        initial: data.seats,
+                        min: 1,
+                      },
+                      {
+                        key: "credits",
+                        label: "周期 Credit",
+                        type: "number",
+                        initial: data.credits,
+                        min: 0,
+                      },
+                      {
+                        key: "startsAt",
+                        label: "开始时间戳",
+                        type: "number",
+                        initial: data.starts_at,
+                      },
+                      {
+                        key: "endsAt",
+                        label: "结束时间戳",
+                        type: "number",
+                        initial: data.ends_at,
+                      },
+                      {
+                        key: "metering",
+                        label: "计量周期",
+                        type: "select",
+                        initial: data.metering,
+                        options: [
+                          { value: "calendar", label: "自然月" },
+                          { value: "subscription", label: "订阅月" },
+                        ],
+                      },
+                    ],
+                    `${base}/subscription`,
+                  )
+                }
+              >
+                调整订阅
+              </button>
+            )}
           </section>
           <section className="settings-section">
             <div className="section-heading">
               <h2>限量规则</h2>
-              <button
-                onClick={() =>
-                  open(
-                    "设置限量",
-                    [
-                      {
-                        key: "subjectType",
-                        label: "对象类型",
-                        type: "select",
-                        initial: "member",
-                        options: [
-                          "tenant",
-                          "member",
-                          "department",
-                          "application",
-                        ].map((v) => ({ value: v, label: v })),
-                      },
-                      { key: "subjectId", label: "对象 ID", required: true },
-                      {
-                        key: "amount",
-                        label: "周期 Credit",
-                        type: "number",
-                        initial: 10000,
-                        min: 0,
-                      },
-                    ],
-                    `${base}/limits`,
-                  )
-                }
-              >
-                <Plus size={16} />
-                设置限量
-              </button>
+              {access.updateLimits && (
+                <button
+                  onClick={() =>
+                    open(
+                      "设置限量",
+                      [
+                        {
+                          key: "subjectType",
+                          label: "对象类型",
+                          type: "select",
+                          initial: "member",
+                          options: [
+                            "tenant",
+                            "member",
+                            "department",
+                            "application",
+                          ].map((v) => ({ value: v, label: v })),
+                        },
+                        { key: "subjectId", label: "对象 ID", required: true },
+                        {
+                          key: "amount",
+                          label: "周期 Credit",
+                          type: "number",
+                          initial: 10000,
+                          min: 0,
+                        },
+                      ],
+                      `${base}/limits`,
+                    )
+                  }
+                >
+                  <Plus size={16} />
+                  设置限量
+                </button>
+              )}
             </div>
             <table>
               <thead>
@@ -432,20 +461,22 @@ export function Settings({
                     <td>{display(r.subject_id)}</td>
                     <td>{display(r.amount)}</td>
                     <td>
-                      <button
-                        onClick={() =>
-                          void perform(
-                            () =>
-                              api(
-                                `${base}/limits/${r.subject_type}/${r.subject_id}`,
-                                "DELETE",
-                              ),
-                            "限量已删除",
-                          )
-                        }
-                      >
-                        移除
-                      </button>
+                      {access.updateLimits && (
+                        <button
+                          onClick={() =>
+                            void perform(
+                              () =>
+                                api(
+                                  `${base}/limits/${r.subject_type}/${r.subject_id}`,
+                                  "DELETE",
+                                ),
+                              "限量已删除",
+                            )
+                          }
+                        >
+                          移除
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -474,26 +505,32 @@ export function Settings({
           <section className="settings-section">
             <h2>网盘适配服务</h2>
             <div className="actions">
-              <button
-                onClick={() =>
-                  open(
-                    "网盘适配",
-                    [
-                      { key: "baseUrl", label: "基础地址", required: true },
-                      { key: "credentialId", label: "凭据 ID", required: true },
-                      {
-                        key: "enabled",
-                        label: "启用",
-                        type: "checkbox",
-                        initial: true,
-                      },
-                    ],
-                    `${base}/integrations/drive`,
-                  )
-                }
-              >
-                配置
-              </button>
+              {access.configureDrive && (
+                <button
+                  onClick={() =>
+                    open(
+                      "网盘适配",
+                      [
+                        { key: "baseUrl", label: "基础地址", required: true },
+                        {
+                          key: "credentialId",
+                          label: "凭据 ID",
+                          required: true,
+                        },
+                        {
+                          key: "enabled",
+                          label: "启用",
+                          type: "checkbox",
+                          initial: true,
+                        },
+                      ],
+                      `${base}/integrations/drive`,
+                    )
+                  }
+                >
+                  配置
+                </button>
+              )}
               {["health", "capacity", "files", "logs"].map((k) => (
                 <button
                   key={k}
@@ -515,31 +552,33 @@ export function Settings({
                   }
                 </button>
               ))}
-              <button
-                onClick={() =>
-                  open(
-                    "容量策略",
-                    [
-                      {
-                        key: "defaultBytes",
-                        label: "默认字节数",
-                        type: "number",
-                        initial: 0,
-                        min: 0,
-                      },
-                      {
-                        key: "members",
-                        label: "成员容量",
-                        type: "json",
-                        initial: [],
-                      },
-                    ],
-                    `${base}/integrations/drive/capacity`,
-                  )
-                }
-              >
-                容量策略
-              </button>
+              {access.updateDriveCapacity && (
+                <button
+                  onClick={() =>
+                    open(
+                      "容量策略",
+                      [
+                        {
+                          key: "defaultBytes",
+                          label: "默认字节数",
+                          type: "number",
+                          initial: 0,
+                          min: 0,
+                        },
+                        {
+                          key: "members",
+                          label: "成员容量",
+                          type: "json",
+                          initial: [],
+                        },
+                      ],
+                      `${base}/integrations/drive/capacity`,
+                    )
+                  }
+                >
+                  容量策略
+                </button>
+              )}
             </div>
           </section>
         </>

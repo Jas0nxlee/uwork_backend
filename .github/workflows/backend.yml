@@ -12,11 +12,31 @@ jobs:
           node-version: 24.19.0
           cache: npm
       - run: npm ci --ignore-scripts
+      # 根 typecheck 包含静态引用 clients/uwork 的脚本：先安装客户端锁定的
+      # pnpm workspace 并生成声明产物，否则 @zcode/* 会回退到客户端源码，
+      # 被后端编译选项检查（干净 checkout 下曾因此失败）。
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: clients/uwork
+      - run: pnpm exec tsc -b packages/shared packages/rpc packages/provider packages/provider-node packages/services
+        working-directory: clients/uwork
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
       - run: npm run ledger:check
       - run: npm test
+      # 无 Docker 的生产仿真入口由 scripts/production-simulation.ts 提供。
+      # 脚本与 package.json 入口落地后此步骤即为硬门禁；尚未落地时显式跳过，
+      # 避免工作流引用不存在的脚本而整体失败。
+      - name: production simulate (no Docker)
+        run: |
+          if node -e "process.exit((require('./package.json').scripts ?? {})['production:simulate'] ? 0 : 1)"; then
+            npm run production:simulate
+          else
+            echo "::notice::package.json 未提供 production:simulate，跳过无 Docker 生产仿真"
+          fi
       - run: node --import tsx scripts/agent-mcp-crash-smoke.ts
       - run: npm run build
       - run: npm audit --audit-level=high
@@ -45,3 +65,51 @@ jobs:
         env:
           UWORK_AGENT_CRASH_MODE: ready
       - run: node --import tsx scripts/lease-namespace-smoke.ts
+      # 部署契约：只解析 Compose 配置，不启动容器；临时 .env 使用随机合成主密钥，
+      # 不读取仓库 .env、生产凭据或任何 secrets。
+      - name: compose config (main + sandbox overlay)
+        run: |
+          set -euo pipefail
+          workspace="$(mktemp -d)"
+          trap 'rm -rf "$workspace"' EXIT
+          cp compose.yaml compose.sandbox.yaml "$workspace"/
+          node -e "const { randomBytes } = require('node:crypto'); require('node:fs').writeFileSync(process.argv[1], ['MASTER_KEY=' + randomBytes(32).toString('hex'), 'DATABASE_PATH=data/uwork.sqlite', 'PUBLIC_URL=http://localhost:3000', ''].join('\n'))" "$workspace/.env"
+          SANDBOX_HOST_SOCKET=/run/uwork-ci-sandbox.sock SANDBOX_SOCKET_GID=1000 \
+            docker compose -p uwork-ci-config -f "$workspace/compose.yaml" -f "$workspace/compose.sandbox.yaml" config > /dev/null
+      # 隔离合成 Compose 验收：临时项目名、临时 .env、临时数据目录。
+      # 只做 build/init/health/restart/清理，使用随机合成主密钥，不推送镜像、
+      # 不挂载生产 socket、不接触生产数据或凭据。
+      - name: compose synthetic acceptance (isolated project)
+        run: |
+          set -euo pipefail
+          project="uwork-ci-${RANDOM}${RANDOM}"
+          workspace="$(mktemp -d)"
+          app="$workspace/app"
+          mkdir -p "$app/data"
+          tar -C . --exclude node_modules --exclude dist --exclude admin/dist \
+            --exclude data --exclude .git -cf - src admin package.json package-lock.json \
+            .npmrc tsconfig.json Dockerfile compose.yaml .dockerignore | tar -C "$app" -xf -
+          node -e "const { randomBytes } = require('node:crypto'); require('node:fs').writeFileSync(process.argv[1], ['MASTER_KEY=' + randomBytes(32).toString('hex'), 'DATABASE_PATH=data/uwork.sqlite', 'PUBLIC_URL=http://localhost:3000', ''].join('\n'))" "$app/.env"
+          cleanup() {
+            docker compose -p "$project" -f "$app/compose.yaml" down -v --remove-orphans > /dev/null 2>&1 || true
+            rm -rf "$workspace"
+          }
+          trap cleanup EXIT
+          cd "$app"
+          wait_healthy() {
+            for _ in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:3000/health > /dev/null; then return 0; fi
+              sleep 2
+            done
+            return 1
+          }
+          docker compose -p "$project" build
+          docker compose -p "$project" run --rm --user root backend sh -c 'chown 1000:1000 /app/data && chmod 700 /app/data'
+          docker compose -p "$project" run --rm backend node dist/cli.js init
+          docker compose -p "$project" up -d
+          wait_healthy
+          docker compose -p "$project" restart backend
+          wait_healthy
+          test -s data/bootstrap-credentials.txt
+          node -e "const { statSync } = require('node:fs'); process.exit((statSync(process.argv[1]).mode & 0o777) === 0o600 ? 0 : 1)" data/bootstrap-credentials.txt
+          docker compose -p "$project" down -v --remove-orphans

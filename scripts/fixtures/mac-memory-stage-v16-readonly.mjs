@@ -10,7 +10,12 @@ import {
   bindStartupModelWitness,
 } from "./mac-session-model-witness-v16-readonly.mjs";
 export const MEMORY_BODY = "UWORK_NATIVE_MEMORY_BODY_20261021";
-export const MEMORY_STAGES = Object.freeze(["warm", "off-one", "on", "off-two"]);
+export const MEMORY_STAGES = Object.freeze([
+  "warm",
+  "off-one",
+  "on",
+  "off-two",
+]);
 export const MEMORY_LABELS = Object.freeze([
   "MACOS_CLOCK_LINK_20261020",
   "UWORK_NATIVE_MEMORY_OFF_ONE_20261021",
@@ -33,7 +38,9 @@ export async function attestMemoryInput(caseRoot, workspacePath) {
   const file = ownedMemoryPath(caseRoot, workspacePath);
   assert.equal(await realpath(caseRoot), caseRoot);
   const tail = relative(caseRoot, file);
-  assert.ok(tail && !isAbsolute(tail) && tail !== ".." && !tail.startsWith(".." + sep));
+  assert.ok(
+    tail && !isAbsolute(tail) && tail !== ".." && !tail.startsWith(".." + sep),
+  );
   let cursor = caseRoot;
   for (const part of tail.split(sep)) {
     cursor = join(cursor, part);
@@ -77,12 +84,20 @@ export function projectMemoryStageRequests(
     ownedMemoryPath(caseRoot, workspacePath) +
     " (user's auto-memory, persists across conversations):";
   const bodies = main.messages.map(text);
-  const fragments = bodies.filter((value) => value.includes(heading + "\n\n" + MEMORY_BODY));
+  const fragments = bodies.filter((value) =>
+    value.includes(heading + "\n\n" + MEMORY_BODY),
+  );
   if (enabled)
-    assert.equal(fragments.length, 1, "One actual main memory heading/body fragment required");
+    assert.equal(
+      fragments.length,
+      1,
+      "One actual main memory heading/body fragment required",
+    );
   else {
     assert.ok(
-      bodies.every((value) => !value.includes(MEMORY_BODY) && !value.includes(heading)),
+      bodies.every(
+        (value) => !value.includes(MEMORY_BODY) && !value.includes(heading),
+      ),
       "Off main must omit project Memory",
     );
   }
@@ -92,7 +107,8 @@ export function projectMemoryStageRequests(
     memoryFragmentMatched: enabled,
     memoryHeadingMatched: enabled,
     memoryBodySha256: sha(MEMORY_BODY + "\n"),
-    memorySource: "original main meta_user/request context; title is not the witness",
+    memorySource:
+      "original main meta_user/request context; title is not the witness",
   };
 }
 
@@ -171,18 +187,30 @@ export async function inspectMemorySession({
       )
       .all(sessionId);
     messages = projectMemoryDurableRows(sessionId, rows, parts);
-    modelWitness = readSessionModelWitness({ db, sessionId, modelId, messages });
-    assert.deepEqual(messages.map((m) => m.info.role).sort(), ["assistant", "user"]);
+    modelWitness = readSessionModelWitness({
+      db,
+      sessionId,
+      modelId,
+      messages,
+    });
+    assert.deepEqual(messages.map((m) => m.info.role).sort(), [
+      "assistant",
+      "user",
+    ]);
     assert.ok(messages.every((m) => m.parts.length <= 128));
     const user = messages.find((m) => m.info.role === "user");
     assert.ok(
-      user.parts.some((p) => p.type === "text" && p.text === marker && !p.synthetic && !p.ignored),
+      user.parts.some(
+        (p) =>
+          p.type === "text" && p.text === marker && !p.synthetic && !p.ignored,
+      ),
     );
   } finally {
     db.close();
   }
-  const { createMemoryExtractionScheduler } =
-    await import("../../clients/uwork/apps/zcode-cli/packages/core/src/memory/extraction.ts");
+  const { createMemoryExtractionScheduler } = await import(
+    "../../clients/uwork/apps/zcode-cli/packages/core/src/memory/extraction.ts"
+  );
   let wouldExecute = 0;
   const scheduler = createMemoryExtractionScheduler(async () => {
     wouldExecute++;
@@ -199,7 +227,11 @@ export async function inspectMemorySession({
     await scheduler.drain();
     assert.equal(scheduler.getCursor(), messages.at(-1).info.id);
     assert.equal(scheduler.hasPendingWork(), false);
-    assert.equal(wouldExecute, 0, "Actual durable short prompt must naturally skip extraction");
+    assert.equal(
+      wouldExecute,
+      0,
+      "Actual durable short prompt must naturally skip extraction",
+    );
   } finally {
     scheduler.shutdown();
   }
@@ -207,14 +239,18 @@ export async function inspectMemorySession({
   assert.equal(await realpath(logDir), logDir);
   assert.ok(!(await lstat(logDir)).isSymbolicLink());
   const { readdir } = await import("node:fs/promises");
-  const files = (await readdir(logDir)).filter((n) => /^zcode-[0-9-]+\.jsonl$/.test(n));
+  const files = (await readdir(logDir)).filter((n) =>
+    /^zcode-[0-9-]+\.jsonl$/.test(n),
+  );
   assert.ok(files.length > 0 && files.length <= 8);
   let match;
   for (const name of files) {
     const path = join(logDir, name);
     assert.equal(await realpath(path), path);
     const st = await lstat(path);
-    assert.ok(st.isFile() && !st.isSymbolicLink() && st.size < 16 * 1024 * 1024);
+    assert.ok(
+      st.isFile() && !st.isSymbolicLink() && st.size < 16 * 1024 * 1024,
+    );
     for (const line of (await readFile(path, "utf8")).split("\n")) {
       let value;
       try {
@@ -232,7 +268,10 @@ export async function inspectMemorySession({
   assert.ok(match);
   assert.equal(match.workingDirectory, workspacePath);
   modelWitness = bindStartupModelWitness(match, modelWitness);
-  assert.equal(match.memoryRoot, join(ownedMemoryPath(caseRoot, workspacePath), ".."));
+  assert.equal(
+    match.memoryRoot,
+    join(ownedMemoryPath(caseRoot, workspacePath), ".."),
+  );
   assert.equal(match.memoryEnabled, enabled);
   assert.equal(match.memoryUse, true);
   assert.equal(match.memoryExtractionEnabled, true);

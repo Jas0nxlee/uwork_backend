@@ -403,6 +403,22 @@ export const views: View[] = [
     ],
   },
   {
+    // 后端只保留最近 100 条，无分页；用于排查 Webhook 投递失败。
+    id: "deliveries",
+    label: "自动化投递",
+    group: "企业智能体",
+    path: "/deliveries",
+    readonly: true,
+    columns: [
+      { key: "id", label: "投递 ID" },
+      { key: "run_id", label: "任务" },
+      { key: "status", label: "状态" },
+      { key: "attempts", label: "尝试次数" },
+      { key: "next_at", label: "下次尝试" },
+      { key: "error_code", label: "异常" },
+    ],
+  },
+  {
     id: "datasets",
     label: "评测数据集",
     group: "企业智能体",
@@ -497,6 +513,7 @@ export const views: View[] = [
       { key: "application", label: "应用" },
       { key: "status", label: "状态" },
       { key: "amount", label: "Credit" },
+      { key: "reserved", label: "预留" },
       { key: "input_tokens", label: "输入 Token" },
       { key: "output_tokens", label: "输出 Token" },
       { key: "created_at", label: "时间" },

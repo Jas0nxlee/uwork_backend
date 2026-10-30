@@ -91,14 +91,14 @@ Header `Idempotency-Key` 最长 128 字符；同键/同人/同内容且当前授
 
 ## Runtime 与观测
 
-- `/agents` 创建/更新/发布；运行锁定发布版本。无工具资产且 sandbox=false 时为 model-only；`sandbox:true` 开启 SDK 隔离代码工具循环，同时要求模型 supportsTools、企业 allowSandbox、有效席位/订阅与助理 agents 渠道。配置 `maxTurns:1..20`、`maxToolCalls:1..20`、`toolTimeoutMs:100..60000`。每轮模型调用都由自有 Gateway 授权/预留/结算，禁 SDK tracing/exporter 与自动重试，不运行宿主 shell。
+- `/agents` 创建/更新/发布；运行锁定发布版本。GET `/{id}/versions` 按版本倒序返回 `{version,approved,created_at}`，与资产版本历史同形，供管理台选择发布版本，不引入审核状态。无工具资产且 sandbox=false 时为 model-only；`sandbox:true` 开启 SDK 隔离代码工具循环，同时要求模型 supportsTools、企业 allowSandbox、有效席位/订阅与助理 agents 渠道。配置 `maxTurns:1..20`、`maxToolCalls:1..20`、`toolTimeoutMs:100..60000`。每轮模型调用都由自有 Gateway 授权/预留/结算，禁 SDK tracing/exporter 与自动重试，不运行宿主 shell。
 - `assetIds` 中已批准且支持 agent 的 connector 自动提供受控 MCP 工具，不需要开启代码沙箱。固定 MCP Client 2.3.1，经共享 ConnectorService/safeRequest 访问，协议为 2025-03-26 POST JSON/SSE；没有自由网络客户端、stdio 子进程、OAuth 自动注册或服务端采样。只暴露 allowedTools 与工具清单交集，以固定 `mcp_<hash>` 名称绑定资产/版本/远端名称；每次运行冻结版本，撤权、换版本、订阅过期均阻止后续分派。MCP 使用 agents 渠道，客户端代理使用 local 渠道。
 - MCP schema/响应/参数均有体积与结构上限；输入通过 JSON Schema 校验，结果最多 32 KiB。受控 schema 不支持 pattern/patternProperties、引用和 uniqueItems，发现时明确 MCP_TOOL_SCHEMA，避免上游引入无界正则/递归/二次复杂度校验。单次发现和调用均受 toolTimeoutMs 与父截止点约束，最多 63 个 MCP 工具，不自动重连/重试副作用。
 - POST `/runs` `{agentId,input,sessionId?,timeoutMs?}` → 202；GET 列表/详情，POST `/{id}/cancel`。queued/running/succeeded/failed/cancelled/timed_out 均持久化；最长 30 分钟，重启中断任务为 failed/PROCESS_RESTARTED。
 - running 取消先持久化 cancel_requested，等待实际模型/工具结束及沙箱清理确认才返回终态；代码单次超时和总运行超时均为 timed_out。Docker 停止/移除未确认时父运行 failed/STOP_UNCONFIRMED，相关工具 uncertain，不能视为已停止或无副作用。角色撤销、模型/资产/安全策略变化在每次 provision、enqueue、执行和模型调用复核，活跃任务也由工作器复核取消。
 - MCP 分派前持久化 dispatched 标记；发出后取消、超时、断线、无合法结果均为工具 uncertain、父运行 failed/REMOTE_EFFECT_UNCONFIRMED，不声称远端已停止或回滚。远端已确认结果可保存并去重；重启不重放，未确认工具保留 uncertain/PROCESS_RESTARTED。本地 MCP session 在结束/恢复时释放，远端 session 的过期/资源回收由服务商负责，未实现 DELETE 终止或远端停止确认。
 - GET `/runs/{id}/tools`：仅本人或有 read 权限管理员访问工具记录，参数和结果在存储时加密。run/callId 唯一、参数指纹防冲突、队列与 executionId 原子绑定；已成功的相同调用可回放结果，不重新执行，处理中/失败/未确认调用拒绝重新分派。工具输出回传模型最多 32 KiB，完整受限输出仍保存在原执行记录。按 run 创建的沙箱只授权该成员，拒绝独立执行接口注入，运行结束/取消/崩溃恢复时回收。
-- `/automations` 支持 once/interval/cron（含秒、显式时区），生效至 endsAt；持久化唯一触发键，禁止重叠，不重放离线期间每个历史时点。Webhook 凭据内容为 `{url,token?,type:webhook|feishu}`；最多 3 次投递，at-least-once，接收方用 run id 去重。
+- `/automations` 支持 once/interval/cron（含秒、显式时区），生效至 endsAt；持久化唯一触发键，禁止重叠，不重放离线期间每个历史时点。Webhook 凭据内容为 `{url,token?,type:webhook|feishu}`；最多 3 次投递，at-least-once，接收方用 run id 去重。GET `/deliveries` 返回最近 100 条投递记录 `{id,run_id,status,attempts,next_at,error_code}`。
 - `/datasets` 的样本为 `{input,expected,match:exact|contains}`；POST `/evaluations` 创建真实运行，GET 报告、POST `/{id}/cancel`；不把字符串匹配评分冒充 AI 评审质量分。
 - GET `/runtimes/capability` 报告实际专用 Docker 镜像可用性及限制；未配置不可声称可执行。POST `/runtimes` `{name,scope?,ttlMinutes:1..30}` 创建非 root、无网络、无宿主挂载的真实容器，省略范围只授权创建者；GET 列表/详情，PATCH `/{id}` `{name,scope,revision}`，POST `/{id}/stop`，DELETE `/{id}`。每租户最多 4 个，全实例最多 16 个。停止/删除串行化，迟到 provision/inspect/reaper 不能复活已删除记录。
 - POST `/runtimes/{id}/executions` `{code,timeoutMs:100..1800000}` → 202 `{id}`，只接受容器内 Node.js 代码；代码和输出加密保存。GET `/sandbox-executions` 支持 page/pageSize/runtimeId/status，GET `/{id}` 返回本成员或有 read 权限管理员可访问的解密内容，POST `/{id}/cancel`。执行需有效席位/订阅、助理 agents 渠道、Runtime 范围与安全策略 `allowSandbox=true`；默认关闭。即使允许网络，沙箱本身仍无网络。

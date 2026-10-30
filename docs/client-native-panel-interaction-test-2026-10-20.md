@@ -11,11 +11,11 @@
 
 ## 二、三用例结果（真实面板、真实策略）
 
-| 用例 | 实际动作 | 结果 |
-| --- | --- | --- |
-| cancel | AXPress 真实「取消」按钮（code 0） | 面板关闭、chip 0、无附件 |
-| deny | AX 写入 sheet 路径字段（`settable=true`、code 0、回读一致）→ 面板导航到目标目录 → 定位真实文件行 → **AXConfirm（code 0）关闭面板、交付该文件** | chip 1；文件正文**未**进入任何模型请求（`markerRequests: []`） |
-| allow | 同上 | chip 1；正文进入模型请求（第 4 条请求命中 marker） |
+| 用例   | 实际动作                                                                                                                                       | 结果                                                           |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| cancel | AXPress 真实「取消」按钮（code 0）                                                                                                             | 面板关闭、chip 0、无附件                                       |
+| deny   | AX 写入 sheet 路径字段（`settable=true`、code 0、回读一致）→ 面板导航到目标目录 → 定位真实文件行 → **AXConfirm（code 0）关闭面板、交付该文件** | chip 1；文件正文**未**进入任何模型请求（`markerRequests: []`） |
+| allow  | 同上                                                                                                                                           | chip 1；正文进入模型请求（第 4 条请求命中 marker）             |
 
 **14 项检查全通过**：`owned-main-renderer-attached-over-loopback-cdp`、`original-first-run-and-owned-workspace-ready`、`original-composer-exposed-the-attachment-entry`、`original-entry-opened-a-real-system-panel-owned-by-the-app`、`checked-the-accessibility-grant-before-any-panel-action`、`dismissed-the-panel-before-the-outcome-matrix`、`panel-cancel-left-no-attachment-and-closed-the-panel`、两个 `panel-navigated-to-the-target-folder-go-to`、`panel-go-to-path-input-produced-one-attachment-deny` / `-allow`、`panel-picked-attachment-body-withheld-under-the-revoked-policy`、`panel-picked-attachment-body-delivered-under-the-allowing-policy`、`panel-torn-down-with-its-owned-process`。
 

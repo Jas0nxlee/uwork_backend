@@ -15,7 +15,10 @@ const options = {
     "UWORK_NATIVE_MEMORY_MANIFEST_QUERY_20261021 retain project preference",
   description: "UWORK_NATIVE_MEMORY_MANIFEST_DESCRIPTION_20261021",
   expectedExtractionPrompt: requests[6].messages.at(-1).content,
-  expectedMainReply: readFileSync("scripts/fixtures/client-native-enterprise.mjs", "utf8").match(/: "(原生企业资产联动完成。)"\);/)[1],
+  expectedMainReply: readFileSync(
+    "scripts/fixtures/client-native-enterprise.mjs",
+    "utf8",
+  ).match(/: "(原生企业资产联动完成。)"\);/)[1],
 };
 test("actual Native leaked request has allow-stage main/title/natural sidecar structure", () => {
   const out = assertManifestAdmissionStage(requests, options);
@@ -71,7 +74,16 @@ test("title can interleave with natural extraction without changing classificati
 });
 
 test("sidecar rejects a different completed assistant reply and any tool call", () => {
-  for (const edit of [q => { q.messages.at(-2).content = "different reply"; }, q => { q.messages.at(-2).tool_calls = [{id:"foreign"}]; }]) {
-    const rows=structuredClone(requests);edit(rows[6]);assert.throws(()=>assertManifestAdmissionStage(rows,options));
+  for (const edit of [
+    (q) => {
+      q.messages.at(-2).content = "different reply";
+    },
+    (q) => {
+      q.messages.at(-2).tool_calls = [{ id: "foreign" }];
+    },
+  ]) {
+    const rows = structuredClone(requests);
+    edit(rows[6]);
+    assert.throws(() => assertManifestAdmissionStage(rows, options));
   }
 });

@@ -4,14 +4,14 @@
 
 ## 原能力与状态所有者
 
-| 原实现 | 实际合同与本例约束 |
-| --- | --- |
-| `desktopApplicationMenu.ts` | darwin 分支创建 `label: app.name` 的应用菜单，子项 `getAppLabel(appQuit)`、`role: "quit"`。`shared/src/desktopMenu.ts` 的精确文案是 `退出 {appName}` / `Quit {appName}`。名字由原 `nativeEnvironment()` 的 `ZCODE_DESKTOP_APPLICATION_NAME` 与 Main `app.setName(runtimeApplicationName)` 绑定；不能拿 CFBundleName、个人正在运行 App 或猜测坐标代替 |
+| 原实现                                     | 实际合同与本例约束                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `desktopApplicationMenu.ts`                | darwin 分支创建 `label: app.name` 的应用菜单，子项 `getAppLabel(appQuit)`、`role: "quit"`。`shared/src/desktopMenu.ts` 的精确文案是 `退出 {appName}` / `Quit {appName}`。名字由原 `nativeEnvironment()` 的 `ZCODE_DESKTOP_APPLICATION_NAME` 与 Main `app.setName(runtimeApplicationName)` 绑定；不能拿 CFBundleName、个人正在运行 App 或猜测坐标代替                |
 | Main `shouldConfirmAppQuit/confirmAppQuit` | `ZCODE_ENV === "production" && getRunningAgentSessionCount()>0`。原同步 NSAlert message 为 `确认退出 UWork?` / `Quit UWork?`；detail 为 `正在进行的会话：N 个，退出后会被中断。` / `In-progress sessions: N. They will be interrupted after quitting.`；按钮严格 `退出/取消` 或 `Quit/Cancel`，defaultId=cancelId=1。N 须为实际正整数，不从 fixture 注入 Host count |
-| 原 Host → Main 计数 | Host 的 workspaceTaskTracker 与 untrackedPromptRpcCount 产生 runningTaskCount；`desktopHostProcess.ts` 维护 Main 既有 map。以原 safe log/真实 dialog 的正数及当前 task stop 状态交叉证明，不能直接写 map 或补一个假 RPC |
-| Main `before-quit` | 取消时 `preventDefault`、重置 explicitQuit，然后直接返回；未进入 `prepareAppQuit`。允许时原屏障接管：并行 flush/cron/remote/Host Dispose；再次退出不重复确认。普通主实例流程不得换成新增 `app.exit` 快捷口 |
-| 原退出策略 | macOS 普通与 strict policy 都是 Host forceKillDelay 7500ms、waitTimeout 9000ms；Main 在完成屏障后原 `exitPreparedApp` 收口。Host 的原 Dispose 流会关闭 model relay、Agent/服务与 PTY。内部 fallback 若实际发生需如实记录，不叫全部“自然 exit0” |
-| 后端原 Gateway/ledger | 客户端断连使原 AbortController abort；已派发且无确定上游 4xx 的请求按原合同 `uncertain`，amount=reserved；未完成 gateway_call result 为空，Trace failed/CANCELLED。取消不是退款、不是 supplier 未执行，也不是零新增账本 |
+| 原 Host → Main 计数                        | Host 的 workspaceTaskTracker 与 untrackedPromptRpcCount 产生 runningTaskCount；`desktopHostProcess.ts` 维护 Main 既有 map。以原 safe log/真实 dialog 的正数及当前 task stop 状态交叉证明，不能直接写 map 或补一个假 RPC                                                                                                                                             |
+| Main `before-quit`                         | 取消时 `preventDefault`、重置 explicitQuit，然后直接返回；未进入 `prepareAppQuit`。允许时原屏障接管：并行 flush/cron/remote/Host Dispose；再次退出不重复确认。普通主实例流程不得换成新增 `app.exit` 快捷口                                                                                                                                                          |
+| 原退出策略                                 | macOS 普通与 strict policy 都是 Host forceKillDelay 7500ms、waitTimeout 9000ms；Main 在完成屏障后原 `exitPreparedApp` 收口。Host 的原 Dispose 流会关闭 model relay、Agent/服务与 PTY。内部 fallback 若实际发生需如实记录，不叫全部“自然 exit0”                                                                                                                      |
+| 后端原 Gateway/ledger                      | 客户端断连使原 AbortController abort；已派发且无确定上游 4xx 的请求按原合同 `uncertain`，amount=reserved；未完成 gateway_call result 为空，Trace failed/CANCELLED。取消不是退款、不是 supplier 未执行，也不是零新增账本                                                                                                                                             |
 
 ## 安全触发真正菜单，不绕入口
 
@@ -28,15 +28,15 @@
 
 ## 一次最小链路
 
-| 阶段 | 原动作和需要保存的证据 |
-| --- | --- |
-| 基线 | 同当前包与 fresh profile，完成一条普通 task 并等真实标题稳定；原 UI/taskId/model/workspace 与实际 CLI cwd 一致。当前两 settled/44 Credit、24/20 tokens；另一成员 seed 两笔44单列，保存完整行。可先通过原 terminal UI 保留一个明确 PID/birth/TTY/cwd 的 shell，用于本例退出资源证明；不重复整套七项 |
-| 固定在途 | **同一已完成标题的 task** 发第二轮唯一 marker（`MACOS_ACTIVE_QUIT_HOLD_20261021`）。供应商仅匹配 stream=true、原 system cwd、controlled upstream model、该 marker 的唯一主请求。原 title generation 已 attempted/turnNumber>0；若出现额外 title/其他请求应失败记录，不静默归入 hold。供应商真实收完请求并发 SSE 200 headers 后 hold，**不发任何 SSE 内容、usage、DONE 或成功终态** |
-| 已派发证明 | 原 UI v4-stop 可见、原 Main Host runningTaskCount>0、真实 supplier 收到且未 close、后台同 actor/model 唯一新 reservation 与 gateway_call 存在，保存 request_key 摘要及 reservation ID/数额。此时当前旧 settled 行不变，新行 reserved；不能仅以界面“忙”推断模型已派发 |
-| 原 Quit → 取消 | 用上述原菜单与精确 dialog 取消。两个直接只读样本须证明同 Main/birth、原 Host/CLI/task 仍活、stop 仍在、同 supplier hold 未 close、不多发模型请求；后台新 reservation 仍原 ID/reserved/amount0、无新 Trace，旧账本与其他成员全行保持。不要靠额外发送一句“还活着”证明 |
-| 原 Quit → 允许 | 保持**同一个 hold 请求**，再次原菜单和确认“退出”。记录允许动作单调时刻、原 Main before-quit/Host Dispose/屏障结束日志、Host/CLI/PTY 身份与退出收据，真实 Gateway→supplier close/abort、未 finish/未送终态。先观察正常原退出；测试控制器不能先 stopNative/TERM/KILL 帮它通过 |
-| 最终后端 | backend/fixture 继续存活只读取证：raw/supplier 相对基线**恰各+1**，无重试/自动标题/后继；当前只新增同一个 `uncertain` ledger，amount 精确等于 held 时 reserved，不硬编码22或44。原未发 usage 的路径 token 为0/0、failed/CANCELLED Trace 一条、gateway_call result 仍空；按真实 schema 核字段。所有旧行和他人 ledger/Trace/gateway 全行不变。Trace 无 request_key 外键，不造逐请求关联 |
-| 正常收口 | Main 原 child 应 exit0/null，无测试方 kill；若原内部 Host kill fallback发生，单列实际信号与政策，不等同测试方干预。核全部已知 Main/Host/CLI/PTY PID/birth 关闭、CDP/BH 与私有 socket 闭；再正常关闭隔离后端/供应商与原 OS protocol guard。不是身份 logout：不发 `/api/auth/logout` 来驱动取消 |
+| 阶段           | 原动作和需要保存的证据                                                                                                                                                                                                                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 基线           | 同当前包与 fresh profile，完成一条普通 task 并等真实标题稳定；原 UI/taskId/model/workspace 与实际 CLI cwd 一致。当前两 settled/44 Credit、24/20 tokens；另一成员 seed 两笔44单列，保存完整行。可先通过原 terminal UI 保留一个明确 PID/birth/TTY/cwd 的 shell，用于本例退出资源证明；不重复整套七项                                                                                    |
+| 固定在途       | **同一已完成标题的 task** 发第二轮唯一 marker（`MACOS_ACTIVE_QUIT_HOLD_20261021`）。供应商仅匹配 stream=true、原 system cwd、controlled upstream model、该 marker 的唯一主请求。原 title generation 已 attempted/turnNumber>0；若出现额外 title/其他请求应失败记录，不静默归入 hold。供应商真实收完请求并发 SSE 200 headers 后 hold，**不发任何 SSE 内容、usage、DONE 或成功终态**    |
+| 已派发证明     | 原 UI v4-stop 可见、原 Main Host runningTaskCount>0、真实 supplier 收到且未 close、后台同 actor/model 唯一新 reservation 与 gateway_call 存在，保存 request_key 摘要及 reservation ID/数额。此时当前旧 settled 行不变，新行 reserved；不能仅以界面“忙”推断模型已派发                                                                                                                  |
+| 原 Quit → 取消 | 用上述原菜单与精确 dialog 取消。两个直接只读样本须证明同 Main/birth、原 Host/CLI/task 仍活、stop 仍在、同 supplier hold 未 close、不多发模型请求；后台新 reservation 仍原 ID/reserved/amount0、无新 Trace，旧账本与其他成员全行保持。不要靠额外发送一句“还活着”证明                                                                                                                   |
+| 原 Quit → 允许 | 保持**同一个 hold 请求**，再次原菜单和确认“退出”。记录允许动作单调时刻、原 Main before-quit/Host Dispose/屏障结束日志、Host/CLI/PTY 身份与退出收据，真实 Gateway→supplier close/abort、未 finish/未送终态。先观察正常原退出；测试控制器不能先 stopNative/TERM/KILL 帮它通过                                                                                                           |
+| 最终后端       | backend/fixture 继续存活只读取证：raw/supplier 相对基线**恰各+1**，无重试/自动标题/后继；当前只新增同一个 `uncertain` ledger，amount 精确等于 held 时 reserved，不硬编码22或44。原未发 usage 的路径 token 为0/0、failed/CANCELLED Trace 一条、gateway_call result 仍空；按真实 schema 核字段。所有旧行和他人 ledger/Trace/gateway 全行不变。Trace 无 request_key 外键，不造逐请求关联 |
+| 正常收口       | Main 原 child 应 exit0/null，无测试方 kill；若原内部 Host kill fallback发生，单列实际信号与政策，不等同测试方干预。核全部已知 Main/Host/CLI/PTY PID/birth 关闭、CDP/BH 与私有 socket 闭；再正常关闭隔离后端/供应商与原 OS protocol guard。不是身份 logout：不发 `/api/auth/logout` 来驱动取消                                                                                         |
 
 固定 hold 与 Gateway 用量 hold 不是同一接口。本例是真实 model data plane：当前 `safeRequest` 默认总预算120000ms/headers<=30000，model relay 300000ms；普通控制面10s以及用量20s不拿来覆盖它。只改测试供应商的自有 barrier，**不改产品 timeout**：建议该 barrier watchdog45s，发 headers 防止原30s headers期限成为混淆；watchdog只作失败/中断收尾，不可释放成功响应。允许 Quit 必须在仍有至少15s观察余量时触发；若 hold先超时/被其他原因关闭，整例失败，不拿其账目当退出效果。
 

@@ -2,12 +2,12 @@
 
 当前仍未验收原菜单 Cancel/Allow；随后读取的当前Mac会话布尔元数据明确为锁屏，暂停需要前台的重复用例。完整强杀恢复和PDF分享已分别通过，本页只记录另一独立退出边界。
 
-| 用例 | 实际结果 | 边界及收口 |
-| --- | --- | --- |
-| active-quit-v1 | FAILED0，未启动App/AX | 测试预算 helper `remaining()` 与原run.finally本地变量冲突，入口UnboundLocalError。fixture0/cleanup[]；2PID和从已初始化metadata补核的4TCP关闭、OS恢复 |
-| active-quit-v2 | FAILED5，已到真实held请求 | 原正常包/登录/PTY/模型暖控制和真实第五主请求的header-only hold通过；原菜单前要求App已frontmost，但BH后台UI没有主动置前。未发Quit、Cancel或Allow。fixture0/cleanup[]；13known+BH、四TCP和私有socket关闭、OS恢复 |
-| active-quit-v3 | FAILED5，置前立即回读false | 同PID/birth/exe守卫后，AXFrontmost可设且设置返回0，但立即回读false；未发原菜单动作。14PID、四TCP、BH/OS关闭恢复 |
-| active-quit-v4 | FAILED5，同5秒只读等待未置前 | 仍仅设置一次，40个直接样本265–4905ms均false，按原deadline停止，无重设/fallback/原菜单动作。14PID、四TCP、BH/OS关闭恢复 |
+| 用例           | 实际结果                     | 边界及收口                                                                                                                                                                                                     |
+| -------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| active-quit-v1 | FAILED0，未启动App/AX        | 测试预算 helper `remaining()` 与原run.finally本地变量冲突，入口UnboundLocalError。fixture0/cleanup[]；2PID和从已初始化metadata补核的4TCP关闭、OS恢复                                                           |
+| active-quit-v2 | FAILED5，已到真实held请求    | 原正常包/登录/PTY/模型暖控制和真实第五主请求的header-only hold通过；原菜单前要求App已frontmost，但BH后台UI没有主动置前。未发Quit、Cancel或Allow。fixture0/cleanup[]；13known+BH、四TCP和私有socket关闭、OS恢复 |
+| active-quit-v3 | FAILED5，置前立即回读false   | 同PID/birth/exe守卫后，AXFrontmost可设且设置返回0，但立即回读false；未发原菜单动作。14PID、四TCP、BH/OS关闭恢复                                                                                                |
+| active-quit-v4 | FAILED5，同5秒只读等待未置前 | 仍仅设置一次，40个直接样本265–4905ms均false，按原deadline停止，无重设/fallback/原菜单动作。14PID、四TCP、BH/OS关闭恢复                                                                                         |
 
 v1 原输入已归档，私有预算helper改名并补完整实际derived run词法回归；v2继续保原输入与FAILED。v2已见raw/supplier5、原running UI和真实reserved行，但最终测试清理时发生的取消不能当作原菜单退出的正例。
 

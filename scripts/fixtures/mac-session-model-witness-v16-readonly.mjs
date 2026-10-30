@@ -5,7 +5,12 @@ import { decodeSessionEntryRow } from "../../clients/uwork/apps/zcode-cli/packag
 export const MODEL_WITNESS_SELECT =
   "SELECT id,session_id,type,time_created,time_updated,data FROM session_entry WHERE session_id=? AND type='runtime/model_selection' ORDER BY id";
 
-export function projectSessionModelWitness({ sessionId, modelId, entries, messages }) {
+export function projectSessionModelWitness({
+  sessionId,
+  modelId,
+  entries,
+  messages,
+}) {
   assert.match(sessionId, /^sess_[A-Za-z0-9_-]+$/);
   assert.equal(typeof modelId, "string");
   assert.ok(modelId.length > 0);
@@ -16,7 +21,11 @@ export function projectSessionModelWitness({ sessionId, modelId, entries, messag
     assert.equal(value.modelId, expected.modelId);
     return structuredClone(value);
   };
-  assert.equal(entries.length, 1, "one same-session persisted model selection required");
+  assert.equal(
+    entries.length,
+    1,
+    "one same-session persisted model selection required",
+  );
   const row = entries[0];
   assert.equal(row.session_id, sessionId);
   assert.equal(row.type, "runtime/model_selection");
@@ -27,9 +36,13 @@ export function projectSessionModelWitness({ sessionId, modelId, entries, messag
   assert.equal(decoded.sessionID, sessionId);
   const persisted = selection(decoded.data);
   assert.equal(messages.length, 2);
-  for (const message of messages) assert.equal(message.info.sessionID, sessionId);
+  for (const message of messages)
+    assert.equal(message.info.sessionID, sessionId);
   const users = messages.filter(
-    (m) => m.info.role === "user" && !m.info.synthetic && m.info.visibility !== "model-only",
+    (m) =>
+      m.info.role === "user" &&
+      !m.info.synthetic &&
+      m.info.visibility !== "model-only",
   );
   const assistants = messages.filter((m) => m.info.role === "assistant");
   assert.equal(users.length, 1, "one real user model selection required");
@@ -38,12 +51,18 @@ export function projectSessionModelWitness({ sessionId, modelId, entries, messag
     assistant = assistants[0].info;
   const userSelection = selection(user.modelSelection);
   selection(assistant);
-  assert.ok(Number.isFinite(assistant.time?.completed) && assistant.time.completed > 0);
+  assert.ok(
+    Number.isFinite(assistant.time?.completed) && assistant.time.completed > 0,
+  );
   return {
     sessionId,
     providerId: expected.providerId,
     modelId,
-    runtimeEntry: { id: decoded.id, sessionId: decoded.sessionID, modelSelection: persisted },
+    runtimeEntry: {
+      id: decoded.id,
+      sessionId: decoded.sessionID,
+      modelSelection: persisted,
+    },
     user: { id: user.id, modelSelection: userSelection },
     assistant: {
       id: assistant.id,
@@ -76,7 +95,8 @@ export function bindStartupModelWitness(startup, witness) {
         ? {
             state: "deferred",
             modelPresent: false,
-            source: "startup model omitted; durable selection witnessed separately",
+            source:
+              "startup model omitted; durable selection witnessed separately",
           }
         : { state: "present", modelPresent: true, value: startup.model },
   };

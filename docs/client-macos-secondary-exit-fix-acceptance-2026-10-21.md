@@ -2,12 +2,12 @@
 
 本轮完成了源码修复和Mac ARM64正常新包原七项回归；x64拒锁副实例的原十秒退出边界也在独立诊断中通过。**x64正常包原七项仍为0/7，首个30秒renderer前置未过；Windows仍无已授权运行环境。整体目标未完成。**
 
-| 项目 | 实际结果 | 证据 |
-| --- | --- | --- |
-| 源码修复 | 本地原子提交`0aeff9adda8b3dd23103cb8dfa6c0cf735d6dbc2`，5文件；拒锁`app.exit(0)`，首窗shell预热只在持锁后创建 | [规格](../clients/uwork/specs/desktop-secondary-process-exit.md)、[Root源码验收](../evidence/client-desktop-secondary-exit-fix-20261021/root-verdict.json) |
-| ARM64 v12正常包 | 原7/7、独立29/29；副实例自然exit0，原UI实际workspace、文件/reload、CLI/PTY与cwd、真实受控HTTP和计费、撤席位零增、注销冷启均过 | [独立验收](../evidence/client-native-packaged-macos-clock-arm64-secondary-exit-v1-20261021/backend-linkage-independent-verdict.md) |
-| x64 v11正常包 | 原0/7失败；30秒内没有取得原file renderer，未到AX、BH、secondary或业务，不据此判拒锁修复失败 | [原result](../evidence/client-native-packaged-macos-clock-x64-secondary-exit-v1-20261021/result.json) |
-| x64 v11独立副实例诊断 | 同一未修改包，原1c/10000ms一次；实际内核身份与false阶段绑定、自然exit0/null/timedOut=false、主实例同代，费用零增 | [具名诊断](client-macos-x64-secondary-exit-candidate-diagnostic-test-2026-10-21.md) |
+| 项目                  | 实际结果                                                                                                                      | 证据                                                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 源码修复              | 本地原子提交`0aeff9adda8b3dd23103cb8dfa6c0cf735d6dbc2`，5文件；拒锁`app.exit(0)`，首窗shell预热只在持锁后创建                 | [规格](../clients/uwork/specs/desktop-secondary-process-exit.md)、[Root源码验收](../evidence/client-desktop-secondary-exit-fix-20261021/root-verdict.json) |
+| ARM64 v12正常包       | 原7/7、独立29/29；副实例自然exit0，原UI实际workspace、文件/reload、CLI/PTY与cwd、真实受控HTTP和计费、撤席位零增、注销冷启均过 | [独立验收](../evidence/client-native-packaged-macos-clock-arm64-secondary-exit-v1-20261021/backend-linkage-independent-verdict.md)                         |
+| x64 v11正常包         | 原0/7失败；30秒内没有取得原file renderer，未到AX、BH、secondary或业务，不据此判拒锁修复失败                                   | [原result](../evidence/client-native-packaged-macos-clock-x64-secondary-exit-v1-20261021/result.json)                                                      |
+| x64 v11独立副实例诊断 | 同一未修改包，原1c/10000ms一次；实际内核身份与false阶段绑定、自然exit0/null/timedOut=false、主实例同代，费用零增              | [具名诊断](client-macos-x64-secondary-exit-candidate-diagnostic-test-2026-10-21.md)                                                                        |
 
 源码旧19项中14RED/5PASS后，新19/19通过；Root扩展相关矩阵75/75及4个实际fallback coordinator场景通过。完整typecheck退出0（包含Desktop host配置，不声称全Main静态类型覆盖）、lint114项既有warning/0error、architecture与5文件格式检查通过，fresh独立五轴审查无阻断。没有删除失败证据、skip测试、延长原30/10秒或改变原7条业务断言。
 

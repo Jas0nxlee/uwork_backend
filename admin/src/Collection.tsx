@@ -10,15 +10,30 @@ import {
   Eye,
   Play,
   Square,
-  Upload,
-  Check,
   Download,
   Power,
   Link2,
+  History,
+  ShieldCheck,
+  Gauge,
+  BadgeCheck,
 } from "lucide-react";
 import { api, display, date, type Row } from "./api";
 import { FormDialog, Modal, type Field } from "./forms";
 import type { View } from "./catalog";
+import { viewAccess, type Capabilities } from "./permissions.js";
+import {
+  loadMemberPermissions,
+  loadRuntimeCapabilities,
+  rowActions,
+  type RowActionId,
+} from "./collectionActions.js";
+import { VersionActions } from "./VersionActions.js";
+import { LedgerReconcile } from "./LedgerReconcile.js";
+import {
+  MemberPermissionsDetails,
+  RuntimeCapabilityDetails,
+} from "./CapabilityViews.js";
 
 const nested = (row: Row, key: string): unknown =>
   key
@@ -27,18 +42,33 @@ const nested = (row: Row, key: string): unknown =>
       (v, k) => (v && typeof v === "object" ? (v as Row)[k] : undefined),
       row,
     );
+
+const actionIcons: Record<RowActionId, typeof Eye> = {
+  detail: Eye,
+  edit: Pencil,
+  probe: Play,
+  versions: History,
+  run: Play,
+  executions: Play,
+  stopRuntime: Square,
+  cancelRun: Square,
+  toggle: Power,
+  delete: Trash2,
+  wecom: Link2,
+  permissions: ShieldCheck,
+  reconcile: BadgeCheck,
+};
+
 export function Collection({
   view,
   base,
   notify,
-  canWrite,
-  canManageIdentity = false,
+  capabilities,
 }: {
   view: View;
   base: string;
   notify: (s: string) => void;
-  canWrite: boolean;
-  canManageIdentity?: boolean;
+  capabilities: Capabilities;
 }) {
   const [rows, setRows] = useState<Row[]>([]),
     [total, setTotal] = useState(0),
@@ -55,7 +85,23 @@ export function Collection({
     [detail, setDetail] = useState<unknown>(null),
     [pendingDelete, setPendingDelete] = useState<Row | null>(null),
     [pendingDeleteBusy, setPendingDeleteBusy] = useState(false),
-    [filters, setFilters] = useState<Record<string, string>>({});
+    [filters, setFilters] = useState<Record<string, string>>({}),
+    [versionTarget, setVersionTarget] = useState<Row | null>(null),
+    [reconcileTarget, setReconcileTarget] = useState<Row | null>(null),
+    [permissionTarget, setPermissionTarget] = useState<Row | null>(null),
+    [permissionData, setPermissionData] = useState<Row | null>(null),
+    [permissionError, setPermissionError] = useState(""),
+    [permissionLoading, setPermissionLoading] = useState(false),
+    [capabilityOpen, setCapabilityOpen] = useState(false),
+    [capabilityData, setCapabilityData] = useState<{
+      runtime: Row;
+      sandbox: Row;
+    } | null>(null),
+    [capabilityError, setCapabilityError] = useState(""),
+    [capabilityLoading, setCapabilityLoading] = useState(false);
+  const access = viewAccess(view.id, capabilities);
+  const readable = access.read;
+  const runtimesView = view.id === "runtimes";
   const requestGeneration = useRef(0);
   const deleteInFlight = useRef(false);
   const mounted = useRef(true);
@@ -71,6 +117,13 @@ export function Collection({
       .join("&");
   async function fetchRows() {
     const generation = ++requestGeneration.current;
+    // 无读取权限时不发必然 403 的请求，也不展示误导性错误。
+    if (!readable) {
+      setRows([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const extra = filterQuery();
@@ -113,11 +166,12 @@ export function Collection({
     setFilters({});
   }, [view.id]);
   useEffect(() => {
+    if (!readable) return;
     void load();
     return () => {
       requestGeneration.current++;
     };
-  }, [view.id, base, page, filters]);
+  }, [view.id, base, page, filters, readable]);
   const invoke = async (fn: () => Promise<unknown>, message = "操作完成") => {
     try {
       await fn();
@@ -149,10 +203,23 @@ export function Collection({
     }
   }
   function create() {
-    if (!view.fields) return;
+    if (!view.fields || !access.create) return;
+    // 连接器需要 vault；无 vault 时不提供该选项，避免提交必被拒绝的创建。
+    const fields = !access.vault
+      ? view.fields.map((field) =>
+          field.key === "kind"
+            ? {
+                ...field,
+                options: field.options?.filter(
+                  (option) => option.value !== "connector",
+                ),
+              }
+            : field,
+        )
+      : view.fields;
     setForm({
       title: `新建${view.label}`,
-      fields: view.fields,
+      fields,
       submit: async (d) => {
         if ("parentId" in d && d.parentId === "") d.parentId = null;
         if ("departmentId" in d && d.departmentId === "") d.departmentId = null;
@@ -256,31 +323,188 @@ export function Collection({
       },
     });
   }
-  function versionAction(r: Row, action: "review" | "publish") {
-    setForm({
-      title: action === "review" ? "审核版本" : "发布版本",
-      fields: [
-        {
-          key: "version",
-          label: "版本号",
-          type: "number",
-          initial: r.published_version ?? 1,
-          min: 1,
-        },
-      ],
-      submit: async (d) => {
-        await api(`${base}${view.path}/${r.id}/${action}`, "POST", {
-          ...d,
-          ...(action === "review" ? { approved: true } : {}),
+  function showDetail(r: Row) {
+    void invoke(async () => {
+      if (view.id === "runs") {
+        const run = await api<Row>(`${base}/runs/${r.id}`);
+        setDetail({
+          ...run,
+          tools: await api(`${base}/runs/${r.id}/tools`),
         });
-        await load();
-        notify(action === "review" ? "审核通过" : "已发布");
-      },
-    });
+      } else if (
+        ["datasets", "evaluations", "runtimes", "sandbox-executions"].includes(
+          view.id,
+        )
+      )
+        setDetail(await api(`${base}${view.path}/${r.id}`));
+      else setDetail(r);
+    }, "");
+  }
+  function loadPermissions(r: Row) {
+    setPermissionTarget(r);
+    setPermissionData(null);
+    setPermissionError("");
+    setPermissionLoading(true);
+    void loadMemberPermissions(api, base, String(r.id))
+      .then((data) => {
+        if (mounted.current) setPermissionData(data);
+      })
+      .catch((e) => {
+        if (mounted.current)
+          setPermissionError(e instanceof Error ? e.message : "权限加载失败");
+      })
+      .finally(() => {
+        if (mounted.current) setPermissionLoading(false);
+      });
+  }
+  async function showCapabilities() {
+    setCapabilityOpen(true);
+    setCapabilityLoading(true);
+    setCapabilityError("");
+    try {
+      const data = await loadRuntimeCapabilities(api, base);
+      if (mounted.current) setCapabilityData(data);
+    } catch (e) {
+      if (mounted.current)
+        setCapabilityError(e instanceof Error ? e.message : "能力加载失败");
+    } finally {
+      if (mounted.current) setCapabilityLoading(false);
+    }
+  }
+  // 每个分支再次检查能力，防止只靠按钮隐藏；无权时静默不发送写请求。
+  function runRowAction(action: RowActionId, r: Row) {
+    if (action === "detail") return showDetail(r);
+    if (action === "edit") {
+      if (access.update) edit(r);
+      return;
+    }
+    if (action === "probe") {
+      if (access.execute)
+        void invoke(
+          async () =>
+            setDetail(await api(`${base}/models/${r.id}/probe`, "POST")),
+          "测试完成",
+        );
+      return;
+    }
+    if (action === "versions") {
+      if (access.read) setVersionTarget(r);
+      return;
+    }
+    if (action === "run") {
+      if (!access.execute) return;
+      setForm({
+        title: "执行任务",
+        fields: [
+          {
+            key: "input",
+            label: "任务输入",
+            type: "textarea",
+            required: true,
+          },
+        ],
+        submit: async (d) => {
+          await api(`${base}/runs`, "POST", { agentId: r.id, ...d });
+          notify("任务已进入队列");
+        },
+      });
+      return;
+    }
+    if (action === "executions") {
+      if (!access.execute) return;
+      setForm({
+        title: "隔离代码执行",
+        fields: [
+          {
+            key: "code",
+            label: "JavaScript",
+            type: "textarea",
+            required: true,
+            initial: "console.log(1 + 1)",
+          },
+          {
+            key: "timeoutMs",
+            label: "超时 / 毫秒",
+            type: "number",
+            initial: 30000,
+            min: 100,
+            max: 1800000,
+          },
+        ],
+        submit: async (d) => {
+          const result = await api(
+            `${base}/runtimes/${r.id}/executions`,
+            "POST",
+            d,
+          );
+          setDetail(result);
+          notify("代码执行已受理");
+          await load();
+        },
+      });
+      return;
+    }
+    if (action === "stopRuntime") {
+      if (access.update)
+        void invoke(() => api(`${base}/runtimes/${r.id}/stop`, "POST"));
+      return;
+    }
+    if (action === "cancelRun") {
+      if (access.update)
+        void invoke(() => api(`${base}${view.path}/${r.id}/cancel`, "POST"));
+      return;
+    }
+    if (action === "toggle") {
+      if (access.update)
+        void invoke(() =>
+          api(`${base}${view.path}/${r.id}`, "PATCH", {
+            enabled: !r.enabled,
+          }),
+        );
+      return;
+    }
+    if (action === "delete") {
+      if (!access.remove) return;
+      setError("");
+      setPendingDelete(r);
+      return;
+    }
+    if (action === "wecom") {
+      if (!capabilities.identity) return;
+      setForm({
+        title: `绑定企微身份 · ${display(r.name)}`,
+        fields: [{ key: "externalId", label: "企微 UserId", required: true }],
+        initial: { externalId: r.external_id ?? "" },
+        submit: async (d) => {
+          await api(
+            `${base}/members/${encodeURIComponent(String(r.id))}/wecom`,
+            "PUT",
+            { externalId: d.externalId },
+          );
+          await load();
+          notify("企微身份已绑定");
+        },
+      });
+      return;
+    }
+    if (action === "permissions") {
+      if (access.read) loadPermissions(r);
+      return;
+    }
+    if (action === "reconcile") {
+      if (capabilities.identity) setReconcileTarget(r);
+    }
   }
   const exportable = ["usage", "audit", "traces", "client-events"].includes(
     view.id,
   );
+  // 没有读取权限的视图不发起请求，也不显示可被误解为可用的空表。
+  if (!readable)
+    return (
+      <p className="error" role="alert">
+        当前角色没有查看「{view.label}」的权限，已隐藏该页面的数据与操作。
+      </p>
+    );
   return (
     <>
       <div className="toolbar">
@@ -341,7 +565,17 @@ export function Collection({
               导出
             </a>
           )}
-          {view.fields && canWrite && (
+          {runtimesView && (
+            <button
+              className="button"
+              type="button"
+              onClick={() => void showCapabilities()}
+            >
+              <Gauge size={16} />
+              运行能力
+            </button>
+          )}
+          {view.fields && access.create && (
             <button className="primary" onClick={create}>
               <Plus size={17} />
               新建
@@ -381,269 +615,22 @@ export function Collection({
                   </td>
                 ))}
                 <td className="row-actions">
-                  <button
-                    className="icon"
-                    title="详情"
-                    aria-label="详情"
-                    onClick={() =>
-                      void invoke(async () => {
-                        if (view.id === "runs") {
-                          const run = await api<Row>(`${base}/runs/${r.id}`);
-                          setDetail({
-                            ...run,
-                            tools: await api(`${base}/runs/${r.id}/tools`),
-                          });
-                        } else if (
-                          [
-                            "datasets",
-                            "evaluations",
-                            "runtimes",
-                            "sandbox-executions",
-                          ].includes(view.id)
-                        )
-                          setDetail(await api(`${base}${view.path}/${r.id}`));
-                        else setDetail(r);
-                      }, "")
-                    }
-                  >
-                    <Eye size={16} />
-                  </button>
-                  {view.id === "members" && canManageIdentity && (
-                    <button
-                      className="icon"
-                      title="绑定企微身份"
-                      aria-label={`绑定 ${display(r.name)} 的企微身份`}
-                      onClick={() =>
-                        setForm({
-                          title: `绑定企微身份 · ${display(r.name)}`,
-                          fields: [
-                            {
-                              key: "externalId",
-                              label: "企微 UserId",
-                              required: true,
-                            },
-                          ],
-                          initial: { externalId: r.external_id ?? "" },
-                          submit: async (d) => {
-                            await api(
-                              `${base}/members/${encodeURIComponent(String(r.id))}/wecom`,
-                              "PUT",
-                              { externalId: d.externalId },
-                            );
-                            await load();
-                            notify("企微身份已绑定");
-                          },
-                        })
-                      }
-                    >
-                      <Link2 size={16} />
-                    </button>
-                  )}
-                  {canWrite && !view.readonly && (
-                    <>
-                      {[
-                        "models",
-                        "assets",
-                        "agents",
-                        "members",
-                        "departments",
-                        "credentials",
-                        "runtimes",
-                      ].includes(view.id) && (
+                  {rowActions(view.id, r, access, capabilities).map(
+                    (action) => {
+                      const Icon = actionIcons[action.id];
+                      return (
                         <button
-                          className="icon"
-                          title="编辑"
-                          aria-label="编辑"
-                          onClick={() => edit(r)}
+                          key={action.id}
+                          className={action.danger ? "icon danger" : "icon"}
+                          title={action.reason ?? action.label}
+                          aria-label={action.label}
+                          disabled={action.disabled}
+                          onClick={() => runRowAction(action.id, r)}
                         >
-                          <Pencil size={15} />
+                          <Icon size={16} />
                         </button>
-                      )}
-                      {view.id === "models" && (
-                        <button
-                          className="icon"
-                          title="测试连接"
-                          aria-label="测试连接"
-                          onClick={() =>
-                            void invoke(
-                              async () =>
-                                setDetail(
-                                  await api(
-                                    `${base}/models/${r.id}/probe`,
-                                    "POST",
-                                  ),
-                                ),
-                              "测试完成",
-                            )
-                          }
-                        >
-                          <Play size={16} />
-                        </button>
-                      )}
-                      {view.id === "assets" && (
-                        <button
-                          className="icon"
-                          title="审核"
-                          aria-label="审核"
-                          onClick={() => versionAction(r, "review")}
-                        >
-                          <Check size={16} />
-                        </button>
-                      )}
-                      {["assets", "agents"].includes(view.id) && (
-                        <button
-                          className="icon"
-                          title="发布"
-                          aria-label="发布"
-                          onClick={() => versionAction(r, "publish")}
-                        >
-                          <Upload size={16} />
-                        </button>
-                      )}
-                      {view.id === "agents" && (
-                        <button
-                          className="icon"
-                          title="执行"
-                          aria-label="执行"
-                          onClick={() =>
-                            setForm({
-                              title: "执行任务",
-                              fields: [
-                                {
-                                  key: "input",
-                                  label: "任务输入",
-                                  type: "textarea",
-                                  required: true,
-                                },
-                              ],
-                              submit: async (d) => {
-                                await api(`${base}/runs`, "POST", {
-                                  agentId: r.id,
-                                  ...d,
-                                });
-                                notify("任务已进入队列");
-                              },
-                            })
-                          }
-                        >
-                          <Play size={16} />
-                        </button>
-                      )}
-                      {view.id === "runtimes" && (
-                        <>
-                          <button
-                            className="icon"
-                            title="执行代码"
-                            aria-label="执行代码"
-                            disabled={r.status !== "ready"}
-                            onClick={() =>
-                              setForm({
-                                title: "隔离代码执行",
-                                fields: [
-                                  {
-                                    key: "code",
-                                    label: "JavaScript",
-                                    type: "textarea",
-                                    required: true,
-                                    initial: "console.log(1 + 1)",
-                                  },
-                                  {
-                                    key: "timeoutMs",
-                                    label: "超时 / 毫秒",
-                                    type: "number",
-                                    initial: 30000,
-                                    min: 100,
-                                    max: 1800000,
-                                  },
-                                ],
-                                submit: async (d) => {
-                                  const result = await api(
-                                    `${base}/runtimes/${r.id}/executions`,
-                                    "POST",
-                                    d,
-                                  );
-                                  setDetail(result);
-                                  notify("代码执行已受理");
-                                  await load();
-                                },
-                              })
-                            }
-                          >
-                            <Play size={16} />
-                          </button>
-                          {["ready", "busy"].includes(String(r.status)) && (
-                            <button
-                              className="icon danger"
-                              title="停止 Runtime"
-                              aria-label="停止 Runtime"
-                              onClick={() =>
-                                void invoke(() =>
-                                  api(`${base}/runtimes/${r.id}/stop`, "POST"),
-                                )
-                              }
-                            >
-                              <Square size={15} />
-                            </button>
-                          )}
-                        </>
-                      )}
-                      {["runs", "evaluations", "sandbox-executions"].includes(
-                        view.id,
-                      ) &&
-                        ["running", "queued"].includes(String(r.status)) && (
-                          <button
-                            className="icon danger"
-                            title="取消执行"
-                            aria-label="取消执行"
-                            onClick={() =>
-                              void invoke(() =>
-                                api(
-                                  `${base}${view.path}/${r.id}/cancel`,
-                                  "POST",
-                                ),
-                              )
-                            }
-                          >
-                            <Square size={15} />
-                          </button>
-                        )}
-                      {["policies", "security", "automations"].includes(
-                        view.id,
-                      ) && (
-                        <button
-                          className="icon"
-                          title={r.enabled ? "停用" : "启用"}
-                          aria-label={r.enabled ? "停用" : "启用"}
-                          onClick={() =>
-                            void invoke(() =>
-                              api(`${base}${view.path}/${r.id}`, "PATCH", {
-                                enabled: !r.enabled,
-                              }),
-                            )
-                          }
-                        >
-                          <Power size={16} />
-                        </button>
-                      )}
-                      {![
-                        "members",
-                        "runs",
-                        "evaluations",
-                        "sandbox-executions",
-                      ].includes(view.id) && (
-                        <button
-                          className="icon danger"
-                          title="停用或删除"
-                          aria-label="停用或删除"
-                          onClick={() => {
-                            setError("");
-                            setPendingDelete(r);
-                          }}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </>
+                      );
+                    },
                   )}
                 </td>
               </tr>
@@ -720,6 +707,71 @@ export function Collection({
               {pendingDeleteBusy ? "处理中…" : "确认"}
             </button>
           </footer>
+        </Modal>
+      )}
+      {versionTarget && (
+        <VersionActions
+          name={display(versionTarget.name)}
+          base={base}
+          path={view.path ?? ""}
+          id={String(versionTarget.id)}
+          mode={view.id === "agents" ? "agent" : "asset"}
+          access={access}
+          notify={notify}
+          onClose={() => setVersionTarget(null)}
+          onChanged={load}
+        />
+      )}
+      {reconcileTarget && (
+        <LedgerReconcile
+          entry={reconcileTarget}
+          base={base}
+          notify={notify}
+          onClose={() => setReconcileTarget(null)}
+          onDone={load}
+        />
+      )}
+      {permissionTarget && (
+        <Modal
+          title={`有效权限 · ${display(permissionTarget.name ?? permissionTarget.id)}`}
+          onClose={() => setPermissionTarget(null)}
+        >
+          {permissionLoading && <p role="status">正在计算有效权限</p>}
+          {permissionError && (
+            <p className="error" role="alert">
+              {permissionError}
+            </p>
+          )}
+          {!permissionLoading && permissionError && (
+            <button
+              type="button"
+              onClick={() => loadPermissions(permissionTarget)}
+            >
+              重新加载
+            </button>
+          )}
+          {permissionData && <MemberPermissionsDetails data={permissionData} />}
+        </Modal>
+      )}
+      {capabilityOpen && (
+        <Modal title="运行能力" onClose={() => setCapabilityOpen(false)}>
+          {capabilityLoading && <p role="status">正在读取运行能力</p>}
+          {capabilityError && (
+            <p className="error" role="alert">
+              {capabilityError}
+            </p>
+          )}
+          {!capabilityLoading && capabilityError && (
+            <button type="button" onClick={() => void showCapabilities()}>
+              重新加载
+            </button>
+          )}
+          {capabilityData && (
+            <RuntimeCapabilityDetails
+              runtime={capabilityData.runtime}
+              sandbox={capabilityData.sandbox}
+            />
+          )}
         </Modal>
       )}
     </>

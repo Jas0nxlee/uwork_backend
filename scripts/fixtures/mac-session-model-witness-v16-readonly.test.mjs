@@ -15,7 +15,11 @@ import {
 function fixture() {
   const sessionId = "sess_owned",
     modelId = "controlled-model";
-  const selection = { providerId: "ucas", modelId, options: { reasoningLevel: "none" } };
+  const selection = {
+    providerId: "ucas",
+    modelId,
+    options: { reasoningLevel: "none" },
+  };
   return {
     sessionId,
     modelId,
@@ -30,7 +34,14 @@ function fixture() {
       },
     ],
     messages: [
-      { info: { id: "msg_user", sessionID: sessionId, role: "user", modelSelection: selection } },
+      {
+        info: {
+          id: "msg_user",
+          sessionID: sessionId,
+          role: "user",
+          modelSelection: selection,
+        },
+      },
       {
         info: {
           id: "msg_assistant",
@@ -49,7 +60,10 @@ test("original codec unwraps durable selection; omitted startup model stays expl
   const f = fixture(),
     witness = projectSessionModelWitness(f);
   assert.equal(witness.runtimeEntry.modelSelection.providerId, "ucas");
-  assert.deepEqual(witness.runtimeEntry.modelSelection, f.messages[0].info.modelSelection);
+  assert.deepEqual(
+    witness.runtimeEntry.modelSelection,
+    f.messages[0].info.modelSelection,
+  );
   assert.equal(witness.assistant.completed, 3);
   const deferred = bindStartupModelWitness({}, witness);
   assert.deepEqual(deferred.startupModel, {
@@ -57,9 +71,13 @@ test("original codec unwraps durable selection; omitted startup model stays expl
     modelPresent: false,
     source: "startup model omitted; durable selection witnessed separately",
   });
-  assert.ok(!Object.hasOwn(deferred.startupModel, "value"), "no fabricated startup model");
+  assert.ok(
+    !Object.hasOwn(deferred.startupModel, "value"),
+    "no fabricated startup model",
+  );
   assert.equal(
-    bindStartupModelWitness({ model: "ucas/" + f.modelId }, witness).startupModel.state,
+    bindStartupModelWitness({ model: "ucas/" + f.modelId }, witness)
+      .startupModel.state,
     "present",
   );
   for (const model of [null, "", "ucas/wrong", "wrong/" + f.modelId])
@@ -100,14 +118,19 @@ for (const mutation of [
     if (mutation === "wrong-entry-id") entry.id = "other-entry";
     if (mutation === "wrong-entry-type") entry.type = "runtime/execution_state";
     if (mutation === "wrong-entry-model")
-      entry.data = JSON.stringify({ modelSelection: { providerId: "ucas", modelId: "wrong" } });
+      entry.data = JSON.stringify({
+        modelSelection: { providerId: "ucas", modelId: "wrong" },
+      });
     if (mutation === "wrong-entry-provider")
-      entry.data = JSON.stringify({ modelSelection: { providerId: "wrong", modelId: f.modelId } });
+      entry.data = JSON.stringify({
+        modelSelection: { providerId: "wrong", modelId: f.modelId },
+      });
     if (mutation === "malformed-entry") entry.data = "{";
     if (mutation === "flat-legacy-entry")
       entry.data = JSON.stringify({ providerId: "ucas", modelId: f.modelId });
     if (mutation === "wrong-user-model") user.modelSelection.modelId = "wrong";
-    if (mutation === "wrong-user-provider") user.modelSelection.providerId = "wrong";
+    if (mutation === "wrong-user-provider")
+      user.modelSelection.providerId = "wrong";
     if (mutation === "wrong-user-sid") user.sessionID = "sess_other";
     if (mutation === "synthetic-user") user.synthetic = true;
     if (mutation === "model-only-user") user.visibility = "model-only";
@@ -116,28 +139,49 @@ for (const mutation of [
     if (mutation === "wrong-assistant-sid") assistant.sessionID = "sess_other";
     if (mutation === "unfinished-assistant") delete assistant.time.completed;
     if (mutation === "invalid-completion") assistant.time.completed = 0;
-    if (mutation === "duplicate-user") f.messages[1] = structuredClone(f.messages[0]);
+    if (mutation === "duplicate-user")
+      f.messages[1] = structuredClone(f.messages[0]);
     if (mutation === "missing-assistant") f.messages.pop();
     assert.throws(() => projectSessionModelWitness(f));
   });
 
 test("actual readonly SQLite SELECT binds same SID and original decoder without a writer", async (t) => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "uwork-model-witness-")));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "uwork-model-witness-")),
+  );
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, "owned.sqlite"),
     setup = new DatabaseSync(path),
     f = fixture();
-  setup.exec("CREATE TABLE session_entry(id,session_id,type,time_created,time_updated,data)");
-  for (const row of [...f.entries, { ...f.entries[0], id: "other", session_id: "sess_other" }])
+  setup.exec(
+    "CREATE TABLE session_entry(id,session_id,type,time_created,time_updated,data)",
+  );
+  for (const row of [
+    ...f.entries,
+    { ...f.entries[0], id: "other", session_id: "sess_other" },
+  ])
     setup
       .prepare("INSERT INTO session_entry VALUES(?,?,?,?,?,?)")
-      .run(row.id, row.session_id, row.type, row.time_created, row.time_updated, row.data);
+      .run(
+        row.id,
+        row.session_id,
+        row.type,
+        row.time_created,
+        row.time_updated,
+        row.data,
+      );
   setup.close();
   const db = new DatabaseSync(path, { readOnly: true });
   try {
-    assert.equal(readSessionModelWitness({ ...f, db }).runtimeEntry.sessionId, f.sessionId);
+    assert.equal(
+      readSessionModelWitness({ ...f, db }).runtimeEntry.sessionId,
+      f.sessionId,
+    );
     assert.throws(() => db.prepare("DELETE FROM session_entry").run());
-    assert.equal(db.prepare("SELECT count(*) AS n FROM session_entry").get().n, 2);
+    assert.equal(
+      db.prepare("SELECT count(*) AS n FROM session_entry").get().n,
+      2,
+    );
   } finally {
     db.close();
   }
@@ -145,7 +189,11 @@ test("actual readonly SQLite SELECT binds same SID and original decoder without 
 
 for (const [original, copy, startupName] of [
   ["mac-memory-stage.mjs", "mac-memory-stage-v16-readonly.mjs", "match"],
-  ["mac-memory-extraction-oracle.mjs", "mac-memory-extraction-oracle-v16-readonly.mjs", "found"],
+  [
+    "mac-memory-extraction-oracle.mjs",
+    "mac-memory-extraction-oracle-v16-readonly.mjs",
+    "found",
+  ],
 ])
   test(`copied ${copy} preserves all original assertions and business AST outside strict witness addition`, () => {
     const ast = (file) =>
@@ -153,19 +201,25 @@ for (const [original, copy, startupName] of [
         ecmaVersion: "latest",
         sourceType: "module",
       });
-    const priorStartupAssertion = parse(`assert.equal(${startupName}.model, "ucas/" + modelId);`, {
-      ecmaVersion: "latest",
-    }).body[0];
+    const priorStartupAssertion = parse(
+      `assert.equal(${startupName}.model, "ucas/" + modelId);`,
+      {
+        ecmaVersion: "latest",
+      },
+    ).body[0];
     function clean(node) {
       if (!node || typeof node !== "object") return node;
-      if (Array.isArray(node)) return node.map(clean).filter((value) => value !== null);
+      if (Array.isArray(node))
+        return node.map(clean).filter((value) => value !== null);
       if (
         node.type === "ImportDeclaration" &&
         node.source.value === "./mac-session-model-witness-v16-readonly.mjs"
       )
         return null;
-      if (node.type === "VariableDeclarator" && node.id.name === "modelWitness") return null;
-      if (node.type === "Property" && node.key.name === "modelWitness") return null;
+      if (node.type === "VariableDeclarator" && node.id.name === "modelWitness")
+        return null;
+      if (node.type === "Property" && node.key.name === "modelWitness")
+        return null;
       if (
         node.type === "ExpressionStatement" &&
         node.expression.type === "AssignmentExpression" &&
@@ -180,7 +234,10 @@ for (const [original, copy, startupName] of [
           .map(([key, value]) => [
             key,
             typeof value === "string"
-              ? value.replace("./mac-memory-stage-v16-readonly.mjs", "./mac-memory-stage.mjs")
+              ? value.replace(
+                  "./mac-memory-stage-v16-readonly.mjs",
+                  "./mac-memory-stage.mjs",
+                )
               : clean(value),
           ]),
       );

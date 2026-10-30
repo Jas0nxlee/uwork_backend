@@ -355,6 +355,17 @@ export function runtimeRoutes(
     requirePermission(a, "read");
     return listResources<AgentData>(db, a.tenantId, "agent");
   });
+  // 与资产版本历史同形，供管理台按真实版本选择发布；只读，不引入审核。
+  app.get(`${p}/agents/:id/versions`, async (req) => {
+    const a = authenticate(db, req);
+    requirePermission(a, "read");
+    const { id } = req.params as { id: string };
+    getResource(db, a.tenantId, "agent", id);
+    return db.all(
+      "SELECT version,approved,created_at FROM resource_versions WHERE resource_id=? ORDER BY version DESC",
+      id,
+    );
+  });
   const validateAgent = (tenantId: string, d: AgentData) => {
     getResource(db, tenantId, "model", d.modelId);
     for (const assetId of d.assetIds)

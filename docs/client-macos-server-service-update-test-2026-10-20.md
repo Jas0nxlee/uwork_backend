@@ -21,11 +21,11 @@
 
 HEAD 1db59c77 基础上正常执行 `pnpm --filter @zcode/server-cli build` 与原 `stageCli.ts --target darwin-arm64 --skip-agent-build`。未重写原版本、manifest、SHA 或归档；未构建 Desktop、未重建 Agent。
 
-| 原产物 | SHA-256 |
-| --- | --- |
+| 原产物           | SHA-256                                                            |
+| ---------------- | ------------------------------------------------------------------ |
 | 旧 Darwin 3.16.0 | `d365b09a5a1cc523248ac3cb67fb3b67c647d57bacd43150206d18b729adc635` |
 | 新 Darwin 3.16.0 | `1d3fe925c269c9e75cce860095b240a963742807aad93a4d58451bf6ac7972d1` |
-| 两包 Agent | `cdf781ecf004b9639157fae25e6e96e558b95faefaee7aab09488d5dc650ecac` |
+| 两包 Agent       | `cdf781ecf004b9639157fae25e6e96e558b95faefaee7aab09488d5dc650ecac` |
 
 原包完整树和 tar 分别冻结在 `/Users/ljp/Library/Caches/uwork-backend/client-macos-server-service-update-20261020/{old,new}` 与 `{old,new}.tar.gz`。本轮 producer 前后 Linux 7774 原包及 cdf Agent 不变；随后 Linux 产物交由 Root 单独 staging，不能把后续 Linux 归档算本轮 Darwin 更改。
 

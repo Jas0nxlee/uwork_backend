@@ -20,17 +20,39 @@ import { Configuration } from "./forms";
 import { Settings, Overview } from "./Settings";
 import {
   applyEnterpriseMetadata,
-  type AdminIdentityView as Me,
+  type AdminIdentityView as BaseIdentityView,
 } from "./adminIdentityView";
+import {
+  NO_CAPABILITIES,
+  capabilitiesFromRoles,
+  viewAccess,
+  type Capabilities,
+} from "./permissions";
 import "./style.css";
+type Me = BaseIdentityView & { kind?: string; seat?: boolean };
 function App() {
   const [me, setMe] = useState<Me | null>(null),
     [checking, setChecking] = useState(true),
+    // 能力与其依据的租户/角色/会话绑定；不匹配时视为尚未读取，避免切组织闪现旧权限。
+    [access, setAccess] = useState<{
+      key: string;
+      capabilities: Capabilities;
+    } | null>(null),
     [viewId, setViewId] = useState(location.hash.slice(1) || "overview"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [toast, setToast] = useState(""),
     [navOpen, setNavOpen] = useState(false);
+  const accessKey = me
+    ? [
+        me.tenant.id,
+        me.role,
+        me.kind === "session" ? "session" : "other",
+        me.seat === true ? "seat" : "none",
+      ].join(":")
+    : "";
+  const accessReady = access !== null && access.key === accessKey;
+  const capabilities = accessReady ? access.capabilities : NO_CAPABILITIES;
   useEffect(() => {
     api<Me>("/api/auth/me")
       .then(setMe)
@@ -42,12 +64,47 @@ function App() {
     window.addEventListener("hashchange", listener);
     return () => window.removeEventListener("hashchange", listener);
   }, []);
+  // 能力只来自服务器声明；读取失败或角色不在声明里时保持全拒绝。
+  useEffect(() => {
+    if (!me) return;
+    let active = true;
+    const key = [
+      me.tenant.id,
+      me.role,
+      me.kind === "session" ? "session" : "other",
+      me.seat === true ? "seat" : "none",
+    ].join(":");
+    api<unknown>(`/api/tenants/${me.tenant.id}/roles`)
+      .then((payload) => {
+        if (active) {
+          setError("");
+          setAccess({
+            key,
+            capabilities: capabilitiesFromRoles(payload, {
+              role: me.role,
+              kind: me.kind,
+              seat: me.seat,
+            }),
+          });
+        }
+      })
+      .catch((e) => {
+        if (!active) return;
+        setAccess({ key, capabilities: NO_CAPABILITIES });
+        // 403 表示没有任何管理读取权限（例如 member），按无权限展示而不是报错。
+        if (!(e instanceof HttpError && e.status === 403))
+          setError(e instanceof Error ? e.message : "无法读取权限声明");
+      });
+    return () => {
+      active = false;
+    };
+  }, [me?.tenant.id, me?.role, me?.kind, me?.seat]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 4000);
     return () => clearTimeout(t);
   }, [toast]);
-  if (checking)
+  if (checking || (me && !accessReady))
     return (
       <div className="loading" role="status">
         正在连接 UWork
@@ -106,9 +163,11 @@ function App() {
         </form>
       </div>
     );
-  const view = views.find((v) => v.id === viewId) ?? views[0];
+  // 入口可见性同样由服务器声明裁决：必然 403 的视图不进入导航。
+  const visibleViews = views.filter((v) => viewAccess(v.id, capabilities).read);
+  const view = visibleViews.find((v) => v.id === viewId) ?? visibleViews[0];
   const base = `/api/tenants/${me.tenant.id}`;
-  const groups = [...new Set(views.map((v) => v.group))];
+  const groups = [...new Set(visibleViews.map((v) => v.group))];
   const icons: Record<string, typeof Bot> = {
     工作台: LayoutDashboard,
     "AI 资源": Library,
@@ -143,13 +202,13 @@ function App() {
                   <Icon size={14} />
                   {g}
                 </div>
-                {views
+                {visibleViews
                   .filter((v) => v.group === g)
                   .map((v) => (
                     <a
                       key={v.id}
                       href={`#${v.id}`}
-                      aria-current={v.id === view.id ? "page" : undefined}
+                      aria-current={v.id === view?.id ? "page" : undefined}
                       onClick={() => setNavOpen(false)}
                     >
                       {v.label}
@@ -214,47 +273,58 @@ function App() {
           <span className="environment">本地管理平台</span>
         </header>
         <main>
-          <div className="page-heading">
-            <div>
-              <p>{view.group}</p>
-              <h1>{view.label}</h1>
-            </div>
-            <span className="date">
-              {new Date().toLocaleDateString("zh-CN")}
-            </span>
-          </div>
-          {me.role === "member" ? (
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          {!view ? (
             <p className="error">当前成员没有管理端权限。</p>
-          ) : view.id === "overview" ? (
-            <Overview key={base} base={base} />
-          ) : view.id === "configuration" ? (
-            <fieldset
-              disabled={!["owner", "admin"].includes(me.role)}
-              className="policy-fieldset"
-            >
-              <Configuration base={base} notify={setToast} />
-            </fieldset>
-          ) : ["enterprise", "subscription", "integrations"].includes(
-              view.id,
-            ) ? (
-            <Settings
-              key={view.id + base}
-              view={view.id}
-              base={base}
-              notify={setToast}
-              onEnterpriseLoaded={(enterprise) =>
-                setMe((current) => applyEnterpriseMetadata(current, enterprise))
-              }
-            />
           ) : (
-            <Collection
-              key={view.id + base}
-              view={view}
-              base={base}
-              notify={setToast}
-              canWrite={["owner", "admin", "operator"].includes(me.role)}
-              canManageIdentity={["owner", "admin"].includes(me.role)}
-            />
+            <>
+              <div className="page-heading">
+                <div>
+                  <p>{view.group}</p>
+                  <h1>{view.label}</h1>
+                </div>
+                <span className="date">
+                  {new Date().toLocaleDateString("zh-CN")}
+                </span>
+              </div>
+              {view.id === "overview" ? (
+                <Overview key={base} base={base} />
+              ) : view.id === "configuration" ? (
+                <fieldset
+                  disabled={!viewAccess(view.id, capabilities).update}
+                  className="policy-fieldset"
+                >
+                  <Configuration base={base} notify={setToast} />
+                </fieldset>
+              ) : ["enterprise", "subscription", "integrations"].includes(
+                  view.id,
+                ) ? (
+                <Settings
+                  key={view.id + base}
+                  view={view.id}
+                  base={base}
+                  notify={setToast}
+                  capabilities={capabilities}
+                  onEnterpriseLoaded={(enterprise) =>
+                    setMe((current) =>
+                      applyEnterpriseMetadata(current, enterprise),
+                    )
+                  }
+                />
+              ) : (
+                <Collection
+                  key={view.id + base}
+                  view={view}
+                  base={base}
+                  notify={setToast}
+                  capabilities={capabilities}
+                />
+              )}
+            </>
           )}
         </main>
         <footer className="app-footer">

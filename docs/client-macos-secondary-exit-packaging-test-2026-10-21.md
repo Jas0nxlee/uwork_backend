@@ -4,14 +4,14 @@
 
 正常 producer 依次执行 `prepare:runtime-assets`、`build:no-runtime-assets` 和原 `electron-builder --mac --<arch> --dir --publish never`，六条命令全部退出 0。使用明确白名单环境、生产/Preview、原构建环境守卫、原 ad-hoc 签名及独立 Library/Caches 输出。未重建 CDF Agent、未启动 App/GUI/VM，未发布或公证。构建脚本与精确 29 个选定源码输入见 [独立准备目录](../data/sandbox-verification/macos-secondary-exit-build-20261021)。选定源码与该提交原字节一致，不把整个仍有既存改动的工作区称为 clean。
 
-| 项目 | 新 x64 v11 | 新 ARM64 v12 |
-|---|---|---|
-| Manifest | [原文件](../evidence/client-macos-package-v11-x64-secondary-exit-manifest-20261021.json) | [原文件](../evidence/client-macos-package-v12-arm64-secondary-exit-manifest-20261021.json) |
-| Manifest SHA256 | `85abca6169f16b9933f7ab02c8f1c965e53a97e7ae0283f775abaee76b91d2c0` | `ad3971e5cb331f423a166733546d98d1711f4d2b1449fd75f12a6bee22029871` |
-| app.asar SHA256 | `f93b2ae17a913a3a7c1fadb53e02f4a348e4e72b9a493175376c615f9c0ed992` | `b078337e6f12bdee343986a5f99155e3f1dd996e5008cb503309ce655a053aa5` |
-| 实际资源 / Native Mach-O | 8 / 11，x86_64 | 9 / 12，ARM64 |
-| 原 Swift 可选 helper | 原正常构建警告并真实 absent | 原正常编译、真实 present |
-| 原 builder 签名与再次严格核验 | exit 0 | exit 0 |
+| 项目                          | 新 x64 v11                                                                               | 新 ARM64 v12                                                                               |
+| ----------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Manifest                      | [原文件](../evidence/client-macos-package-v11-x64-secondary-exit-manifest-20261021.json) | [原文件](../evidence/client-macos-package-v12-arm64-secondary-exit-manifest-20261021.json) |
+| Manifest SHA256               | `85abca6169f16b9933f7ab02c8f1c965e53a97e7ae0283f775abaee76b91d2c0`                       | `ad3971e5cb331f423a166733546d98d1711f4d2b1449fd75f12a6bee22029871`                         |
+| app.asar SHA256               | `f93b2ae17a913a3a7c1fadb53e02f4a348e4e72b9a493175376c615f9c0ed992`                       | `b078337e6f12bdee343986a5f99155e3f1dd996e5008cb503309ce655a053aa5`                         |
+| 实际资源 / Native Mach-O      | 8 / 11，x86_64                                                                           | 9 / 12，ARM64                                                                              |
+| 原 Swift 可选 helper          | 原正常构建警告并真实 absent                                                              | 原正常编译、真实 present                                                                   |
+| 原 builder 签名与再次严格核验 | exit 0                                                                                   | exit 0                                                                                     |
 
 CDF 始终为 `cdf781ecf004b9639157fae25e6e96e558b95faefaee7aab09488d5dc650ecac`；Provider 与固定 Native 资产保持原对应架构摘要。29 个选定输入、Server/Native 12 个冻结源在每轮构建前后相同；旧 v6、v7、v8、v9、v10 全 App 树及 manifest 保持，新 v11 也在 v12 构建前后受整树核验保护。每包的 `reviewed-sources/` 保存了选定 29 个源码原字节。
 

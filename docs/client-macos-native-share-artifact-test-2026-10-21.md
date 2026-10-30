@@ -4,16 +4,16 @@
 
 用例 `client-native-packaged-macos-clock-arm64-share-artifact-v1-20261021`，计划 SHA `859b4ff8e3aef8eb87058bb1ac1a89dd4300d7b108c528a84712f0a7c63073d2`，72输入。原7项检查通过，但这是单件分享切片的7项，**不是原正常包七项或全部文件类型验收**。Root 27项独核通过。
 
-| 实际路径 | 结果 |
-| --- | --- |
-| 原 xterm / shell | `native-share-proof.pdf`，606B、单页、5 objects、xref423；真实PTY/cwd/TTY已绑定 |
-| 原 Composer / 预览 | 当前任务出现唯一可见 PDF 卡，未注入本地任务库、publisher descriptor 或替代发布 RPC |
-| 原分享 UI | trigger→next→disclosure→confirm→success；真实 prepare201、upload201、confirm200，artifact_count=1 |
-| 文件字节 | 源/上传/原存储BLOB/下载 SHA 均为 `53810b8887c1748d8fdf31205c16e97c965b6f41815607d53a3c998a536b5116` |
-| HTTPS 下载 | 原授权内容 API 200、显式本case CA、正常证书与主机名验证、完整消费body、socket关闭；不打开外部浏览器或调用系统另存为 |
-| 分享账务 | raw inference POST、supplier完整摘要均保持4；本人及另一成员各2 settled/44 Credit、24 input/20 output，ledger/Trace/gateway全行保持 |
-| 自有数据收尾 | 原DELETE撤销后实际row revoked、title及confirmed_json清空、artifact rows0、下载404；不冒称UI撤销入口已验 |
-| 资源 | fixture0/cleanup[]，13known加BH35916、四TCP与私有socket关闭，协议恢复、剪贴板未用，常驻后端健康 |
+| 实际路径           | 结果                                                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 原 xterm / shell   | `native-share-proof.pdf`，606B、单页、5 objects、xref423；真实PTY/cwd/TTY已绑定                                                    |
+| 原 Composer / 预览 | 当前任务出现唯一可见 PDF 卡，未注入本地任务库、publisher descriptor 或替代发布 RPC                                                 |
+| 原分享 UI          | trigger→next→disclosure→confirm→success；真实 prepare201、upload201、confirm200，artifact_count=1                                  |
+| 文件字节           | 源/上传/原存储BLOB/下载 SHA 均为 `53810b8887c1748d8fdf31205c16e97c965b6f41815607d53a3c998a536b5116`                                |
+| HTTPS 下载         | 原授权内容 API 200、显式本case CA、正常证书与主机名验证、完整消费body、socket关闭；不打开外部浏览器或调用系统另存为                |
+| 分享账务           | raw inference POST、supplier完整摘要均保持4；本人及另一成员各2 settled/44 Credit、24 input/20 output，ledger/Trace/gateway全行保持 |
+| 自有数据收尾       | 原DELETE撤销后实际row revoked、title及confirmed_json清空、artifact rows0、下载404；不冒称UI撤销入口已验                            |
+| 资源               | fixture0/cleanup[]，13known加BH35916、四TCP与私有socket关闭，协议恢复、剪贴板未用，常驻后端健康                                    |
 
 原控制器的 revision-safe Admin configure 保留旧 published 字段后发布 organization sharing、files=true 和 filesystem=true；公开目录与原执行权限检查保留。主进程仅为本case使用私有 user-data-dir，原单次副实例完整函数与10秒预算未改。
 

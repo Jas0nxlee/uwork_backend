@@ -92,8 +92,16 @@ export function assertManifestAdmissionStage(
     );
     const reply = sidecar.messages.at(-2);
     assert.equal(reply.role, "assistant");
-    assert.equal(content(reply), expectedMainReply, "Original completed main reply required");
-    assert(!Object.hasOwn(reply,"tool_calls") || (Array.isArray(reply.tool_calls) && reply.tool_calls.length === 0), "Normal main reply cannot contain tool calls");
+    assert.equal(
+      content(reply),
+      expectedMainReply,
+      "Original completed main reply required",
+    );
+    assert(
+      !Object.hasOwn(reply, "tool_calls") ||
+        (Array.isArray(reply.tool_calls) && reply.tool_calls.length === 0),
+      "Normal main reply cannot contain tool calls",
+    );
     assert.equal(sidecar.messages.at(-1).role, "user");
     assert.equal(content(sidecar.messages.at(-1)), expectedExtractionPrompt);
     assert.equal(

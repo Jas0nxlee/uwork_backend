@@ -21,11 +21,11 @@ fresh profile为`client-native-packaged-macos-clock-arm64-consistency-v1-2026102
 
 初始原UI完成文件预览/reload、真实PTY和一次Composer发送，主调用与标题调用各已settled。原UI title、Host TaskIndex completed、实际Session语义在两次读取一致后，00:31:25.267+08取baseline；00:31:29.965+08完成cold后快照。
 
-| 事实层 | 冷前与冷后证据 |
-| --- | --- |
-| 原UI | 同`task-item-*`与`data-session-id`，标题“原生企业资产联动完成”、企业用户甲、同model ID、reasoning none，原prompt和answer均显示。cold后确实通过原历史task点击打开 |
-| 原持久化 | task/session同ID`sess_bf2a7a8e-2d58-49cf-be21-552e540181db`；两消息ID/role/text/finish等原字段、part IDs、模型选择、build/plan=false、标题及workspace/path语义完全相等，摘要均`1f35abc5…` |
-| 初始真实执行 | 原production spawn facts、内核映射和CLI工作cwd、真实PTY cwd/TTY，以及原supplier system中的working directory，均指向本case的`packaged-workspace` |
+| 事实层       | 冷前与冷后证据                                                                                                                                                                            |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 原UI         | 同`task-item-*`与`data-session-id`，标题“原生企业资产联动完成”、企业用户甲、同model ID、reasoning none，原prompt和answer均显示。cold后确实通过原历史task点击打开                          |
+| 原持久化     | task/session同ID`sess_bf2a7a8e-2d58-49cf-be21-552e540181db`；两消息ID/role/text/finish等原字段、part IDs、模型选择、build/plan=false、标题及workspace/path语义完全相等，摘要均`1f35abc5…` |
+| 初始真实执行 | 原production spawn facts、内核映射和CLI工作cwd、真实PTY cwd/TTY，以及原supplier system中的working directory，均指向本case的`packaged-workspace`                                           |
 
 UI的workspace字段实际是`packaged-workspace · main`展示标签，**不是绝对路径**。绝对路径由原CLI/PTY/supplier与持久化交叉证明。
 
@@ -41,13 +41,13 @@ UI的workspace字段实际是`packaged-workspace · main`展示标签，**不是
 
 ## 无推理重放与账务隔离
 
-| 观测 | cold前→后 |
-| --- | --- |
-| 原Node server实际POST `/v1/chat/completions`入站 | 4→4（含初始用户乙2次） |
-| supplier调用数/请求数 | 4→4，4个原请求摘要条目逐项相同，允许原相同body产生重复摘要 |
-| 当前operator | 2 settled、44 Credit、24 input/20 output tokens，2 succeeded Trace、2已落结果gateway key；全部原行/ID/摘要保持 |
-| 另一department member | 同样2 settled/44/24+20，原所有行保持，没有当前用户费用串入 |
-| 配置与权限定义 | 当前身份、发布配置摘要/版本、policy、同tenant model定义、订阅和限额均保持；没有把合法credential刷新/lastSeen当计费变化 |
+| 观测                                             | cold前→后                                                                                                              |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| 原Node server实际POST `/v1/chat/completions`入站 | 4→4（含初始用户乙2次）                                                                                                 |
+| supplier调用数/请求数                            | 4→4，4个原请求摘要条目逐项相同，允许原相同body产生重复摘要                                                             |
+| 当前operator                                     | 2 settled、44 Credit、24 input/20 output tokens，2 succeeded Trace、2已落结果gateway key；全部原行/ID/摘要保持         |
+| 另一department member                            | 同样2 settled/44/24+20，原所有行保持，没有当前用户费用串入                                                             |
+| 配置与权限定义                                   | 当前身份、发布配置摘要/版本、policy、同tenant model定义、订阅和限额均保持；没有把合法credential刷新/lastSeen当计费变化 |
 
 原`packagedRuntimeProof`冷后逐字段等于原delivered。原DB没有Trace到request_key的外键，不声称一条Trace与一条请求具有虚构精确关联；按真实actor/model/application、集合与tokens核对。仅supplier/账本不增不足排除同key缓存重放，所以另有真正raw request入站计数。后续原seat拒绝发送属于下一原基线步骤，不能把其合法被拒POST误算成cold重放。
 
