@@ -139,7 +139,8 @@ export class DockerSandboxDriver implements SandboxDriver {
           containerId: info.Id,
           running: info.State.Running,
           exitCode: info.State.ExitCode,
-          deadlineExpired: watchdogExpired(info),
+          deadlineExpired:
+            watchdogExpired(info) || owner.expiresAt <= Date.now(),
         }
       : null;
   }
